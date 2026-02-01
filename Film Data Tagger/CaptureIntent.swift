@@ -41,7 +41,7 @@ struct LogExposureIntent: AppIntent {
         // Create the log item
         let item = LogItem(roll: roll)
 
-        // Try to get location
+        // Try to get location (geocoding happens on next app launch)
         let location = await getCurrentLocation()
         if let location = location {
             item.setLocation(location)
@@ -59,6 +59,7 @@ struct LogExposureIntent: AppIntent {
         return .result(value: "Logged exposure #\(exposureCount) \(locationStatus)")
     }
 
+    @MainActor
     private func getCurrentLocation() async -> CLLocation? {
         let manager = CLLocationManager()
 
@@ -82,6 +83,7 @@ struct LogExposureIntent: AppIntent {
     }
 }
 
+@MainActor
 private class OneTimeLocationDelegate: NSObject, CLLocationManagerDelegate {
     private let completion: (CLLocation?) -> Void
     private var hasCompleted = false
@@ -90,16 +92,21 @@ private class OneTimeLocationDelegate: NSObject, CLLocationManagerDelegate {
         self.completion = completion
     }
 
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        guard !hasCompleted else { return }
-        hasCompleted = true
-        completion(locations.last)
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        let location = locations.last
+        Task { @MainActor in
+            guard !self.hasCompleted else { return }
+            self.hasCompleted = true
+            self.completion(location)
+        }
     }
 
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        guard !hasCompleted else { return }
-        hasCompleted = true
-        completion(nil)
+    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        Task { @MainActor in
+            guard !self.hasCompleted else { return }
+            self.hasCompleted = true
+            self.completion(nil)
+        }
     }
 }
 

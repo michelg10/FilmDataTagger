@@ -16,9 +16,6 @@ final class LogItem {
     /// The roll this item belongs to
     var roll: Roll?
 
-    /// Frame number on the roll (optional, user can set this)
-    var frameNumber: Int?
-
     /// Camera used for this specific shot (used in instant film mode)
     var camera: Camera?
 
@@ -40,10 +37,12 @@ final class LogItem {
     var speed: Double?
     var locationTimestamp: Date?
 
-    init(roll: Roll, frameNumber: Int? = nil, camera: Camera? = nil) {
+    /// Human-readable place name from reverse geocoding (e.g., "Dockweiler State Beach")
+    var placeName: String?
+
+    init(roll: Roll, camera: Camera? = nil) {
         self.id = UUID()
         self.roll = roll
-        self.frameNumber = frameNumber
         self.camera = camera
         self.createdAt = Date()
         self.deletedAt = nil
@@ -63,6 +62,16 @@ final class LogItem {
 
     var hasLocation: Bool {
         latitude != nil && longitude != nil
+    }
+
+    /// Frame number computed from position in roll (1-indexed), or nil if not in a roll
+    var frameNumber: Int? {
+        guard let roll = roll else { return nil }
+        let activeItems = roll.logItems
+            .filter { $0.deletedAt == nil }
+            .sorted { $0.createdAt < $1.createdAt }
+        guard let index = activeItems.firstIndex(where: { $0.id == self.id }) else { return nil }
+        return index + 1
     }
 
     /// Soft-delete this item (preserves data for iCloud sync safety)
