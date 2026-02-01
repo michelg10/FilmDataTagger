@@ -57,8 +57,8 @@ struct ContentView: View {
     }
 
     private var captureButton: some View {
-        Button(action: capture) {
-            Label("Capture", systemImage: "camera.shutter.button.fill")
+        Button(action: logExposure) {
+            Label("Log Exposure", systemImage: "camera.shutter.button.fill")
                 .font(.title2)
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity)
@@ -70,7 +70,7 @@ struct ContentView: View {
         .disabled(activeRoll == nil)
     }
 
-    private func capture() {
+    private func logExposure() {
         guard let roll = activeRoll else { return }
 
         let item = LogItem(roll: roll)
