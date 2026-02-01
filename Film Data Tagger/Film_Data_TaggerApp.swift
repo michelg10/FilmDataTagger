@@ -12,7 +12,9 @@ import SwiftData
 struct Film_Data_TaggerApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            Camera.self,
+            Roll.self,
+            LogItem.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 

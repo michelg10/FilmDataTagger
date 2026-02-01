@@ -6,5 +6,7 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Film Data Tagger uses your location to tag where each photo was taken.</string>
 </dict>
 </plist>
