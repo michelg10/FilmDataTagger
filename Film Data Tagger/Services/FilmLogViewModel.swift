@@ -61,7 +61,7 @@ final class FilmLogViewModel {
     }
 
     private func createDefaultRoll() {
-        let camera = Camera(name: "Test Camera")
+        let camera = Camera(name: "Olympus XA")
         modelContext.insert(camera)
 
         let roll = Roll(filmStock: "Kodak Portra 400", camera: camera)
