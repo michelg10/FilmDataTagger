@@ -27,18 +27,9 @@ enum Geocoder {
     }
 
     private static func formatMapItem(_ mapItem: MKMapItem) -> String? {
-        // Try point of interest name first (e.g., "Dockweiler State Beach")
-        if let name = mapItem.name, !name.isEmpty, !isStreetAddress(name) {
+        if let name = mapItem.name, !name.isEmpty {
             return name
         }
-
-        // Last resort: full address without region
-        return mapItem.addressRepresentations?.fullAddress(includingRegion: false, singleLine: false)
-    }
-
-    /// Check if a string looks like a street address (e.g., "123 Main St")
-    private static func isStreetAddress(_ string: String) -> Bool {
-        guard let first = string.first else { return false }
-        return first.isNumber
+        return mapItem.address?.shortAddress
     }
 }

@@ -57,8 +57,7 @@ struct LogItemView: View {
                         }.font(.system(size: 12, weight: .bold))
                     }
                 }
-            }
-            Spacer(minLength: 0)
+            }.frame(maxWidth: .infinity, alignment: .leading)
         }.foregroundStyle(Color.white)
         .frame(height: 60, alignment: .leading)
     }
