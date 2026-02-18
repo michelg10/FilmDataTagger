@@ -10,7 +10,7 @@ import SwiftData
 
 struct ExposureListView: View {
     let contentTopOffset: CGFloat = 27
-    let titleTopOffset: CGFloat = 32
+    let titleTopOffset: CGFloat = 33
     
     let logItems: [LogItem]
     var cameraName: String = ""
@@ -26,7 +26,7 @@ struct ExposureListView: View {
                         .foregroundStyle(Color.white.opacity(0.5))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .padding(.bottom, 175)
-                        .padding(.top, contentTopOffset)
+                        .padding(.top, 10 + contentTopOffset)
                 } else {
                     ScrollViewReader { proxy in
                         ScrollView {
