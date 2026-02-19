@@ -13,6 +13,7 @@ struct CaptureSheet: View {
     static let fullDetent: PresentationDetent = .height(CGFloat(283 - iOSSheetPadding))
 
     var onCapture: () -> Void = {}
+    var isScrolling: Bool = false
 
     @State private var selectedDetent: PresentationDetent = fullDetent
 
@@ -125,6 +126,7 @@ struct CaptureSheet: View {
             .padding(.bottom, 34)
 
         }.animation(.easeOut(duration: 0.15), value: selectedDetent)
+        .background(SheetDragDisabler(isScrolling: isScrolling))
         .padding(.horizontal, 8)
         .ignoresSafeArea()
         .presentationDetents([CaptureSheet.compactDetent, CaptureSheet.fullDetent], selection: $selectedDetent)

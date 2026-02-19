@@ -40,6 +40,7 @@ struct ContentView: View {
 
     @State private var viewModel: FilmLogViewModel?
     @State private var showSheet = false
+    @State private var isScrolling = false
 
     var body: some View {
         Group {
@@ -47,7 +48,8 @@ struct ContentView: View {
                 ExposureListView(
                     logItems: logItems,
                     cameraName: viewModel?.activeRoll?.camera?.name ?? "",
-                    filmStock: viewModel?.activeRoll?.filmStock ?? ""
+                    filmStock: viewModel?.activeRoll?.filmStock ?? "",
+                    isScrolling: $isScrolling
                 )
             }.ignoresSafeArea(.all)
                 .background(Color.black)
@@ -60,7 +62,7 @@ struct ContentView: View {
                 .sheet(isPresented: $showSheet) {
                     CaptureSheet(onCapture: {
                         viewModel?.logExposure()
-                    })
+                    }, isScrolling: isScrolling)
                     .sheet(isPresented: .constant(false)) {
                         Text("hello, world!")
                     }

@@ -15,6 +15,7 @@ struct ExposureListView: View {
     let logItems: [LogItem]
     var cameraName: String = ""
     var filmStock: String = ""
+    @Binding var isScrolling: Bool
 
     var body: some View {
         NavigationStack {
@@ -58,6 +59,10 @@ struct ExposureListView: View {
                                 }
                             }
                         }
+                        .onScrollPhaseChange { _, newPhase in
+                            let wasScrolling = isScrolling
+                            isScrolling = newPhase == .interacting
+                        }
                     }
                 }
             }
@@ -93,7 +98,8 @@ struct ExposureListView: View {
     return ExposureListView(
         logItems: items,
         cameraName: "Olympus XA",
-        filmStock: "Fuji Color 400"
+        filmStock: "Fuji Color 400",
+        isScrolling: .constant(false)
     )
     .modelContainer(container)
 }
@@ -102,7 +108,8 @@ struct ExposureListView: View {
     ExposureListView(
         logItems: [],
         cameraName: "Olympus XA",
-        filmStock: "Fuji Color 400"
+        filmStock: "Fuji Color 400",
+        isScrolling: .constant(false)
     )
     .modelContainer(for: [Camera.self, Roll.self, LogItem.self], inMemory: true)
 }
