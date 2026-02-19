@@ -19,7 +19,9 @@ final class LogItem {
     /// Camera used for this specific shot (used in instant film mode)
     var camera: Camera?
 
+    /// When `hasRealCreatedAt` is false, `createdAt` is a synthetic value used only for sort ordering.
     var createdAt: Date
+    var hasRealCreatedAt: Bool = true
 
     /// When non-nil, this item has been soft-deleted (but data is preserved for sync safety)
     var deletedAt: Date?
@@ -40,6 +42,9 @@ final class LogItem {
     /// Human-readable place name from reverse geocoding (e.g., "Dockweiler State Beach")
     var placeName: String?
 
+    /// When true, this item is a placeholder with no captured metadata
+    var isPlaceholder: Bool = false
+
     /// Reference photo captured at time of logging (JPEG data, stored externally by SwiftData)
     @Attribute(.externalStorage) var photoData: Data?
 
@@ -49,6 +54,15 @@ final class LogItem {
         self.camera = camera
         self.createdAt = Date()
         self.deletedAt = nil
+        self.isPlaceholder = false
+    }
+
+    /// Create a placeholder exposure (no metadata captured)
+    static func placeholder(roll: Roll) -> LogItem {
+        let item = LogItem(roll: roll)
+        item.isPlaceholder = true
+        item.hasRealCreatedAt = false
+        return item
     }
 
     /// Capture location data from a CLLocation

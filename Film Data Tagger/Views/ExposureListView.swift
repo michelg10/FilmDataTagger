@@ -8,6 +8,46 @@
 import SwiftUI
 import SwiftData
 
+private struct ExposureRow: View {
+    let item: LogItem
+    let logItems: [LogItem]
+    var onDelete: ((LogItem) -> Void)?
+    var onMovePlaceholderBefore: ((LogItem, LogItem) -> Void)?
+    var onMovePlaceholderAfter: ((LogItem, LogItem) -> Void)?
+
+    var body: some View {
+        ExposureLogItemView(item: item)
+            .id(item.id)
+            .padding(.vertical, 8) // 2 * 8pt = 16pt spacing between items; padding allows context menu hit testing
+            .contextMenu {
+                Button(role: .destructive) {
+                    onDelete?(item)
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+            .transition(.asymmetric(insertion: .opacity, removal: .identity))
+            .if(item.isPlaceholder) { view in
+                view.draggable(item.id.uuidString)
+            }
+            .dropDestination(for: String.self) { droppedItems, _ in
+                guard let droppedId = droppedItems.first,
+                      let droppedUUID = UUID(uuidString: droppedId),
+                      let droppedItem = logItems.first(where: { $0.id == droppedUUID }),
+                      droppedItem.isPlaceholder,
+                      droppedItem.id != item.id else { return false }
+                // Dragging down (item was before target) → place after target
+                // Dragging up (item was after target) → place before target
+                if droppedItem.createdAt < item.createdAt {
+                    onMovePlaceholderAfter?(droppedItem, item)
+                } else {
+                    onMovePlaceholderBefore?(droppedItem, item)
+                }
+                return true
+            }
+    }
+}
+
 struct ExposureListView: View {
     let contentTopOffset: CGFloat = 27
     let titleTopOffset: CGFloat = 33
@@ -16,6 +56,10 @@ struct ExposureListView: View {
     var cameraName: String = ""
     var filmStock: String = ""
     @Binding var isScrolling: Bool
+    var onDelete: ((LogItem) -> Void)?
+    var onMovePlaceholderBefore: ((LogItem, LogItem) -> Void)?
+    var onMovePlaceholderAfter: ((LogItem, LogItem) -> Void)?
+    var onMovePlaceholderToEnd: ((LogItem) -> Void)?
 
     var body: some View {
         NavigationStack {
@@ -33,25 +77,31 @@ struct ExposureListView: View {
                         ScrollView {
                             LazyVStack(spacing: 0) {
                                 ForEach(logItems) { item in
-                                    ExposureLogItemView(item: item)
-                                        .id(item.id)
-                                        .padding(.vertical, 8) // this corresponds to 2 * 8pt = 16pt of spacing between items. we add spacing as padding to allow context menu hit testing.
-                                        .contextMenu {
-                                            Button(role: .destructive) {
-                                                item.softDelete()
-                                            } label: {
-                                                Label("Delete", systemImage: "trash")
-                                            }
-                                        }
-                                        .transition(.identity)
+                                    ExposureRow(
+                                        item: item,
+                                        logItems: logItems,
+                                        onDelete: onDelete,
+                                        onMovePlaceholderBefore: onMovePlaceholderBefore,
+                                        onMovePlaceholderAfter: onMovePlaceholderAfter
+                                    )
                                 }
                             }
                             .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))
                             .padding(.horizontal, 16)
                             .padding(.top, 12 - 8 + contentTopOffset)
 
+                            // Drop zone for moving placeholders to end of list
                             Color.clear
                                 .frame(height: 396)
+                                .contentShape(Rectangle())
+                                .dropDestination(for: String.self) { droppedItems, _ in
+                                    guard let droppedId = droppedItems.first,
+                                          let droppedUUID = UUID(uuidString: droppedId),
+                                          let droppedItem = logItems.first(where: { $0.id == droppedUUID }),
+                                          droppedItem.isPlaceholder else { return false }
+                                    onMovePlaceholderToEnd?(droppedItem)
+                                    return true
+                                }
                                 .id("scrollAnchor")
 
                             Spacer()

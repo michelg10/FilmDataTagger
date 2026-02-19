@@ -12,8 +12,8 @@ import CoreLocation
 
 // MARK: - Helpers
 
-private func formatElapsed(from date: Date?, now: Date) -> String {
-    guard let date else { return "No captures yet" }
+private func formatElapsed(from date: Date?, now: Date) -> String? {
+    guard let date else { return nil }
     let seconds = max(0, Int(now.timeIntervalSince(date)))
     if seconds < 60 { return "\(seconds)s" }
     let minutes = seconds / 60
@@ -92,12 +92,13 @@ private struct CaptureSheetFullContent: View {
                             .foregroundStyle(Color(hex: 0x454545))
                         VStack(spacing: 6) {
                             Image(systemName: "eye.slash")
-                            Text("reference photo off")
+                            Text("reference photo\noff")
+                                .multilineTextAlignment(.center)
                         }
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundStyle(Color.white)
                         .opacity(0.62)
-                        .frame(width: 99)
+                        .frame(width: 120)
                     }
                     .transition(.opacity)
                 }
@@ -107,7 +108,7 @@ private struct CaptureSheetFullContent: View {
             .animation(.easeInOut(duration: 0.25), value: viewModel.referencePhotosEnabled)
             .animation(.easeInOut(duration: 0.25), value: viewModel.cameraManager.isRunning)
             .onTapGesture {
-                playHaptic(intensity: 0.53, sharpness: 0.21)
+                playHaptic(.viewfinderToggle)
                 viewModel.toggleReferencePhotos()
             }
             
@@ -116,8 +117,8 @@ private struct CaptureSheetFullContent: View {
                     FullInfoRow(
                         icon: Image(systemName: "clock.fill")
                             .font(.system(size: 17, weight: .semibold, design: .default)),
-                        text: formatElapsed(from: lastCaptureDate, now: context.date),
-                        subtext: "since last capture"
+                        text: formatElapsed(from: lastCaptureDate, now: context.date) ?? "n/a",
+                        subtext: lastCaptureDate != nil ? "since last capture" : "no captures yet"
                     )
                 }
                 FullInfoRow(
@@ -149,13 +150,15 @@ private struct CaptureSheetCompactContent: View {
                 .frame(width: 25, height: 19)
                 .opacity(0.8)
                 .padding(.trailing, 15)
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                CompactInfoRow(
-                    icon: Image(systemName: "clock.fill")
-                        .font(.system(size: 16, weight: .semibold, design: .default)),
-                    text: formatElapsed(from: lastCaptureDate, now: context.date)
-                )
-            }.padding(.trailing, 13)
+            if lastCaptureDate != nil {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    CompactInfoRow(
+                        icon: Image(systemName: "clock.fill")
+                            .font(.system(size: 16, weight: .semibold, design: .default)),
+                        text: formatElapsed(from: lastCaptureDate, now: context.date) ?? ""
+                    )
+                }.padding(.trailing, 13)
+            }
             CompactInfoRow(
                 icon: Image(systemName: "location.fill")
                     .font(.system(size: 15, weight: .semibold, design: .default)),
@@ -170,10 +173,11 @@ private struct CaptureButton: View {
     var frameCount: Int
     var rollCapacity: Int
     var onCapture: () -> Void
+    var onAddPlaceholder: () -> Void
 
     var body: some View {
         Button {
-            playHaptic(intensity: 0.36, sharpness: 0.36)
+            playHaptic(.capture)
             onCapture()
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
@@ -187,6 +191,14 @@ private struct CaptureButton: View {
             .fontWidth(.expanded)
         }.frame(height: 63)
         .glassEffect(.regular.tint(.white.opacity(0.87)).interactive(), in: Capsule(style: .continuous))
+        .contentShape(Capsule())
+        .contextMenu {
+            Button {
+                onAddPlaceholder()
+            } label: {
+                Label("Add placeholder", systemImage: "questionmark.square.dashed")
+            }
+        }
         .padding(.horizontal, 15)
         .padding(.bottom, 34)
     }
@@ -229,10 +241,17 @@ struct CaptureSheet: View {
             CaptureButton(
                 frameCount: frameCount,
                 rollCapacity: rollCapacity,
-                onCapture: { Task { await viewModel.logExposure() } }
+                onCapture: { Task { await viewModel.logExposure() } },
+                onAddPlaceholder: {
+                    playHaptic(.addPlaceholder)
+                    viewModel.logPlaceholder()
+                }
             )
 
         }.animation(.easeOut(duration: 0.15), value: selectedDetent)
+        .onChange(of: selectedDetent) {
+            playHaptic(.sheetDetentChange)
+        }
         .background(SheetDragDisabler(isScrolling: isScrolling))
         .padding(.horizontal, 8)
         .ignoresSafeArea()

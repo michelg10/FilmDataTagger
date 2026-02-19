@@ -27,11 +27,19 @@ struct ExposureLogItemView: View {
         var items: [LogItemView.LogItemInfoItem] = []
 
         // Time
-        items.append(.init(
-            icon: Image(systemName: "clock.fill"),
-            mainText: Text(item.createdAt, format: .dateTime.hour().minute()),
-            secondaryText: Text(item.createdAt, format: .dateTime.month().day().year())
-        ))
+        if item.hasRealCreatedAt {
+            items.append(.init(
+                icon: Image(systemName: "clock.fill"),
+                mainText: Text(item.createdAt, format: .dateTime.hour().minute()),
+                secondaryText: Text(item.createdAt, format: .dateTime.month().day().year())
+            ))
+        } else {
+            items.append(.init(
+                icon: Image(systemName: "clock.fill"),
+                mainText: Text("Unknown"),
+                secondaryText: nil
+            ))
+        }
 
         // Location
         if let placeName = item.placeName {
@@ -44,6 +52,12 @@ struct ExposureLogItemView: View {
             items.append(.init(
                 icon: Image(systemName: "location.fill"),
                 mainText: Text(String(format: "%.5f, %.5f", lat, lon)),
+                secondaryText: nil
+            ))
+        } else {
+            items.append(.init(
+                icon: Image(systemName: "location.fill"),
+                mainText: Text("Unknown"),
                 secondaryText: nil
             ))
         }

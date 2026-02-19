@@ -14,7 +14,7 @@ struct FinishRollButton: View {
 
     var body: some View {
         Button {
-            playHaptic(intensity: 0.77, sharpness: 0.31)
+            playHaptic(.finishRoll)
             action()
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -35,14 +35,14 @@ struct FinishRollButton: View {
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(filter: #Predicate<LogItem> { $0.deletedAt == nil },
-           sort: \LogItem.createdAt,
-           order: .forward)
-    private var logItems: [LogItem]
 
     @State private var viewModel: FilmLogViewModel?
     @State private var showSheet = false
     @State private var isScrolling = false
+
+    private var logItems: [LogItem] {
+        viewModel?.logItems ?? []
+    }
 
     var body: some View {
         Group {
@@ -51,7 +51,19 @@ struct ContentView: View {
                     logItems: logItems,
                     cameraName: viewModel?.activeRoll?.camera?.name ?? "",
                     filmStock: viewModel?.activeRoll?.filmStock ?? "",
-                    isScrolling: $isScrolling
+                    isScrolling: $isScrolling,
+                    onDelete: { item in
+                        viewModel?.deleteItem(item)
+                    },
+                    onMovePlaceholderBefore: { item, target in
+                        viewModel?.movePlaceholder(item, before: target)
+                    },
+                    onMovePlaceholderAfter: { item, target in
+                        viewModel?.movePlaceholder(item, after: target)
+                    },
+                    onMovePlaceholderToEnd: { item in
+                        viewModel?.movePlaceholderToEnd(item)
+                    }
                 )
             }.ignoresSafeArea(.all)
             .background(Color.black)
@@ -68,7 +80,7 @@ struct ContentView: View {
                         isScrolling: isScrolling,
                         frameCount: logItems.count,
                         rollCapacity: 36,
-                        lastCaptureDate: logItems.last?.createdAt
+                        lastCaptureDate: logItems.last(where: { $0.hasRealCreatedAt })?.createdAt
                     )
                     // TODO: Config sheet — will be presented from within CaptureSheet
                     .sheet(isPresented: .constant(false)) {

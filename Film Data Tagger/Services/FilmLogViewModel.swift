@@ -26,6 +26,9 @@ final class FilmLogViewModel {
 
     var activeRoll: Roll?
 
+    /// The sorted, non-deleted items for the active roll. All mutations go through the view model.
+    private(set) var logItems: [LogItem] = []
+
     // MARK: - Live location state
     var currentPlaceName: String?
     var currentLocation: CLLocation? { locationManager.currentLocation }
@@ -58,6 +61,12 @@ final class FilmLogViewModel {
         UserDefaults.standard.object(forKey: Self.lastLaunchKey) as? Date
     }
 
+    private func reloadItems() {
+        logItems = (activeRoll?.logItems ?? [])
+            .filter { $0.deletedAt == nil }
+            .sorted { $0.createdAt < $1.createdAt }
+    }
+
     private func loadOrCreateActiveRoll() {
         let descriptor = FetchDescriptor<Roll>(
             predicate: #Predicate { $0.deletedAt == nil },
@@ -68,6 +77,7 @@ final class FilmLogViewModel {
             let rolls = try modelContext.fetch(descriptor)
             if let existingRoll = rolls.first {
                 activeRoll = existingRoll
+                reloadItems()
             } else {
                 createDefaultRoll()
             }
@@ -85,6 +95,7 @@ final class FilmLogViewModel {
         modelContext.insert(roll)
 
         activeRoll = roll
+        reloadItems()
     }
 
     // MARK: - Live Geocoding
@@ -125,6 +136,7 @@ final class FilmLogViewModel {
         modelContext.insert(item)
         roll.logItems.append(item)
         roll.touch()
+        logItems.append(item)
 
         // If we don't have a geocode yet, do it in the background
         if item.placeName == nil, let location = location {
@@ -132,6 +144,63 @@ final class FilmLogViewModel {
                 item.placeName = await Geocoder.placeName(for: location)
             }
         }
+    }
+
+    func logPlaceholder() {
+        guard let roll = activeRoll else { return }
+        let item = LogItem.placeholder(roll: roll)
+        modelContext.insert(item)
+        roll.logItems.append(item)
+        roll.touch()
+        logItems.append(item)
+    }
+
+    func deleteItem(_ item: LogItem) {
+        item.softDelete()
+        logItems.removeAll { $0.id == item.id }
+    }
+
+    /// Move a placeholder to just before the target item.
+    func movePlaceholder(_ item: LogItem, before target: LogItem) {
+        guard item.isPlaceholder, item.id != target.id else { return }
+        let others = logItems.filter { $0.id != item.id }
+        guard let targetIndex = others.firstIndex(where: { $0.id == target.id }) else { return }
+
+        if targetIndex == 0 {
+            item.createdAt = others[0].createdAt.addingTimeInterval(-1)
+        } else {
+            let a = others[targetIndex - 1].createdAt
+            let b = others[targetIndex].createdAt
+            item.createdAt = Date(timeIntervalSince1970: (a.timeIntervalSince1970 + b.timeIntervalSince1970) / 2.0)
+        }
+
+        reloadItems()
+    }
+
+    /// Move a placeholder to just after the target item.
+    func movePlaceholder(_ item: LogItem, after target: LogItem) {
+        guard item.isPlaceholder, item.id != target.id else { return }
+        let others = logItems.filter { $0.id != item.id }
+        guard let targetIndex = others.firstIndex(where: { $0.id == target.id }) else { return }
+
+        if targetIndex == others.count - 1 {
+            item.createdAt = others[targetIndex].createdAt.addingTimeInterval(1)
+        } else {
+            let a = others[targetIndex].createdAt
+            let b = others[targetIndex + 1].createdAt
+            item.createdAt = Date(timeIntervalSince1970: (a.timeIntervalSince1970 + b.timeIntervalSince1970) / 2.0)
+        }
+
+        reloadItems()
+    }
+
+    /// Move a placeholder to after the last item.
+    func movePlaceholderToEnd(_ item: LogItem) {
+        guard item.isPlaceholder else { return }
+        let others = logItems.filter { $0.id != item.id }
+        let lastDate = others.last?.createdAt ?? Date()
+        item.createdAt = lastDate.addingTimeInterval(1)
+        reloadItems()
     }
 
     func toggleReferencePhotos() {
@@ -188,13 +257,4 @@ final class FilmLogViewModel {
         }
     }
 
-    // MARK: - Queries
-
-    func fetchLogItems() throws -> [LogItem] {
-        let descriptor = FetchDescriptor<LogItem>(
-            predicate: #Predicate { $0.deletedAt == nil },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        return try modelContext.fetch(descriptor)
-    }
 }
