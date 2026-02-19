@@ -1,5 +1,5 @@
 //
-//  LogItemVeiw.swift
+//  LogItemView.swift
 //  Film Data Tagger
 //
 //  Created by Michel Guo on 2/2/26.

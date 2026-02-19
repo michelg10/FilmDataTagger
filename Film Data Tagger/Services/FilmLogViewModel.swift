@@ -33,10 +33,14 @@ final class FilmLogViewModel {
     var currentPlaceName: String?
     var currentLocation: CLLocation? { locationManager.currentLocation }
     private var lastGeocodedLocation: CLLocation?
-    private var geocodeTask: Task<Void, Never>?
+    nonisolated(unsafe) private var geocodeTask: Task<Void, Never>?
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
+    }
+
+    deinit {
+        geocodeTask?.cancel()
     }
 
     // MARK: - Setup
@@ -44,8 +48,14 @@ final class FilmLogViewModel {
     func setup() {
         locationManager.requestPermission()
         if referencePhotosEnabled {
-            cameraManager.requestPermission()
-            cameraManager.start()
+            Task {
+                let granted = await cameraManager.requestPermission()
+                if granted {
+                    cameraManager.start()
+                } else {
+                    referencePhotosEnabled = false
+                }
+            }
         }
         loadOrCreateActiveRoll()
         geocodeRecentUngeocodedItems()
@@ -204,11 +214,19 @@ final class FilmLogViewModel {
     }
 
     func toggleReferencePhotos() {
-        referencePhotosEnabled.toggle()
-        if referencePhotosEnabled {
-            cameraManager.requestPermission()
-            cameraManager.start()
+        if !referencePhotosEnabled {
+            // Turning on — check permission first
+            Task {
+                let granted = await cameraManager.requestPermission()
+                if granted {
+                    referencePhotosEnabled = true
+                    cameraManager.start()
+                }
+                // If denied, iOS won't re-prompt — user must go to Settings.
+                // permissionDenied is set on CameraManager for the UI to react to.
+            }
         } else {
+            referencePhotosEnabled = false
             cameraManager.stop()
         }
     }

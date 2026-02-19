@@ -76,7 +76,22 @@ private struct CaptureSheetFullContent: View {
         HStack(spacing: 18) {
             // reference photo
             ZStack {
-                if viewModel.referencePhotosEnabled, viewModel.cameraManager.isRunning {
+                if viewModel.cameraManager.permissionDenied {
+                    ZStack {
+                        Rectangle()
+                            .foregroundStyle(Color(hex: 0x454545))
+                        VStack(spacing: 6) {
+                            Image(systemName: "hand.raised.slash.fill")
+                            Text("no camera\naccess")
+                                .multilineTextAlignment(.center)
+                        }
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.white)
+                        .opacity(0.62)
+                        .frame(width: 120)
+                    }
+                    .transition(.opacity)
+                } else if viewModel.referencePhotosEnabled, viewModel.cameraManager.isRunning {
                     CameraPreview(session: viewModel.cameraManager.session)
                         .transition(.opacity)
                 } else if viewModel.referencePhotosEnabled {
@@ -107,9 +122,16 @@ private struct CaptureSheetFullContent: View {
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .animation(.easeInOut(duration: 0.25), value: viewModel.referencePhotosEnabled)
             .animation(.easeInOut(duration: 0.25), value: viewModel.cameraManager.isRunning)
+            .animation(.easeInOut(duration: 0.25), value: viewModel.cameraManager.permissionDenied)
             .onTapGesture {
                 playHaptic(.viewfinderToggle)
-                viewModel.toggleReferencePhotos()
+                if viewModel.cameraManager.permissionDenied {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                } else {
+                    viewModel.toggleReferencePhotos()
+                }
             }
             
             VStack(alignment: .leading, spacing: 10) {

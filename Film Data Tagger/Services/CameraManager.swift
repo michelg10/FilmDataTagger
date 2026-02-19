@@ -17,9 +17,14 @@ final class CameraManager: NSObject {
     private var isConfigured = false
     private var photoContinuation: CheckedContinuation<Data?, Never>?
     var isRunning = false
+    var permissionDenied = false
 
-    func requestPermission() {
-        AVCaptureDevice.requestAccess(for: .video) { _ in }
+    /// Request camera permission. Returns true if granted, false if denied.
+    @discardableResult
+    func requestPermission() async -> Bool {
+        let granted = await AVCaptureDevice.requestAccess(for: .video)
+        permissionDenied = !granted
+        return granted
     }
 
     func start() {
