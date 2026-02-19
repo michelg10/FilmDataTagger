@@ -40,6 +40,9 @@ final class LogItem {
     /// Human-readable place name from reverse geocoding (e.g., "Dockweiler State Beach")
     var placeName: String?
 
+    /// Reference photo captured at time of logging (JPEG data, stored externally by SwiftData)
+    @Attribute(.externalStorage) var photoData: Data?
+
     init(roll: Roll, camera: Camera? = nil) {
         self.id = UUID()
         self.roll = roll

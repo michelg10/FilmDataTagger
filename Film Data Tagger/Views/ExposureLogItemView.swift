@@ -15,7 +15,9 @@ struct ExposureLogItemView: View {
     var body: some View {
         LogItemView(
             exposureNumber: item.frameNumber,
-            previewImage: nil,
+            previewImage: item.photoData
+                .flatMap { UIImage(data: $0) }
+                .map { Image(uiImage: $0) },
             infoItems: infoItems
         )
     }

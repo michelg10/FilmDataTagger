@@ -15,8 +15,14 @@ import CoreLocation
 final class FilmLogViewModel {
     private let modelContext: ModelContext
     private let locationManager = LocationManager()
+    let cameraManager = CameraManager()
 
     private static let lastLaunchKey = "lastAppLaunchDate"
+    private static let referencePhotosKey = "referencePhotosEnabled"
+
+    var referencePhotosEnabled: Bool = UserDefaults.standard.object(forKey: referencePhotosKey) as? Bool ?? true {
+        didSet { UserDefaults.standard.set(referencePhotosEnabled, forKey: Self.referencePhotosKey) }
+    }
 
     var activeRoll: Roll?
 
@@ -34,6 +40,10 @@ final class FilmLogViewModel {
 
     func setup() {
         locationManager.requestPermission()
+        if referencePhotosEnabled {
+            cameraManager.requestPermission()
+            cameraManager.start()
+        }
         loadOrCreateActiveRoll()
         geocodeRecentUngeocodedItems()
         recordAppLaunch()
@@ -94,7 +104,7 @@ final class FilmLogViewModel {
 
     // MARK: - Logging
 
-    func logExposure() {
+    func logExposure() async {
         guard let roll = activeRoll else { return }
 
         let item = LogItem(roll: roll)
@@ -107,6 +117,11 @@ final class FilmLogViewModel {
         // Use the pre-computed place name for instant display
         item.placeName = currentPlaceName
 
+        // Capture reference photo before inserting so the item appears complete
+        if referencePhotosEnabled {
+            item.photoData = await cameraManager.capturePhoto()
+        }
+
         modelContext.insert(item)
         roll.logItems.append(item)
         roll.touch()
@@ -116,6 +131,16 @@ final class FilmLogViewModel {
             Task {
                 item.placeName = await Geocoder.placeName(for: location)
             }
+        }
+    }
+
+    func toggleReferencePhotos() {
+        referencePhotosEnabled.toggle()
+        if referencePhotosEnabled {
+            cameraManager.requestPermission()
+            cameraManager.start()
+        } else {
+            cameraManager.stop()
         }
     }
 

@@ -8,5 +8,7 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Film Data Tagger uses your location to tag where each photo was taken.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Film Data Tagger captures a reference photo of the scene with each exposure.</string>
 </dict>
 </plist>

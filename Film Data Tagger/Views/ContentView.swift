@@ -14,6 +14,7 @@ struct FinishRollButton: View {
 
     var body: some View {
         Button {
+            playHaptic(intensity: 0.77, sharpness: 0.31)
             action()
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -61,19 +62,17 @@ struct ContentView: View {
                     }
                 }
                 .sheet(isPresented: $showSheet) {
-                    CaptureSheet(
-                        onCapture: { viewModel?.logExposure() },
-                        isScrolling: isScrolling,
-                        placeName: viewModel?.currentPlaceName,
-                        coordinates: viewModel?.currentLocation.map {
-                            String(format: "%.4f / %.4f", $0.coordinate.latitude, $0.coordinate.longitude)
-                        },
-                        frameCount: logItems.count,
-                        rollCapacity: 36,
-                        lastCaptureDate: logItems.last?.createdAt
-                    )
-                    .sheet(isPresented: .constant(false)) {
-                        Text("hello, world!")
+                    if let viewModel {
+                        CaptureSheet(
+                            viewModel: viewModel,
+                            isScrolling: isScrolling,
+                            frameCount: logItems.count,
+                            rollCapacity: 36,
+                            lastCaptureDate: logItems.last?.createdAt
+                        )
+                        .sheet(isPresented: .constant(false)) {
+                            Text("hello, world!")
+                        }
                     }
                 }
                 .sheetFloatingView(offset: -10) {
