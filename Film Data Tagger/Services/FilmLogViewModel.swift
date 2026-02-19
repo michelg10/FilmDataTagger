@@ -20,6 +20,12 @@ final class FilmLogViewModel {
 
     var activeRoll: Roll?
 
+    // MARK: - Live location state
+    var currentPlaceName: String?
+    var currentLocation: CLLocation? { locationManager.currentLocation }
+    private var lastGeocodedLocation: CLLocation?
+    private var geocodeTask: Task<Void, Never>?
+
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
@@ -31,6 +37,7 @@ final class FilmLogViewModel {
         loadOrCreateActiveRoll()
         geocodeRecentUngeocodedItems()
         recordAppLaunch()
+        startLiveGeocoding()
     }
 
     private func recordAppLaunch() {
@@ -70,6 +77,21 @@ final class FilmLogViewModel {
         activeRoll = roll
     }
 
+    // MARK: - Live Geocoding
+
+    private func startLiveGeocoding() {
+        geocodeTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(3))
+                guard let location = locationManager.currentLocation else { continue }
+                // Only re-geocode if moved >50m from last geocoded spot
+                if let last = lastGeocodedLocation, location.distance(from: last) < 50 { continue }
+                lastGeocodedLocation = location
+                currentPlaceName = await Geocoder.placeName(for: location)
+            }
+        }
+    }
+
     // MARK: - Logging
 
     func logExposure() {
@@ -82,12 +104,15 @@ final class FilmLogViewModel {
             item.setLocation(location)
         }
 
+        // Use the pre-computed place name for instant display
+        item.placeName = currentPlaceName
+
         modelContext.insert(item)
         roll.logItems.append(item)
         roll.touch()
 
-        // Geocode in background
-        if let location = location {
+        // If we don't have a geocode yet, do it in the background
+        if item.placeName == nil, let location = location {
             Task {
                 item.placeName = await Geocoder.placeName(for: location)
             }

@@ -14,8 +14,29 @@ struct CaptureSheet: View {
 
     var onCapture: () -> Void = {}
     var isScrolling: Bool = false
+    var placeName: String?
+    var coordinates: String?
+    var frameCount: Int = 0
+    var rollCapacity: Int = 36
+    var lastCaptureDate: Date?
 
     @State private var selectedDetent: PresentationDetent = fullDetent
+
+    private var locationDisplayText: String {
+        placeName ?? coordinates ?? "Locating..."
+    }
+
+    private static func formatElapsed(from date: Date?, now: Date) -> String {
+        guard let date else { return "No captures yet" }
+        let seconds = max(0, Int(now.timeIntervalSince(date)))
+        if seconds < 60 { return "\(seconds)s" }
+        let minutes = seconds / 60
+        if minutes < 60 { return "\(minutes)m" }
+        let hours = Double(minutes) / 60.0
+        if hours < 24 { return String(format: "%.1fh", hours) }
+        let days = hours / 24.0
+        return String(format: "%.1fd", days)
+    }
 
     struct CaptureSheetCompactInfo<Icon: View>: View {
         var icon: Icon
@@ -60,6 +81,7 @@ struct CaptureSheet: View {
     }
 
     var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
         VStack(spacing: 0) {
             Spacer(minLength: 0)
             switch selectedDetent {
@@ -68,12 +90,12 @@ struct CaptureSheet: View {
                     CaptureSheetCompactInfo(
                         icon: Image(systemName: "clock.fill")
                             .font(.system(size: 16, weight: .semibold, design: .default)),
-                        text: "30m"
+                        text: Self.formatElapsed(from: lastCaptureDate, now: context.date)
                     )
                     CaptureSheetCompactInfo(
                         icon: Image(systemName: "location.fill")
                             .font(.system(size: 15, weight: .semibold, design: .default)),
-                        text: "The University of Hong Kong"
+                        text: placeName ?? "Locating..."
                     )
                 }.padding(.horizontal, 30)
                 .padding(.bottom, 15)
@@ -89,14 +111,14 @@ struct CaptureSheet: View {
                         CaptureSheetFullInfo(
                             icon: Image(systemName: "clock.fill")
                                 .font(.system(size: 17, weight: .semibold, design: .default)),
-                            text: "30m",
+                            text: Self.formatElapsed(from: lastCaptureDate, now: context.date),
                             subtext: "since last capture"
                         )
                         CaptureSheetFullInfo(
                             icon: Image(systemName: "location.fill")
                                 .font(.system(size: 17, weight: .semibold, design: .default)),
-                            text: "The University of Hong Kong",
-                            subtext: "32.1234 / 53.5213",
+                            text: placeName ?? "Locating...",
+                            subtext: coordinates ?? "",
                             textSubtextPadding: 3.0
                         )
                     }
@@ -113,7 +135,7 @@ struct CaptureSheet: View {
             } label: {
                 HStack (alignment: .firstTextBaseline, spacing: 0) {
                     Spacer(minLength: 0)
-                    Text("12 / 36 •")
+                    Text("\(frameCount) / \(rollCapacity) •")
                         .opacity(0.46)
                     Text(" Capture")
                     Spacer(minLength: 0)
@@ -133,6 +155,7 @@ struct CaptureSheet: View {
         .presentationDragIndicator(.visible)
         .interactiveDismissDisabled()
         .presentationBackgroundInteraction(.enabled)
+        } // TimelineView
     }
 }
 
