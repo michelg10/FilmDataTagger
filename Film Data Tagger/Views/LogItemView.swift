@@ -31,13 +31,24 @@ struct LogItemView: View {
                     .opacity(0.85)
             }
             
-            if let previewImage = previewImage {
-                previewImage
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(width: 60, height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            Group {
+                if let previewImage = previewImage {
+                    previewImage
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    ZStack {
+                        Rectangle()
+                            .foregroundStyle(Color(hex: 0x313131))
+                        Image(systemName: "eye.slash.fill")
+                            .font(.system(size: 20, weight: .bold, design: .default))
+                            .foregroundStyle(Color.white)
+                            .opacity(0.45)
+                    }
+                }
             }
+            .frame(width: 60, height: 60)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             
             VStack(alignment: .leading, spacing: 5) {
                 ForEach(infoItems) { infoItem in

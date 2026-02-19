@@ -8,29 +8,7 @@
 import SwiftUI
 import SwiftData
 import AVFoundation
-import CoreHaptics
 import CoreLocation
-
-let hapticEngine: CHHapticEngine? = {
-    let engine = try? CHHapticEngine()
-    engine?.isAutoShutdownEnabled = true
-    engine?.playsHapticsOnly = true
-    return engine
-}()
-
-func playHaptic(intensity: Float, sharpness: Float) {
-    guard let engine = hapticEngine else { return }
-    try? engine.start()
-    let event = CHHapticEvent(
-        eventType: .hapticTransient,
-        parameters: [
-            CHHapticEventParameter(parameterID: .hapticIntensity, value: intensity),
-            CHHapticEventParameter(parameterID: .hapticSharpness, value: sharpness),
-        ],
-        relativeTime: 0
-    )
-    try? engine.makePlayer(with: CHHapticPattern(events: [event], parameters: [])).start(atTime: 0)
-}
 
 // MARK: - Helpers
 
@@ -96,6 +74,7 @@ private struct CaptureSheetFullContent: View {
 
     var body: some View {
         HStack(spacing: 18) {
+            // reference photo
             ZStack {
                 if viewModel.referencePhotosEnabled, viewModel.cameraManager.isRunning {
                     CameraPreview(session: viewModel.cameraManager.session)
@@ -131,6 +110,7 @@ private struct CaptureSheetFullContent: View {
                 playHaptic(intensity: 0.53, sharpness: 0.21)
                 viewModel.toggleReferencePhotos()
             }
+            
             VStack(alignment: .leading, spacing: 10) {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     FullInfoRow(
@@ -162,20 +142,26 @@ private struct CaptureSheetCompactContent: View {
     var lastCaptureDate: Date?
 
     var body: some View {
-        HStack(spacing: 15) {
+        HStack(spacing: 0) {
+            Image(systemName: "eye\(viewModel.referencePhotosEnabled ? "" : ".slash").fill")
+                .font(.system(size: 16, weight: .semibold, design: .default))
+                .foregroundStyle(Color.white)
+                .frame(width: 25, height: 19)
+                .opacity(0.8)
+                .padding(.trailing, 15)
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 CompactInfoRow(
                     icon: Image(systemName: "clock.fill")
                         .font(.system(size: 16, weight: .semibold, design: .default)),
                     text: formatElapsed(from: lastCaptureDate, now: context.date)
                 )
-            }
+            }.padding(.trailing, 13)
             CompactInfoRow(
                 icon: Image(systemName: "location.fill")
                     .font(.system(size: 15, weight: .semibold, design: .default)),
                 text: viewModel.currentPlaceName ?? "Locating..."
             )
-        }.padding(.horizontal, 30)
+        }.padding(.horizontal, 27)
         .padding(.bottom, 15)
     }
 }

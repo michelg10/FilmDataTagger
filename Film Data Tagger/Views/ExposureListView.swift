@@ -60,7 +60,6 @@ struct ExposureListView: View {
                             }
                         }
                         .onScrollPhaseChange { _, newPhase in
-                            let wasScrolling = isScrolling
                             isScrolling = newPhase == .interacting
                         }
                     }

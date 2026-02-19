@@ -25,14 +25,6 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         manager.requestWhenInUseAuthorization()
     }
 
-    func startUpdating() {
-        manager.startUpdatingLocation()
-    }
-
-    func stopUpdating() {
-        manager.stopUpdatingLocation()
-    }
-
     // MARK: - CLLocationManagerDelegate
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -47,7 +39,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         Task { @MainActor in
             self.authorizationStatus = status
             if status == .authorizedWhenInUse || status == .authorizedAlways {
-                self.startUpdating()
+                self.manager.startUpdatingLocation()
             }
         }
     }

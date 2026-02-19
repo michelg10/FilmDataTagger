@@ -27,9 +27,9 @@ struct FinishRollButton: View {
                     .padding(.trailing, 19)
                     .font(.system(size: 17, weight: .semibold, design: .default))
             }.foregroundStyle(Color.white)
-                .fontWidth(.expanded)
+            .fontWidth(.expanded)
         }.frame(height: 44)
-            .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
+        .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
     }
 }
 
@@ -54,40 +54,41 @@ struct ContentView: View {
                     isScrolling: $isScrolling
                 )
             }.ignoresSafeArea(.all)
-                .background(Color.black)
-                .onAppear {
-                    if viewModel == nil {
-                        viewModel = FilmLogViewModel(modelContext: modelContext)
-                        viewModel?.setup()
+            .background(Color.black)
+            .onAppear {
+                if viewModel == nil {
+                    viewModel = FilmLogViewModel(modelContext: modelContext)
+                    viewModel?.setup()
+                }
+            }
+            .sheet(isPresented: $showSheet) {
+                if let viewModel {
+                    CaptureSheet(
+                        viewModel: viewModel,
+                        isScrolling: isScrolling,
+                        frameCount: logItems.count,
+                        rollCapacity: 36,
+                        lastCaptureDate: logItems.last?.createdAt
+                    )
+                    // TODO: Config sheet — will be presented from within CaptureSheet
+                    .sheet(isPresented: .constant(false)) {
+                        Text("hello, world!")
                     }
                 }
-                .sheet(isPresented: $showSheet) {
-                    if let viewModel {
-                        CaptureSheet(
-                            viewModel: viewModel,
-                            isScrolling: isScrolling,
-                            frameCount: logItems.count,
-                            rollCapacity: 36,
-                            lastCaptureDate: logItems.last?.createdAt
-                        )
-                        .sheet(isPresented: .constant(false)) {
-                            Text("hello, world!")
-                        }
-                    }
+            }
+            .sheetFloatingView(offset: 20 - 30) {
+                FinishRollButton(action: {
+                    viewModel?.finishRoll()
+                })
+            }
+            .onAppear {
+                // hack to disable sheet animation
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    showSheet = true
                 }
-                .sheetFloatingView(offset: -10) {
-                    FinishRollButton(action: {
-                        viewModel?.finishRoll()
-                    })
-                }
-                .onAppear {
-                    // hack to disable sheet animation
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) {
-                        showSheet = true
-                    }
-                }
+            }
         }
     }
 }
