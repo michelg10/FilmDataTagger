@@ -75,6 +75,7 @@ struct CaptureSheet: View {
                     )
                 }.padding(.horizontal, 30)
                 .padding(.bottom, 15)
+                .transition(.opacity.combined(with: .offset(y: 20)))
             case CaptureSheet.fullDetent:
                 HStack(spacing: 18) {
                     Image("test-image")
@@ -101,7 +102,7 @@ struct CaptureSheet: View {
                 .padding(.bottom, 21)
                 .padding(.horizontal, 15)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 5)
+                .transition(.opacity.combined(with: .offset(y: 30)))
             default:
                 EmptyView()
             }
@@ -115,14 +116,15 @@ struct CaptureSheet: View {
                     Text(" Capture")
                     Spacer(minLength: 0)
                 }.foregroundStyle(Color.black)
-                    .font(.system(size: 22, weight: .bold, design: .default))
-                    .fontWidth(.expanded)
+                .font(.system(size: 22, weight: .bold, design: .default))
+                .fontWidth(.expanded)
             }.frame(height: 63)
             .glassEffect(.regular.tint(.white.opacity(0.87)).interactive(), in: Capsule(style: .continuous))
             .padding(.horizontal, 15)
             .padding(.bottom, 34)
 
-        }.padding(.horizontal, 8)
+        }.animation(.easeOut(duration: 0.15), value: selectedDetent)
+        .padding(.horizontal, 8)
         .ignoresSafeArea()
         .presentationDetents([CaptureSheet.compactDetent, CaptureSheet.fullDetent], selection: $selectedDetent)
         .presentationDragIndicator(.visible)
