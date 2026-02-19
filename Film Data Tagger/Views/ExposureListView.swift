@@ -40,7 +40,7 @@ struct ExposureListView: View {
                             .padding(.top, 12 + contentTopOffset)
 
                             Color.clear
-                                .frame(height: 260)
+                                .frame(height: 396)
                                 .id("scrollAnchor")
 
                             Spacer()

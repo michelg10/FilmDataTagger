@@ -98,6 +98,12 @@ final class FilmLogViewModel {
         activeRoll != nil
     }
 
+    func finishRoll() {
+        guard let roll = activeRoll else { return }
+        roll.softDelete()
+        createDefaultRoll()
+    }
+
     // MARK: - Geocoding
 
     private func geocodeRecentUngeocodedItems() {
