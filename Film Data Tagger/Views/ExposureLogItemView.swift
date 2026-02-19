@@ -20,6 +20,7 @@ struct ExposureLogItemView: View {
                 .map { Image(uiImage: $0) },
             infoItems: infoItems
         )
+        .contentShape(Rectangle())
     }
 
     private var infoItems: [LogItemView.LogItemInfoItem] {

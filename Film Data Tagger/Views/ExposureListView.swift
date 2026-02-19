@@ -31,29 +31,39 @@ struct ExposureListView: View {
                 } else {
                     ScrollViewReader { proxy in
                         ScrollView {
-                            LazyVStack(spacing: 16) {
+                            LazyVStack(spacing: 0) {
                                 ForEach(logItems) { item in
                                     ExposureLogItemView(item: item)
                                         .id(item.id)
+                                        .padding(.vertical, 8) // this corresponds to 2 * 8pt = 16pt of spacing between items. we add spacing as padding to allow context menu hit testing.
+                                        .contextMenu {
+                                            Button(role: .destructive) {
+                                                item.softDelete()
+                                            } label: {
+                                                Label("Delete", systemImage: "trash")
+                                            }
+                                        }
+                                        .transition(.identity)
                                 }
                             }
+                            .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))
                             .padding(.horizontal, 16)
-                            .padding(.top, 12 + contentTopOffset)
+                            .padding(.top, 12 - 8 + contentTopOffset)
 
                             Color.clear
                                 .frame(height: 396)
                                 .id("scrollAnchor")
 
                             Spacer()
-                                .frame(height: 40)
+                                .frame(height: 40 - 8)
                         }
                         .onAppear {
                             if !logItems.isEmpty {
                                 proxy.scrollTo("scrollAnchor", anchor: .bottom)
                             }
                         }
-                        .onChange(of: logItems.count) {
-                            if !logItems.isEmpty {
+                        .onChange(of: logItems.count) { oldCount, newCount in
+                            if newCount > oldCount {
                                 withAnimation {
                                     proxy.scrollTo("scrollAnchor", anchor: .bottom)
                                 }
