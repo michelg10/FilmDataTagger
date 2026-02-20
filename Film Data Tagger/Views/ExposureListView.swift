@@ -145,7 +145,6 @@ struct ExposureListView: View {
                     .padding(.top, titleTopOffset)
                 }
             }
-            .navigationBarTitleDisplayMode(.inline)
             .preferredColorScheme(.dark)
         }
     }
