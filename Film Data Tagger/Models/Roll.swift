@@ -12,14 +12,20 @@ import SwiftData
 final class Roll {
     @Attribute(.unique) var id: UUID
 
-    /// The camera used for this roll (nil in instant film mode where each LogItem has its own camera)
+    /// The camera this roll is loaded in (nil for instant film packs)
     var camera: Camera?
 
-    /// Film stock name (e.g., "Portra 400", "HP5+", "Instax Mini")
+    /// The instant film camera this pack belongs to (nil for regular rolls)
+    var instantFilmCamera: InstantFilmCamera?
+
+    /// Film stock name (e.g., "Portra 400", "HP5+")
     var filmStock: String
 
-    /// When true, this roll is unbounded and each LogItem can have its own camera
-    var isInstantFilmMode: Bool
+    /// Number of frames per roll (e.g., 12, 24, 36)
+    var capacity: Int = 36
+
+    /// Whether this is the active roll for its camera. Only one roll per camera should be active.
+    var isActive: Bool = true
 
     var createdAt: Date
     var modifiedAt: Date
@@ -31,11 +37,11 @@ final class Roll {
     @Relationship(deleteRule: .cascade, inverse: \LogItem.roll)
     var logItems: [LogItem] = []
 
-    init(filmStock: String, camera: Camera? = nil, isInstantFilmMode: Bool = false) {
+    init(filmStock: String, camera: Camera? = nil, capacity: Int = 36) {
         self.id = UUID()
         self.filmStock = filmStock
         self.camera = camera
-        self.isInstantFilmMode = isInstantFilmMode
+        self.capacity = capacity
         self.createdAt = Date()
         self.modifiedAt = Date()
         self.deletedAt = nil

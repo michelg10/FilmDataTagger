@@ -17,13 +17,13 @@ struct LogExposureIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
-        let container = try ModelContainer(for: Camera.self, Roll.self, LogItem.self)
+        let container = try ModelContainer(for: Camera.self, Roll.self, LogItem.self, InstantFilmGroup.self, InstantFilmCamera.self)
         let context = container.mainContext
 
         // Find or create active roll
         let rollDescriptor = FetchDescriptor<Roll>(
-            predicate: #Predicate { $0.deletedAt == nil },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+            predicate: #Predicate { $0.deletedAt == nil && $0.isActive == true },
+            sortBy: [SortDescriptor(\.modifiedAt, order: .reverse)]
         )
         let rolls = try context.fetch(rollDescriptor)
 

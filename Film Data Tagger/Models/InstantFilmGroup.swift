@@ -1,24 +1,25 @@
 //
-//  Camera.swift
+//  InstantFilmGroup.swift
 //  Film Data Tagger
 //
-//  Created by Michel Guo on 1/31/26.
+//  Created by Michel Guo on 2/19/26.
 //
 
 import Foundation
 import SwiftData
 
 @Model
-final class Camera {
+final class InstantFilmGroup {
     @Attribute(.unique) var id: UUID
     var name: String
     var createdAt: Date
 
-    /// When non-nil, this camera has been soft-deleted
+    /// When non-nil, this group has been soft-deleted
     var deletedAt: Date?
 
-    @Relationship(deleteRule: .nullify, inverse: \Roll.camera)
-    var rolls: [Roll] = []
+    /// The sub-cameras in this group (e.g., "Polaroid 600", "SX-70")
+    @Relationship(deleteRule: .cascade, inverse: \InstantFilmCamera.group)
+    var cameras: [InstantFilmCamera] = []
 
     init(name: String) {
         self.id = UUID()

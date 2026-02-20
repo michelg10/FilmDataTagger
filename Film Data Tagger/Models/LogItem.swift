@@ -16,9 +16,6 @@ final class LogItem {
     /// The roll this item belongs to
     var roll: Roll?
 
-    /// Camera used for this specific shot (used in instant film mode)
-    var camera: Camera?
-
     /// When `hasRealCreatedAt` is false, `createdAt` is a synthetic value used only for sort ordering.
     var createdAt: Date
     var hasRealCreatedAt: Bool = true
@@ -48,10 +45,9 @@ final class LogItem {
     /// Reference photo captured at time of logging (JPEG data, stored externally by SwiftData)
     @Attribute(.externalStorage) var photoData: Data?
 
-    init(roll: Roll, camera: Camera? = nil) {
+    init(roll: Roll) {
         self.id = UUID()
         self.roll = roll
-        self.camera = camera
         self.createdAt = Date()
         self.deletedAt = nil
         self.isPlaceholder = false

@@ -79,7 +79,7 @@ struct ContentView: View {
                         viewModel: viewModel,
                         isScrolling: isScrolling,
                         frameCount: logItems.count,
-                        rollCapacity: 36,
+                        rollCapacity: viewModel.rollCapacity,
                         lastCaptureDate: logItems.last(where: { $0.hasRealCreatedAt })?.createdAt
                     )
                     // TODO: Config sheet — will be presented from within CaptureSheet

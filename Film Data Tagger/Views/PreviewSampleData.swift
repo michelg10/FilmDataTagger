@@ -32,7 +32,7 @@ enum PreviewSampleData {
     @MainActor
     static func makeContainer() -> ModelContainer {
         let container = try! ModelContainer(
-            for: Camera.self, Roll.self, LogItem.self,
+            for: Camera.self, Roll.self, LogItem.self, InstantFilmGroup.self, InstantFilmCamera.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let context = container.mainContext
@@ -44,7 +44,7 @@ enum PreviewSampleData {
         context.insert(roll)
 
         for exposure in exposures {
-            let item = LogItem(roll: roll, camera: camera)
+            let item = LogItem(roll: roll)
             item.createdAt = Date().addingTimeInterval(TimeInterval(-exposure.minutesAgo * 60))
             item.latitude = exposure.lat
             item.longitude = exposure.lon

@@ -19,15 +19,62 @@ final class FilmLogViewModel {
 
     private static let lastLaunchKey = "lastAppLaunchDate"
     private static let referencePhotosKey = "referencePhotosEnabled"
+    private static let activeRollIdKey = "activeRollId"
+    private static let activeInstantFilmGroupIdKey = "activeInstantFilmGroupId"
+    private static let activeInstantFilmCameraIdKey = "activeInstantFilmCameraId"
 
     var referencePhotosEnabled: Bool = UserDefaults.standard.object(forKey: referencePhotosKey) as? Bool ?? true {
         didSet { UserDefaults.standard.set(referencePhotosEnabled, forKey: Self.referencePhotosKey) }
     }
 
-    var activeRoll: Roll?
+    var activeRoll: Roll? {
+        didSet { activeRollId = activeRoll?.id }
+    }
 
     /// The sorted, non-deleted items for the active roll. All mutations go through the view model.
     private(set) var logItems: [LogItem] = []
+
+    /// The camera for the current active roll.
+    var activeCamera: Camera? { activeRoll?.camera }
+
+    /// Roll capacity from the active roll.
+    var rollCapacity: Int { activeRoll?.capacity ?? 36 }
+
+    private var activeRollId: UUID? {
+        get {
+            guard let str = UserDefaults.standard.string(forKey: Self.activeRollIdKey) else { return nil }
+            return UUID(uuidString: str)
+        }
+        set {
+            UserDefaults.standard.set(newValue?.uuidString, forKey: Self.activeRollIdKey)
+        }
+    }
+
+    // MARK: - Instant film state
+
+    var activeInstantFilmGroup: InstantFilmGroup?
+    var activeInstantFilmCamera: InstantFilmCamera?
+    var isInstantFilmMode: Bool { activeInstantFilmGroup != nil }
+
+    private var activeInstantFilmGroupId: UUID? {
+        get {
+            guard let str = UserDefaults.standard.string(forKey: Self.activeInstantFilmGroupIdKey) else { return nil }
+            return UUID(uuidString: str)
+        }
+        set {
+            UserDefaults.standard.set(newValue?.uuidString, forKey: Self.activeInstantFilmGroupIdKey)
+        }
+    }
+
+    private var activeInstantFilmCameraId: UUID? {
+        get {
+            guard let str = UserDefaults.standard.string(forKey: Self.activeInstantFilmCameraIdKey) else { return nil }
+            return UUID(uuidString: str)
+        }
+        set {
+            UserDefaults.standard.set(newValue?.uuidString, forKey: Self.activeInstantFilmCameraIdKey)
+        }
+    }
 
     // MARK: - Live location state
     var currentPlaceName: String?
@@ -72,29 +119,67 @@ final class FilmLogViewModel {
     }
 
     private func reloadItems() {
-        logItems = (activeRoll?.logItems ?? [])
-            .filter { $0.deletedAt == nil }
-            .sorted { $0.createdAt < $1.createdAt }
+        if let group = activeInstantFilmGroup {
+            // Instant film: aggregate all logItems across all rolls of all sub-cameras
+            logItems = group.cameras
+                .filter { $0.deletedAt == nil }
+                .flatMap { $0.rolls }
+                .filter { $0.deletedAt == nil }
+                .flatMap { $0.logItems }
+                .filter { $0.deletedAt == nil }
+                .sorted { $0.createdAt < $1.createdAt }
+        } else {
+            logItems = (activeRoll?.logItems ?? [])
+                .filter { $0.deletedAt == nil }
+                .sorted { $0.createdAt < $1.createdAt }
+        }
     }
 
     private func loadOrCreateActiveRoll() {
-        let descriptor = FetchDescriptor<Roll>(
-            predicate: #Predicate { $0.deletedAt == nil },
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-
-        do {
-            let rolls = try modelContext.fetch(descriptor)
-            if let existingRoll = rolls.first {
-                activeRoll = existingRoll
-                reloadItems()
-            } else {
-                createDefaultRoll()
+        // 1. Try persisted instant film group
+        if let storedGroupId = activeInstantFilmGroupId {
+            let descriptor = FetchDescriptor<InstantFilmGroup>(
+                predicate: #Predicate<InstantFilmGroup> { $0.id == storedGroupId && $0.deletedAt == nil }
+            )
+            if let group = try? modelContext.fetch(descriptor).first {
+                let camera: InstantFilmCamera?
+                if let storedCameraId = activeInstantFilmCameraId {
+                    camera = group.cameras.first { $0.id == storedCameraId && $0.deletedAt == nil }
+                } else {
+                    camera = nil
+                }
+                switchToInstantFilmGroup(group, camera: camera)
+                return
             }
-        } catch {
-            print("Failed to fetch rolls: \(error)")
-            createDefaultRoll()
         }
+
+        // 2. Try the persisted active roll ID
+        if let storedId = activeRollId {
+            let descriptor = FetchDescriptor<Roll>(
+                predicate: #Predicate<Roll> { roll in
+                    roll.id == storedId && roll.deletedAt == nil
+                }
+            )
+            if let roll = try? modelContext.fetch(descriptor).first {
+                activeRoll = roll
+                reloadItems()
+                return
+            }
+        }
+
+        // 3. Fallback: find any active, non-deleted regular roll
+        let activeDescriptor = FetchDescriptor<Roll>(
+            predicate: #Predicate<Roll> { $0.isActive == true && $0.deletedAt == nil },
+            sortBy: [SortDescriptor(\.modifiedAt, order: .reverse)]
+        )
+        if let roll = try? modelContext.fetch(activeDescriptor).first {
+            activeRoll = roll
+            reloadItems()
+            return
+        }
+
+        // 4. Nothing found — create default
+        createDefaultRoll()
     }
 
     private func createDefaultRoll() {
@@ -126,7 +211,14 @@ final class FilmLogViewModel {
     // MARK: - Logging
 
     func logExposure() async {
-        guard let roll = activeRoll else { return }
+        let roll: Roll
+        if isInstantFilmMode {
+            guard let subCamera = activeInstantFilmCamera else { return }
+            roll = activePackForSubCamera(subCamera)
+        } else {
+            guard let activeRoll else { return }
+            roll = activeRoll
+        }
 
         let item = LogItem(roll: roll)
         let location = locationManager.currentLocation
@@ -157,7 +249,14 @@ final class FilmLogViewModel {
     }
 
     func logPlaceholder() {
-        guard let roll = activeRoll else { return }
+        let roll: Roll
+        if isInstantFilmMode {
+            guard let subCamera = activeInstantFilmCamera else { return }
+            roll = activePackForSubCamera(subCamera)
+        } else {
+            guard let activeRoll else { return }
+            roll = activeRoll
+        }
         let item = LogItem.placeholder(roll: roll)
         modelContext.insert(item)
         roll.logItems.append(item)
@@ -232,13 +331,184 @@ final class FilmLogViewModel {
     }
 
     var canLogExposure: Bool {
-        activeRoll != nil
+        activeRoll != nil || (activeInstantFilmGroup != nil && activeInstantFilmCamera != nil)
     }
+
+    // MARK: - Roll Management
 
     func finishRoll() {
         guard let roll = activeRoll else { return }
+        roll.isActive = false
+        roll.touch()
+
+        // Temporary: auto-create a new roll on the same camera until we have UI
+        if let camera = roll.camera {
+            let newRoll = Roll(filmStock: roll.filmStock, camera: camera, capacity: roll.capacity)
+            modelContext.insert(newRoll)
+            camera.rolls.append(newRoll)
+            activeRoll = newRoll
+            reloadItems()
+        } else {
+            activeRoll = nil
+            logItems = []
+        }
+    }
+
+    @discardableResult
+    func createRoll(camera: Camera, filmStock: String, capacity: Int = 36) -> Roll {
+        // Deactivate any currently active roll on this camera
+        for roll in camera.rolls where roll.isActive && roll.deletedAt == nil {
+            roll.isActive = false
+        }
+
+        let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity)
+        modelContext.insert(roll)
+        camera.rolls.append(roll)
+
+        switchToRoll(roll)
+        return roll
+    }
+
+    func switchToRoll(_ roll: Roll) {
+        // Clear instant film state
+        activeInstantFilmGroup = nil
+        activeInstantFilmCamera = nil
+        activeInstantFilmGroupId = nil
+        activeInstantFilmCameraId = nil
+
+        activeRoll = roll
+        reloadItems()
+    }
+
+    func deleteRoll(_ roll: Roll) {
         roll.softDelete()
-        createDefaultRoll()
+        if activeRoll?.id == roll.id {
+            activeRoll = nil
+            logItems = []
+        }
+    }
+
+    // MARK: - Camera Management
+
+    @discardableResult
+    func createCamera(name: String) -> Camera {
+        let camera = Camera(name: name)
+        modelContext.insert(camera)
+        return camera
+    }
+
+    func deleteCamera(_ camera: Camera) {
+        camera.softDelete()
+        // Also soft-delete all rolls on this camera
+        for roll in camera.rolls where roll.deletedAt == nil {
+            roll.softDelete()
+        }
+        // If the active roll belonged to this camera, clear state
+        if let activeRoll, activeRoll.camera?.id == camera.id {
+            self.activeRoll = nil
+            logItems = []
+        }
+    }
+
+    // MARK: - Instant Film Group Management
+
+    @discardableResult
+    func createInstantFilmGroup(name: String) -> InstantFilmGroup {
+        let group = InstantFilmGroup(name: name)
+        modelContext.insert(group)
+        return group
+    }
+
+    func deleteInstantFilmGroup(_ group: InstantFilmGroup) {
+        group.softDelete()
+        if activeInstantFilmGroup?.id == group.id {
+            activeInstantFilmGroup = nil
+            activeInstantFilmCamera = nil
+            activeInstantFilmGroupId = nil
+            activeInstantFilmCameraId = nil
+            logItems = []
+        }
+    }
+
+    @discardableResult
+    func addInstantFilmCamera(to group: InstantFilmGroup, name: String, packCapacity: Int) -> InstantFilmCamera {
+        let camera = InstantFilmCamera(name: name, packCapacity: packCapacity, group: group)
+        modelContext.insert(camera)
+        group.cameras.append(camera)
+
+        // Create the first pack (roll) for this camera
+        let pack = Roll(filmStock: group.name, capacity: packCapacity)
+        pack.instantFilmCamera = camera
+        modelContext.insert(pack)
+        camera.rolls.append(pack)
+
+        return camera
+    }
+
+    func removeInstantFilmCamera(_ camera: InstantFilmCamera) {
+        camera.softDelete()
+        for roll in camera.rolls where roll.deletedAt == nil {
+            roll.softDelete()
+        }
+        if activeInstantFilmCamera?.id == camera.id {
+            // Switch to another sub-camera in the group if available
+            let remaining = activeInstantFilmGroup?.cameras.filter { $0.deletedAt == nil && $0.id != camera.id }
+            activeInstantFilmCamera = remaining?.first
+            activeInstantFilmCameraId = activeInstantFilmCamera?.id
+            reloadItems()
+        }
+    }
+
+    func switchToInstantFilmGroup(_ group: InstantFilmGroup, camera: InstantFilmCamera? = nil) {
+        // Clear regular camera state
+        activeRoll = nil
+
+        activeInstantFilmGroup = group
+        activeInstantFilmGroupId = group.id
+        activeInstantFilmCamera = camera ?? group.cameras.first(where: { $0.deletedAt == nil })
+        activeInstantFilmCameraId = activeInstantFilmCamera?.id
+        reloadItems()
+    }
+
+    func switchInstantFilmCamera(_ camera: InstantFilmCamera) {
+        activeInstantFilmCamera = camera
+        activeInstantFilmCameraId = camera.id
+    }
+
+    /// Returns the active pack (roll) for a sub-camera, creating a new one if the current pack is full.
+    private func activePackForSubCamera(_ camera: InstantFilmCamera) -> Roll {
+        let activePacks = camera.rolls.filter { $0.deletedAt == nil && $0.isActive }
+        if let pack = activePacks.last {
+            let frameCount = pack.logItems.filter { $0.deletedAt == nil }.count
+            if frameCount < camera.packCapacity {
+                return pack
+            }
+            // Pack is full — deactivate and create new
+            pack.isActive = false
+            pack.touch()
+        }
+
+        let newPack = Roll(filmStock: activeInstantFilmGroup?.name ?? "", capacity: camera.packCapacity)
+        newPack.instantFilmCamera = camera
+        modelContext.insert(newPack)
+        camera.rolls.append(newPack)
+        return newPack
+    }
+
+    /// Total shots for a sub-camera across all its packs.
+    func totalFrameCount(for camera: InstantFilmCamera) -> Int {
+        camera.rolls
+            .filter { $0.deletedAt == nil }
+            .flatMap { $0.logItems }
+            .filter { $0.deletedAt == nil }
+            .count
+    }
+
+    /// Current frame number within the active pack (1-indexed, wraps at pack capacity).
+    func packFrameDisplay(for camera: InstantFilmCamera) -> Int {
+        let total = totalFrameCount(for: camera)
+        guard camera.packCapacity > 0 else { return total }
+        return (total % camera.packCapacity)
     }
 
     // MARK: - Geocoding

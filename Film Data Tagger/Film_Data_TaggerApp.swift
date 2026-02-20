@@ -15,6 +15,8 @@ struct Film_Data_TaggerApp: App {
             Camera.self,
             Roll.self,
             LogItem.self,
+            InstantFilmGroup.self,
+            InstantFilmCamera.self,
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
