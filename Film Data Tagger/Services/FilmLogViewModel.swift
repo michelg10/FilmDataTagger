@@ -378,6 +378,24 @@ final class FilmLogViewModel {
         }
     }
 
+    /// All cameras and instant film groups for the camera list, sorted by most recently used.
+    func allCameraListEntries() -> [any CameraListEntry] {
+        let cameras: [Camera] = (try? modelContext.fetch(
+            FetchDescriptor<Camera>(predicate: #Predicate { $0.deletedAt == nil })
+        )) ?? []
+
+        let groups: [InstantFilmGroup] = (try? modelContext.fetch(
+            FetchDescriptor<InstantFilmGroup>(predicate: #Predicate { $0.deletedAt == nil })
+        )) ?? []
+
+        let entries: [any CameraListEntry] = cameras + groups
+
+        return entries.sorted { a, b in
+            // Sort by most recently created (stable default order)
+            a.id.uuidString < b.id.uuidString
+        }
+    }
+
     // MARK: - Instant Film Group Management
 
     @discardableResult

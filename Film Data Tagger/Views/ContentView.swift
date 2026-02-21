@@ -8,6 +8,49 @@
 import SwiftUI
 import SwiftData
 import CoreLocation
+import UIKit
+
+extension Notification.Name {
+    static let backGestureBegan = Notification.Name("backGestureBegan")
+    static let backGestureCancelled = Notification.Name("backGestureCancelled")
+}
+
+extension UINavigationController: @retroactive UIGestureRecognizerDelegate {
+    override open func viewDidLoad() {
+        super.viewDidLoad()
+        interactivePopGestureRecognizer?.delegate = self
+        interactivePopGestureRecognizer?.addTarget(self, action: #selector(handlePopGesture(_:)))
+    }
+
+    @objc func handlePopGesture(_ gesture: UIGestureRecognizer) {
+        if gesture.state == .began {
+            NotificationCenter.default.post(name: .backGestureBegan, object: nil)
+            let vcCount = viewControllers.count
+            var coordinatorGoneLastTick = false
+            Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] timer in
+                guard let self else { timer.invalidate(); return }
+                // Pop succeeded — VC was removed
+                if self.viewControllers.count < vcCount {
+                    timer.invalidate()
+                    return
+                }
+                // Wait an extra tick after coordinator clears before deciding
+                if self.transitionCoordinator == nil {
+                    if coordinatorGoneLastTick {
+                        timer.invalidate()
+                        NotificationCenter.default.post(name: .backGestureCancelled, object: nil)
+                    } else {
+                        coordinatorGoneLastTick = true
+                    }
+                }
+            }
+        }
+    }
+
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        return viewControllers.count > 1
+    }
+}
 
 struct FinishRollButton: View {
     var action: () -> Void
@@ -33,23 +76,23 @@ struct FinishRollButton: View {
     }
 }
 
-struct CameraConfigCameraItem: View {
-    var cameraName: String
-    var subtitle: String
-    
+struct CameraListRow: View {
+    var entry: any CameraListEntry
+
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 7) {
-                Text(cameraName)
+                Text(entry.displayName)
                     .font(.system(size: 22, weight: .semibold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
-                Text(subtitle)
+                Text(entry.configSubtitle)
                     .font(.system(size: 15, weight: .medium, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
                     .opacity(0.5)
                     .lineHeight(.exact(points: 20))
+                    .multilineTextAlignment(.leading)
             }
             Spacer(minLength: 50)
             Image(systemName: "chevron.right")
@@ -60,97 +103,155 @@ struct CameraConfigCameraItem: View {
     }
 }
 
-struct CameraConfigView: View {
+struct SheetTopBar: View {
+    var state: TopBarState
+    var leadingIconTapped: () -> Void
+    var trailingIconTapped: () -> Void
+
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    CameraConfigCameraItem(
-                        cameraName: "Olympus XA",
-                        subtitle: "Kodak Portra 400 • 7 rolls • 240 exposures • used 50m ago"
-                    ).padding(.vertical, 15)
-                    
-                    CameraConfigCameraItem(
-                        cameraName: "Polaroid",
-                        subtitle: "2201 exposures • used 35m ago"
-                    ).padding(.vertical, 15)
-                    
-                    CameraConfigCameraItem(
-                        cameraName: "Nikon FM2n",
-                        subtitle: "no roll loaded • 2 rolls • 71 exposures • used 3d ago"
-                    ).padding(.vertical, 15)
-                    
-                    CameraConfigCameraItem(
-                        cameraName: "Canon A-1",
-                        subtitle: "Lomo Color Negative 400 • 1 roll • 0 exposures"
-                    ).padding(.vertical, 15)
-                    
-                    CameraConfigCameraItem(
-                        cameraName: "Mamiya C220",
-                        subtitle: "no exposures"
-                    ).padding(.vertical, 15)
-                }.padding(.top, 13)
+        HStack(spacing: 0) {
+            Button {
+                leadingIconTapped()
+            } label: {
+                Image(systemName: state == .camera ? "gearshape.fill" : "chevron.left")
+                    .contentTransition(.symbolEffect(.replace, options: .speed(2.0)))
+                    .font(.system(size: 20, weight: .semibold, design: .default))
+                    .foregroundStyle(Color.white)
+                    .frame(width: 44, height: 44)
+            }.glassEffect(.regular.interactive(), in: Circle())
+
+            Spacer()
+
+            Button {
+                trailingIconTapped()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 20, weight: .semibold, design: .default))
+                    .foregroundStyle(Color.white)
+                    .frame(width: 44, height: 44)
+            }.glassEffect(.regular.interactive(), in: Circle())
+        }.padding(.horizontal, 16)
+        .offset(y: 16)
+    }
+}
+
+enum TopBarState {
+    case camera
+    case roll
+}
+
+struct RollListView: View {
+    var body: some View {
+        ScrollView {
+
+        }
+        .navigationBarBackButtonHidden()
+    }
+}
+
+struct CameraListView: View {
+    var entries: [any CameraListEntry]
+    @Environment(\.dismiss) private var dismiss
+    @Namespace var namespace
+    @State private var topBarState: TopBarState = .camera
+    @State private var path = NavigationPath()
+    // there's a weird iOS glitch when the `ToolbarItem` hack that we use to add a blur to the top portion of the scroll view is used where the scroll view does a little jump when you pop back. we artificially add a padding (without an animation) right as this jump occurs to counteract this glitch.
+    @State private var scrollTopPadding: CGFloat = 0
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            ZStack {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach(entries, id: \.id) { entry in
+                            NavigationLink(value: entry.id) {
+                                CameraListRow(entry: entry)
+                                    .padding(.vertical, 15)
+                            }
+                        }
+                    }.padding(.top, 13)
+                }
             }
+            .padding(.top, scrollTopPadding)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .ignoresSafeArea(edges: .bottom)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    HStack(spacing: 0) {
-                        VStack(alignment: .leading, spacing: 0) {
+                    // there's supposed to be a title text here, but the aforementioned iOS glitch was causing it to jump around, so we moved it to an overlay that's more stable.
+                    Rectangle()
+                        .foregroundStyle(Color.white.opacity(0.00001))
+                        .frame(height: 40)
+                        .frame(width: UIScreen.main.bounds.width - 32)
+                        .padding(.bottom, 30 - 15)
+                        .padding(.top, 139)
+                        .overlay(alignment: .topLeading) {
                             Text("Cameras")
                                 .font(.system(size: 34, weight: .bold, design: .default))
                                 .fontWidth(.expanded)
                                 .frame(height: 40)
-                                .padding(.bottom, 30 - 15)
+                                .offset(y: 139)
+                                .padding(.top, scrollTopPadding)
                         }
-                        Spacer(minLength: 0)
-                    }
-                    .frame(width: UIScreen.main.bounds.width - 32)
-                    .padding(.top, 139)
                 }
             }
-            .preferredColorScheme(.dark)
-        }.overlay(alignment: .top) {
-            HStack(spacing: 0) {
-                Button {
-                    // TODO
-                } label: {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 20, weight: .semibold, design: .default))
-                        .foregroundStyle(Color.white)
-                        .frame(width: 44, height: 44)
-                }.glassEffect(.regular.interactive(), in: Circle())
-                Spacer()
-                Button {
-                    // TODO
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 20, weight: .semibold, design: .default))
-                        .foregroundStyle(Color.white)
-                        .frame(width: 44, height: 44)
-                }.glassEffect(.regular.interactive(), in: Circle())
-            }.padding(.horizontal, 16)
-            .offset(y: 16)
+            .onReceive(NotificationCenter.default.publisher(for: .backGestureBegan)) { _ in
+                scrollTopPadding = 16
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .backGestureCancelled)) { _ in
+                scrollTopPadding = 0
+            }
+            .onDisappear {
+                scrollTopPadding = 16
+            }
+            .navigationDestination(for: UUID.self) { _ in
+                RollListView()
+                    .onDisappear { scrollTopPadding = 0 }
+            }
+        }
+        .onChange(of: path.count) {
+            withAnimation(.easeInOut(duration: 0.1)) {
+                topBarState = path.isEmpty ? .camera : .roll
+            }
+        }
+        .overlay(alignment: .top) {
+            SheetTopBar(
+                state: topBarState,
+                leadingIconTapped: {
+                    switch topBarState {
+                    case .camera:
+                        break // TODO
+                    case .roll:
+                        scrollTopPadding = 16
+                        path = NavigationPath()
+                    }
+                }, trailingIconTapped: {
+                    dismiss()
+                }
+            )
         }
         .overlay(alignment: .bottom) {
-            Button {
-                // TODO
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 26, weight: .semibold, design: .default))
-                        .frame(width: 32, height: 31)
-                        .padding(.leading, 16)
-                    Text("New camera")
-                        .font(.system(size: 19, weight: .semibold, design: .default))
-                        .fontWidth(.expanded)
-                        .padding(.trailing, 25)
-                }.foregroundStyle(Color.white)
-                .frame(height: 61)
-            }.glassEffect(.regular.interactive(), in: Capsule())
-            .buttonStyle(.plain)
-            .offset(y: -1)
+            if topBarState == .camera {
+                Button {
+                    // TODO
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 26, weight: .semibold, design: .default))
+                            .frame(width: 32, height: 31)
+                            .padding(.leading, 16)
+                        Text("New camera")
+                            .font(.system(size: 19, weight: .semibold, design: .default))
+                            .fontWidth(.expanded)
+                            .padding(.trailing, 25)
+                    }.foregroundStyle(Color.white)
+                    .frame(height: 61)
+                }.glassEffect(.regular.interactive(), in: Capsule())
+                .glassEffectID("principal", in: namespace)
+                .id("CameraListView.principal")
+                .transition(.opacity)
+                .buttonStyle(.plain)
+                .offset(y: -1)
+            }
         }
     }
 }
@@ -205,7 +306,7 @@ struct ContentView: View {
                         lastCaptureDate: logItems.last(where: { $0.hasRealCreatedAt })?.createdAt
                     )
                     .sheet(isPresented: .constant(true)) {
-                        CameraConfigView()
+                        CameraListView(entries: viewModel.allCameraListEntries())
                     }
                 }
             }
