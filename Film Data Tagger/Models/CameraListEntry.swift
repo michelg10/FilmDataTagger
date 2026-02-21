@@ -13,12 +13,12 @@ import Foundation
 protocol CameraListEntry {
     var id: UUID { get }
     var displayName: String { get }
-    var configSubtitle: String { get }
+    var listSubtitle: String { get }
 }
 
 // MARK: - Relative time formatting
 
-private func relativeTimeString(from date: Date) -> String {
+func relativeTimeString(from date: Date) -> String {
     let seconds = Int(Date().timeIntervalSince(date))
     if seconds < 60 { return "used just now" }
     let minutes = seconds / 60
@@ -38,7 +38,7 @@ private func relativeTimeString(from date: Date) -> String {
 extension Camera: CameraListEntry {
     var displayName: String { name }
 
-    var configSubtitle: String {
+    var listSubtitle: String {
         let activeRolls = rolls.filter { $0.deletedAt == nil }
         let allItems = activeRolls.flatMap { $0.logItems }.filter { $0.deletedAt == nil }
 
@@ -78,12 +78,47 @@ extension Camera: CameraListEntry {
     }
 }
 
+// MARK: - Roll display helpers
+
+private func formatLoadedDate(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "MMMM d"
+    let dayStr = formatter.string(from: date)
+    let day = Calendar.current.component(.day, from: date)
+    let suffix: String
+    switch day {
+    case 1, 21, 31: suffix = "st"
+    case 2, 22: suffix = "nd"
+    case 3, 23: suffix = "rd"
+    default: suffix = "th"
+    }
+    formatter.dateFormat = "h:mma"
+    formatter.amSymbol = "am"
+    formatter.pmSymbol = "pm"
+    let timeStr = formatter.string(from: date)
+    return "\(dayStr)\(suffix), \(timeStr)"
+}
+
+extension Roll {
+    var activeItemCount: Int {
+        logItems.filter { $0.deletedAt == nil }.count
+    }
+
+    var rollSummary: String {
+        var desc = "\(activeItemCount) / \(capacity) exposure\(capacity == 1 ? "" : "s") • Loaded \(formatLoadedDate(createdAt))"
+        if !isActive {
+            desc += " • \(relativeTimeString(from: modifiedAt))"
+        }
+        return desc
+    }
+}
+
 // MARK: - InstantFilmGroup conformance
 
 extension InstantFilmGroup: CameraListEntry {
     var displayName: String { name }
 
-    var configSubtitle: String {
+    var listSubtitle: String {
         let activeCameras = cameras.filter { $0.deletedAt == nil }
         let allItems = activeCameras
             .flatMap { $0.rolls }

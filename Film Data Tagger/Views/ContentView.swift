@@ -86,7 +86,7 @@ struct CameraListRow: View {
                     .font(.system(size: 22, weight: .semibold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
-                Text(entry.configSubtitle)
+                Text(entry.listSubtitle)
                     .font(.system(size: 15, weight: .medium, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
@@ -140,16 +140,15 @@ enum TopBarState {
     case roll
 }
 
-struct RollItemView: View {
-    var displayName: String
-    var description: String
-    
+struct RollListRow: View {
+    var roll: Roll
+
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(displayName)
+            Text(roll.filmStock)
                 .font(.system(size: 20, weight: .semibold, design: .default))
                 .fontWidth(.expanded)
-            Text(description)
+            Text(roll.rollSummary)
                 .font(.system(size: 15, weight: .regular, design: .default))
                 .fontWidth(.expanded)
                 .opacity(0.58)
@@ -161,76 +160,67 @@ struct RollItemView: View {
 }
 
 struct RollListView: View {
+    var camera: Camera
+
+    private var rolls: [Roll] {
+        camera.rolls.filter { !$0.isDeleted }
+    }
+
+    private var activeRoll: Roll? {
+        rolls.first { $0.isActive }
+    }
+
+    private var pastRolls: [Roll] {
+        rolls.filter { !$0.isActive }.sorted { $0.modifiedAt > $1.modifiedAt }
+    }
+
+    private var totalExposures: Int {
+        rolls.flatMap { $0.logItems }.filter { $0.deletedAt == nil }.count
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text("240")
-                    Text(" exposures •")
+                    Text("\(totalExposures)")
+                    Text(" exposure\(totalExposures == 1 ? "" : "s") •")
                         .opacity(0.6)
-                    Text(" 7")
-                    Text(" rolls")
+                    Text(" \(rolls.count)")
+                    Text(" roll\(rolls.count == 1 ? "" : "s")")
                         .opacity(0.6)
                 }.foregroundStyle(Color.white)
                 .font(.system(size: 15, weight: .heavy, design: .default))
                 .fontWidth(.expanded)
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.bottom, 30)
-                
-                Text("Active roll")
-                    .font(.system(size: 15, weight: .heavy, design: .default))
-                    .fontWidth(.expanded)
-                    .opacity(0.6)
-                
+
                 // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
-                RollItemView(
-                    displayName: "Kodak Portra 400",
-                    description: "0 / 36 exposures • Loaded January 20th, 1:35am"
-                ).padding(.top, 12)
-                .padding(.bottom, 15)
                 
-                Text("Past rolls")
-                    .font(.system(size: 15, weight: .heavy, design: .default))
-                    .fontWidth(.expanded)
-                    .opacity(0.6)
-                    .padding(.top, 15)
-                
-                RollItemView(
-                    displayName: "Fuji Color Negative 400",
-                    description: "37 / 36 exposures • Loaded January 20th, 1:35am • Used 10d ago"
-                ).padding(.top, 12)
-                .padding(.bottom, 15)
-                
-                RollItemView(
-                    displayName: "Fuji Color Negative 400",
-                    description: "37 / 36 exposures • Loaded January 20th, 1:35am • Used 10d ago"
-                ).padding(.top, 15)
-                .padding(.bottom, 15)
-                
-                RollItemView(
-                    displayName: "Fuji Color Negative 400",
-                    description: "37 / 36 exposures • Loaded January 20th, 1:35am • Used 10d ago"
-                ).padding(.top, 15)
-                .padding(.bottom, 15)
-                
-                RollItemView(
-                    displayName: "Fuji Color Negative 400",
-                    description: "37 / 36 exposures • Loaded January 20th, 1:35am • Used 10d ago"
-                ).padding(.top, 15)
-                .padding(.bottom, 15)
-                
-                RollItemView(
-                    displayName: "Fuji Color Negative 400",
-                    description: "37 / 36 exposures • Loaded January 20th, 1:35am • Used 10d ago"
-                ).padding(.top, 15)
-                .padding(.bottom, 15)
-                
-                RollItemView(
-                    displayName: "Fuji Color Negative 400",
-                    description: "37 / 36 exposures • Loaded January 20th, 1:35am • Used 10d ago"
-                ).padding(.top, 15)
-                .padding(.bottom, 15)
-                
+                if let activeRoll {
+                    Text("Active roll")
+                        .font(.system(size: 15, weight: .heavy, design: .default))
+                        .fontWidth(.expanded)
+                        .opacity(0.6)
+
+                    RollListRow(roll: activeRoll)
+                        .padding(.top, 12)
+                    .padding(.bottom, 15)
+                }
+
+                if !pastRolls.isEmpty {
+                    Text("Past rolls")
+                        .font(.system(size: 15, weight: .heavy, design: .default))
+                        .fontWidth(.expanded)
+                        .opacity(0.6)
+                        .padding(.top, 15)
+
+                    ForEach(pastRolls, id: \.id) { roll in
+                        RollListRow(roll: roll)
+                            .padding(.top, pastRolls.first?.id == roll.id ? 12 : 15)
+                        .padding(.bottom, 15)
+                    }
+                }
+
             }.padding(.horizontal, 16)
             .padding(.bottom, 162) // overscroll
             .offset(y: -46)
@@ -240,7 +230,7 @@ struct RollListView: View {
             ToolbarItem(placement: .principal) {
                 HStack(spacing: 0) {
                     Spacer(minLength: 0)
-                    Text("Olympus XA")
+                    Text(camera.name)
                         .font(.system(size: 17, weight: .bold, design: .default))
                         .fontWidth(.expanded)
                         .foregroundStyle(Color.white)
@@ -296,8 +286,10 @@ struct CameraListView: View {
                         }
                 }
             }
-            .navigationDestination(for: UUID.self) { _ in
-                RollListView()
+            .navigationDestination(for: UUID.self) { id in
+                if let camera = entries.first(where: { $0.id == id }) as? Camera {
+                    RollListView(camera: camera)
+                }
             }
         }
         .onChange(of: path.count) {
