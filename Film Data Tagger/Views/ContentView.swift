@@ -249,6 +249,15 @@ struct CameraListView: View {
     @Namespace var namespace
     @State private var topBarState: TopBarState = .camera
     @State private var path = NavigationPath()
+    @State private var selectedCamera: Camera?
+
+    private var bottomButtonIcon: String {
+        if topBarState == .camera {
+            return "plus.circle.fill"
+        }
+        let hasRolls = !(selectedCamera?.rolls.filter { !$0.isDeleted }.isEmpty ?? true)
+        return hasRolls ? "checkmark.arrow.trianglehead.counterclockwise" : "plus"
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -289,6 +298,7 @@ struct CameraListView: View {
             .navigationDestination(for: UUID.self) { id in
                 if let camera = entries.first(where: { $0.id == id }) as? Camera {
                     RollListView(camera: camera)
+                        .onAppear { selectedCamera = camera }
                 }
             }
         }
@@ -317,7 +327,7 @@ struct CameraListView: View {
                 // TODO
             } label: {
                 HStack(spacing: 10) {
-                    Image(systemName: topBarState == .camera ? "plus.circle.fill" : "checkmark.arrow.trianglehead.counterclockwise")
+                    Image(systemName: bottomButtonIcon)
                         .contentTransition(.opacity)
                         .font(.system(size: 26, weight: .semibold, design: .default))
                         .frame(width: 32, height: 31)
