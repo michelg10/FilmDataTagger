@@ -89,38 +89,41 @@ struct CameraListView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            ZStack {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(entries, id: \.id) { entry in
-                            NavigationLink(value: entry.id) {
-                                CameraListRow(entry: entry)
-                                    .padding(.vertical, 15)
+            Group {
+                if !entries.isEmpty {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(entries, id: \.id) { entry in
+                                NavigationLink(value: entry.id) {
+                                    CameraListRow(entry: entry)
+                                        .padding(.vertical, 15)
+                                }
                             }
-                        }
-                    }.padding(.top, 13)
-                    .padding(.bottom, 162) // overscroll
+                        }.padding(.top, 13)
+                            .padding(.bottom, 162) // overscroll
+                    }
+                } else {
+                    Text("no cameras\nadded")
+                        .multilineTextAlignment(.center)
+                        .lineHeight(.exact(points: 32))
+                        .font(.system(size: 25, weight: .bold, design: .default))
+                        .fontWidth(.expanded)
+                        .opacity(0.4)
+                        .padding(.bottom, 117)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 }
             }
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    // there's supposed to be a title text here, but the aforementioned iOS glitch was causing it to jump around, so we moved it to an overlay that's more stable.
-                    Rectangle()
-                        .foregroundStyle(Color.white.opacity(0.00001))
+                    Text("Cameras")
+                        .font(.system(size: 34, weight: .bold, design: .default))
+                        .fontWidth(.expanded)
+                        .frame(width: UIScreen.main.bounds.width - 32, alignment: .leading)
                         .frame(height: 40)
-                        .frame(width: UIScreen.main.bounds.width - 32)
                         .padding(.bottom, 30 - 15)
                         .padding(.top, 139)
-                        .overlay(alignment: .topLeading) {
-                            Text("Cameras")
-                                .font(.system(size: 34, weight: .bold, design: .default))
-                                .fontWidth(.expanded)
-                                .frame(height: 40)
-                                .offset(y: 139)
-//                                .padding(.top, scrollTopPadding)
-                        }
                 }
             }
             .navigationDestination(for: UUID.self) { id in

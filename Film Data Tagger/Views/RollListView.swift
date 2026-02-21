@@ -46,51 +46,63 @@ struct RollListView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Text("\(totalExposures)")
-                    Text(" exposure\(totalExposures == 1 ? "" : "s") •")
-                        .opacity(0.6)
-                    Text(" \(rolls.count)")
-                    Text(" roll\(rolls.count == 1 ? "" : "s")")
-                        .opacity(0.6)
-                }.foregroundStyle(Color.white)
-                .font(.system(size: 15, weight: .heavy, design: .default))
-                .fontWidth(.expanded)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.bottom, 30)
-
-                // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
-
-                if let activeRoll {
-                    Text("Active roll")
-                        .font(.system(size: 15, weight: .heavy, design: .default))
-                        .fontWidth(.expanded)
-                        .opacity(0.6)
-
-                    RollListRow(roll: activeRoll)
-                        .padding(.top, 12)
-                    .padding(.bottom, 15)
+        Group {
+            if !rolls.isEmpty {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(alignment: .firstTextBaseline, spacing: 0) {
+                            Text("\(totalExposures)")
+                            Text(" exposure\(totalExposures == 1 ? "" : "s") •")
+                                .opacity(0.6)
+                            Text(" \(rolls.count)")
+                            Text(" roll\(rolls.count == 1 ? "" : "s")")
+                                .opacity(0.6)
+                        }.foregroundStyle(Color.white)
+                            .font(.system(size: 15, weight: .heavy, design: .default))
+                            .fontWidth(.expanded)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.bottom, 30)
+                        
+                        // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
+                        
+                        if let activeRoll {
+                            Text("Active roll")
+                                .font(.system(size: 15, weight: .heavy, design: .default))
+                                .fontWidth(.expanded)
+                                .opacity(0.6)
+                            
+                            RollListRow(roll: activeRoll)
+                                .padding(.top, 12)
+                                .padding(.bottom, 15)
+                        }
+                        
+                        if !pastRolls.isEmpty {
+                            Text("Past rolls")
+                                .font(.system(size: 15, weight: .heavy, design: .default))
+                                .fontWidth(.expanded)
+                                .opacity(0.6)
+                                .padding(.top, 15)
+                            
+                            ForEach(pastRolls, id: \.id) { roll in
+                                RollListRow(roll: roll)
+                                    .padding(.top, pastRolls.first?.id == roll.id ? 12 : 15)
+                                    .padding(.bottom, 15)
+                            }
+                        }
+                        
+                    }.padding(.horizontal, 16)
+                        .padding(.bottom, 162) // overscroll
+                        .offset(y: -46)
                 }
-
-                if !pastRolls.isEmpty {
-                    Text("Past rolls")
-                        .font(.system(size: 15, weight: .heavy, design: .default))
-                        .fontWidth(.expanded)
-                        .opacity(0.6)
-                        .padding(.top, 15)
-
-                    ForEach(pastRolls, id: \.id) { roll in
-                        RollListRow(roll: roll)
-                            .padding(.top, pastRolls.first?.id == roll.id ? 12 : 15)
-                        .padding(.bottom, 15)
-                    }
-                }
-
-            }.padding(.horizontal, 16)
-            .padding(.bottom, 162) // overscroll
-            .offset(y: -46)
+            } else {
+                Text("no rolls logged")
+                    .font(.system(size: 25, weight: .bold, design: .default))
+                    .fontWidth(.expanded)
+                    .opacity(0.4)
+                    .padding(.bottom, 141)
+                    .padding(.horizontal, 16)
+                    .frame(maxHeight: .infinity, alignment: .center)
+            }
         }
         .navigationBarBackButtonHidden()
         .toolbar {

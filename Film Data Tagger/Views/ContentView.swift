@@ -37,6 +37,7 @@ struct ContentView: View {
 
     @State private var viewModel: FilmLogViewModel?
     @State private var showSheet = false
+    @State private var showCameraList = false
     @State private var isScrolling = false
 
     private var logItems: [LogItem] {
@@ -62,6 +63,9 @@ struct ContentView: View {
                     },
                     onMovePlaceholderToEnd: { item in
                         viewModel?.movePlaceholderToEnd(item)
+                    },
+                    onTitleTapped: {
+                        showCameraList = true
                     }
                 )
             }.ignoresSafeArea(.all)
@@ -81,7 +85,7 @@ struct ContentView: View {
                         rollCapacity: viewModel.rollCapacity,
                         lastCaptureDate: logItems.last(where: { $0.hasRealCreatedAt })?.createdAt
                     )
-                    .sheet(isPresented: .constant(true)) {
+                    .sheet(isPresented: $showCameraList) {
                         CameraListView(entries: viewModel.allCameraListEntries())
                     }
                 }

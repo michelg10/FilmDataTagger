@@ -49,9 +49,6 @@ private struct ExposureRow: View {
 }
 
 struct ExposureListView: View {
-    let contentTopOffset: CGFloat = 27
-    let titleTopOffset: CGFloat = 33
-    
     let logItems: [LogItem]
     var cameraName: String = ""
     var filmStock: String = ""
@@ -60,6 +57,7 @@ struct ExposureListView: View {
     var onMovePlaceholderBefore: ((LogItem, LogItem) -> Void)?
     var onMovePlaceholderAfter: ((LogItem, LogItem) -> Void)?
     var onMovePlaceholderToEnd: ((LogItem) -> Void)?
+    var onTitleTapped: (() -> Void)?
 
     var body: some View {
         NavigationStack {
@@ -70,8 +68,9 @@ struct ExposureListView: View {
                         .fontWidth(.expanded)
                         .foregroundStyle(Color.white.opacity(0.5))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(.bottom, 175)
-                        .padding(.top, 10 + contentTopOffset)
+                        .padding(.bottom, 227)
+                        .padding(.top, 18)
+                        .offset(y: -21)
                 } else {
                     ScrollViewReader { proxy in
                         ScrollView {
@@ -88,7 +87,7 @@ struct ExposureListView: View {
                             }
                             .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))
                             .padding(.horizontal, 16)
-                            .padding(.top, 12 - 8 + contentTopOffset)
+                            .offset(y: -21)
 
                             // Drop zone for moving placeholders to end of list
                             Color.clear
@@ -129,20 +128,26 @@ struct ExposureListView: View {
             .ignoresSafeArea(edges: .bottom)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    HStack(spacing: 0) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(cameraName)
-                                .font(.system(size: 28, weight: .bold, design: .default))
-                                .fontWidth(.expanded)
-                                .foregroundStyle(Color.white)
-                            Text(filmStock)
-                                .font(.system(size: 20, weight: .bold, design: .default))
-                                .foregroundStyle(Color(hex: 0xAAAAAA))
+                    Button {
+                        onTitleTapped?()
+                    } label: {
+                        HStack(spacing: 0) {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(cameraName)
+                                    .font(.system(size: 28, weight: .bold, design: .default))
+                                    .fontWidth(.expanded)
+                                    .foregroundStyle(Color.white)
+                                Text(filmStock)
+                                    .font(.system(size: 20, weight: .bold, design: .default))
+                                    .foregroundStyle(Color(hex: 0xAAAAAA))
+                            }
+                            Spacer(minLength: 0)
                         }
-                        Spacer(minLength: 0)
+                        .frame(width: UIScreen.main.bounds.width - 32)
+                        .padding(.top, 33)
+                        .contentShape(Rectangle())
                     }
-                    .frame(width: UIScreen.main.bounds.width - 32)
-                    .padding(.top, titleTopOffset)
+                    .buttonStyle(.plain)
                 }
             }
             .preferredColorScheme(.dark)
