@@ -140,12 +140,116 @@ enum TopBarState {
     case roll
 }
 
+struct RollItemView: View {
+    var displayName: String
+    var description: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(displayName)
+                .font(.system(size: 20, weight: .semibold, design: .default))
+                .fontWidth(.expanded)
+            Text(description)
+                .font(.system(size: 15, weight: .regular, design: .default))
+                .fontWidth(.expanded)
+                .opacity(0.58)
+                .multilineTextAlignment(.leading)
+                .lineHeight(.exact(points: 20))
+        }.frame(maxWidth: .infinity, alignment: .leading)
+        .foregroundStyle(Color.white)
+    }
+}
+
 struct RollListView: View {
     var body: some View {
         ScrollView {
-
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    Text("240")
+                    Text(" exposures •")
+                        .opacity(0.6)
+                    Text(" 7")
+                    Text(" rolls")
+                        .opacity(0.6)
+                }.foregroundStyle(Color.white)
+                .font(.system(size: 15, weight: .heavy, design: .default))
+                .fontWidth(.expanded)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.bottom, 30)
+                
+                Text("Active roll")
+                    .font(.system(size: 15, weight: .heavy, design: .default))
+                    .fontWidth(.expanded)
+                    .opacity(0.6)
+                
+                // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
+                RollItemView(
+                    displayName: "Kodak Portra 400",
+                    description: "0 / 36 exposures • Loaded January 20th, 1:35am"
+                ).padding(.top, 12)
+                .padding(.bottom, 15)
+                
+                Text("Past rolls")
+                    .font(.system(size: 15, weight: .heavy, design: .default))
+                    .fontWidth(.expanded)
+                    .opacity(0.6)
+                    .padding(.top, 15)
+                
+                RollItemView(
+                    displayName: "Fuji Color Negative 400",
+                    description: "37 / 36 exposures • Loaded January 20th, 1:35am • Used 10d ago"
+                ).padding(.top, 12)
+                .padding(.bottom, 15)
+                
+                RollItemView(
+                    displayName: "Fuji Color Negative 400",
+                    description: "37 / 36 exposures • Loaded January 20th, 1:35am • Used 10d ago"
+                ).padding(.top, 15)
+                .padding(.bottom, 15)
+                
+                RollItemView(
+                    displayName: "Fuji Color Negative 400",
+                    description: "37 / 36 exposures • Loaded January 20th, 1:35am • Used 10d ago"
+                ).padding(.top, 15)
+                .padding(.bottom, 15)
+                
+                RollItemView(
+                    displayName: "Fuji Color Negative 400",
+                    description: "37 / 36 exposures • Loaded January 20th, 1:35am • Used 10d ago"
+                ).padding(.top, 15)
+                .padding(.bottom, 15)
+                
+                RollItemView(
+                    displayName: "Fuji Color Negative 400",
+                    description: "37 / 36 exposures • Loaded January 20th, 1:35am • Used 10d ago"
+                ).padding(.top, 15)
+                .padding(.bottom, 15)
+                
+                RollItemView(
+                    displayName: "Fuji Color Negative 400",
+                    description: "37 / 36 exposures • Loaded January 20th, 1:35am • Used 10d ago"
+                ).padding(.top, 15)
+                .padding(.bottom, 15)
+                
+            }.padding(.horizontal, 16)
+            .padding(.bottom, 162) // overscroll
+            .offset(y: -46)
         }
         .navigationBarBackButtonHidden()
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    Text("Olympus XA")
+                        .font(.system(size: 17, weight: .bold, design: .default))
+                        .fontWidth(.expanded)
+                        .foregroundStyle(Color.white)
+                    Spacer(minLength: 0)
+                }
+                .frame(width: UIScreen.main.bounds.width - 32)
+                .padding(.top, 0)
+            }
+        }
     }
 }
 
@@ -155,8 +259,6 @@ struct CameraListView: View {
     @Namespace var namespace
     @State private var topBarState: TopBarState = .camera
     @State private var path = NavigationPath()
-    // there's a weird iOS glitch when the `ToolbarItem` hack that we use to add a blur to the top portion of the scroll view is used where the scroll view does a little jump when you pop back. we artificially add a padding (without an animation) right as this jump occurs to counteract this glitch.
-    @State private var scrollTopPadding: CGFloat = 0
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -170,9 +272,9 @@ struct CameraListView: View {
                             }
                         }
                     }.padding(.top, 13)
+                    .padding(.bottom, 162) // overscroll
                 }
             }
-            .padding(.top, scrollTopPadding)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .toolbar {
@@ -190,26 +292,16 @@ struct CameraListView: View {
                                 .fontWidth(.expanded)
                                 .frame(height: 40)
                                 .offset(y: 139)
-                                .padding(.top, scrollTopPadding)
+//                                .padding(.top, scrollTopPadding)
                         }
                 }
             }
-            .onReceive(NotificationCenter.default.publisher(for: .backGestureBegan)) { _ in
-                scrollTopPadding = 16
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .backGestureCancelled)) { _ in
-                scrollTopPadding = 0
-            }
-            .onDisappear {
-                scrollTopPadding = 16
-            }
             .navigationDestination(for: UUID.self) { _ in
                 RollListView()
-                    .onDisappear { scrollTopPadding = 0 }
             }
         }
         .onChange(of: path.count) {
-            withAnimation(.easeInOut(duration: 0.1)) {
+            withAnimation(.easeInOut(duration: 0.2)) {
                 topBarState = path.isEmpty ? .camera : .roll
             }
         }
@@ -221,7 +313,6 @@ struct CameraListView: View {
                     case .camera:
                         break // TODO
                     case .roll:
-                        scrollTopPadding = 16
                         path = NavigationPath()
                     }
                 }, trailingIconTapped: {
@@ -230,28 +321,26 @@ struct CameraListView: View {
             )
         }
         .overlay(alignment: .bottom) {
-            if topBarState == .camera {
-                Button {
-                    // TODO
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 26, weight: .semibold, design: .default))
-                            .frame(width: 32, height: 31)
-                            .padding(.leading, 16)
-                        Text("New camera")
-                            .font(.system(size: 19, weight: .semibold, design: .default))
-                            .fontWidth(.expanded)
-                            .padding(.trailing, 25)
-                    }.foregroundStyle(Color.white)
-                    .frame(height: 61)
-                }.glassEffect(.regular.interactive(), in: Capsule())
-                .glassEffectID("principal", in: namespace)
-                .id("CameraListView.principal")
-                .transition(.opacity)
-                .buttonStyle(.plain)
-                .offset(y: -1)
-            }
+            Button {
+                // TODO
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: topBarState == .camera ? "plus.circle.fill" : "checkmark.arrow.trianglehead.counterclockwise")
+                        .contentTransition(.opacity)
+                        .font(.system(size: 26, weight: .semibold, design: .default))
+                        .frame(width: 32, height: 31)
+                        .padding(.leading, 16)
+                    Text(topBarState == .camera ? "New camera" : "New roll")
+//                        .contentTransition(.numericText())
+                        .font(.system(size: 19, weight: .semibold, design: .default))
+                        .fontWidth(.expanded)
+                        .padding(.trailing, 25)
+                }.foregroundStyle(Color.white)
+                .frame(height: 61)
+            }.glassEffect(.regular.interactive(), in: Capsule())
+            .glassEffectID("principal", in: namespace)
+            .buttonStyle(.plain)
+            .offset(y: -1)
         }
     }
 }
