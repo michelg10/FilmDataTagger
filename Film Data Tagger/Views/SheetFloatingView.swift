@@ -125,25 +125,6 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
             // (above the sheet, but the containerView itself is below any inner sheets)
             containerView.bringSubviewToFront(childView)
 
-            // Counter the ~0.96x scale iOS applies at non-full detents
-            let sheetTransform = presentedView.transform
-            if presentedView.subviews.count > 1 {
-                let contentView = presentedView.subviews[1]
-                if !sheetTransform.isIdentity {
-                    let inverseScale = 1.0 / sheetTransform.a
-//                    print(sheetTransform.a, sheetTransform.d)
-                    // hack: iOS does this weird y-transform thing that doesn't make any sense. empirically, this measures good. and we're clipping the effect, so i don't think this should shoot us in the foot too hard.
-                    let inverse = CGAffineTransform(scaleX: inverseScale, y: inverseScale)
-                        .translatedBy(x: 0, y: 2.096692111959287 + max(min((sheetTransform.ty + 2.096692111959287) * -0.1, 1), -1))
-                    contentView.transform = inverse
-                    contentView.clipsToBounds = false
-//                    print("[INV] scale=\(sheetTransform.a) ty=\(sheetTransform.ty) -> inverseScale=\(inverseScale)")
-                } else if !contentView.transform.isIdentity {
-                    contentView.transform = .identity
-//                    print("[INV] reset to identity")
-                }
-            }
-
             let modelY = presentedView.convert(presentedView.bounds, to: nil).minY
 
             // Measure size once

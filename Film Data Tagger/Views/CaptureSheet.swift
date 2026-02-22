@@ -282,6 +282,7 @@ struct CaptureSheet: View {
         .presentationDragIndicator(.visible)
         .interactiveDismissDisabled()
         .presentationBackgroundInteraction(.enabled)
+        .sheetScaleFix()
     }
 }
 
