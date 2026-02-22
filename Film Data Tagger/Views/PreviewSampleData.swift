@@ -61,7 +61,6 @@ enum PreviewSampleData {
     @MainActor
     static func sampleItems(from container: ModelContainer) -> [LogItem] {
         let descriptor = FetchDescriptor<LogItem>(
-            predicate: #Predicate { $0.deletedAt == nil },
             sortBy: [SortDescriptor(\.createdAt, order: .forward)]
         )
         return (try? container.mainContext.fetch(descriptor)) ?? []

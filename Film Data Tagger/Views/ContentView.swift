@@ -81,7 +81,7 @@ struct ContentView: View {
                     CaptureSheet(
                         viewModel: viewModel,
                         isScrolling: isScrolling,
-                        frameCount: logItems.count,
+                        frameCount: logItems.count + 1,
                         rollCapacity: viewModel.rollCapacity,
                         lastCaptureDate: logItems.last(where: { $0.hasRealCreatedAt })?.createdAt
                     )

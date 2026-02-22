@@ -22,7 +22,7 @@ struct LogExposureIntent: AppIntent {
 
         // Find or create active roll
         let rollDescriptor = FetchDescriptor<Roll>(
-            predicate: #Predicate { $0.deletedAt == nil && $0.isActive == true },
+            predicate: #Predicate { $0.isActive == true },
             sortBy: [SortDescriptor(\.modifiedAt, order: .reverse)]
         )
         let rolls = try context.fetch(rollDescriptor)
@@ -53,7 +53,7 @@ struct LogExposureIntent: AppIntent {
 
         try context.save()
 
-        let exposureCount = roll.logItems.filter { $0.deletedAt == nil }.count
+        let exposureCount = roll.logItems.count
         let locationStatus = item.hasLocation ? "with location" : "without location"
 
         return .result(value: "Logged exposure #\(exposureCount) \(locationStatus)")

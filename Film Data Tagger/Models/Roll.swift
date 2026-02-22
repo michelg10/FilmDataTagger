@@ -30,9 +30,6 @@ final class Roll {
     var createdAt: Date
     var modifiedAt: Date
 
-    /// When non-nil, this roll has been soft-deleted
-    var deletedAt: Date?
-
     /// The log items (frames) in this roll
     @Relationship(deleteRule: .cascade, inverse: \LogItem.roll)
     var logItems: [LogItem] = []
@@ -44,23 +41,10 @@ final class Roll {
         self.capacity = capacity
         self.createdAt = Date()
         self.modifiedAt = Date()
-        self.deletedAt = nil
     }
 
     /// Call this whenever the roll is modified
     func touch() {
         self.modifiedAt = Date()
-    }
-
-    func softDelete() {
-        self.deletedAt = Date()
-    }
-
-    func restore() {
-        self.deletedAt = nil
-    }
-
-    var isDeleted: Bool {
-        deletedAt != nil
     }
 }

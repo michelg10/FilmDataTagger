@@ -18,9 +18,6 @@ final class InstantFilmCamera {
 
     var createdAt: Date
 
-    /// When non-nil, this camera has been soft-deleted
-    var deletedAt: Date?
-
     /// The instant film group this camera belongs to
     var group: InstantFilmGroup?
 
@@ -34,18 +31,5 @@ final class InstantFilmCamera {
         self.packCapacity = packCapacity
         self.group = group
         self.createdAt = Date()
-        self.deletedAt = nil
-    }
-
-    func softDelete() {
-        self.deletedAt = Date()
-    }
-
-    func restore() {
-        self.deletedAt = nil
-    }
-
-    var isDeleted: Bool {
-        deletedAt != nil
     }
 }

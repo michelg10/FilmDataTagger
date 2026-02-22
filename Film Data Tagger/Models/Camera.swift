@@ -14,28 +14,12 @@ final class Camera {
     var name: String
     var createdAt: Date
 
-    /// When non-nil, this camera has been soft-deleted
-    var deletedAt: Date?
-
-    @Relationship(deleteRule: .nullify, inverse: \Roll.camera)
+    @Relationship(deleteRule: .cascade, inverse: \Roll.camera)
     var rolls: [Roll] = []
 
     init(name: String) {
         self.id = UUID()
         self.name = name
         self.createdAt = Date()
-        self.deletedAt = nil
-    }
-
-    func softDelete() {
-        self.deletedAt = Date()
-    }
-
-    func restore() {
-        self.deletedAt = nil
-    }
-
-    var isDeleted: Bool {
-        deletedAt != nil
     }
 }

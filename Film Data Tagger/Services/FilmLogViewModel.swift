@@ -84,15 +84,11 @@ final class FilmLogViewModel {
         if let group = activeInstantFilmGroup {
             // Instant film: aggregate all logItems across all rolls of all sub-cameras
             logItems = group.cameras
-                .filter { $0.deletedAt == nil }
                 .flatMap { $0.rolls }
-                .filter { $0.deletedAt == nil }
                 .flatMap { $0.logItems }
-                .filter { $0.deletedAt == nil }
                 .sorted { $0.createdAt < $1.createdAt }
         } else {
             logItems = (activeRoll?.logItems ?? [])
-                .filter { $0.deletedAt == nil }
                 .sorted { $0.createdAt < $1.createdAt }
         }
     }
@@ -107,12 +103,12 @@ final class FilmLogViewModel {
         // 1. Try persisted instant film group
         if let storedGroupId = settings.activeInstantFilmGroupId {
             let descriptor = FetchDescriptor<InstantFilmGroup>(
-                predicate: #Predicate<InstantFilmGroup> { $0.id == storedGroupId && $0.deletedAt == nil }
+                predicate: #Predicate<InstantFilmGroup> { $0.id == storedGroupId }
             )
             if let group = try? modelContext.fetch(descriptor).first {
                 let camera: InstantFilmCamera?
                 if let storedCameraId = settings.activeInstantFilmCameraId {
-                    camera = group.cameras.first { $0.id == storedCameraId && $0.deletedAt == nil }
+                    camera = group.cameras.first { $0.id == storedCameraId }
                 } else {
                     camera = nil
                 }
@@ -125,7 +121,7 @@ final class FilmLogViewModel {
         if let storedId = settings.activeRollId {
             let descriptor = FetchDescriptor<Roll>(
                 predicate: #Predicate<Roll> { roll in
-                    roll.id == storedId && roll.deletedAt == nil
+                    roll.id == storedId
                 }
             )
             if let roll = try? modelContext.fetch(descriptor).first {
@@ -137,7 +133,7 @@ final class FilmLogViewModel {
 
         // 3. Fallback: find any active, non-deleted regular roll
         let activeDescriptor = FetchDescriptor<Roll>(
-            predicate: #Predicate<Roll> { $0.isActive == true && $0.deletedAt == nil },
+            predicate: #Predicate<Roll> { $0.isActive == true },
             sortBy: [SortDescriptor(\.modifiedAt, order: .reverse)]
         )
         if let roll = try? modelContext.fetch(activeDescriptor).first {
@@ -233,7 +229,7 @@ final class FilmLogViewModel {
     }
 
     func deleteItem(_ item: LogItem) {
-        item.softDelete()
+        modelContext.delete(item)
         logItems.removeAll { $0.id == item.id }
     }
 
@@ -325,7 +321,7 @@ final class FilmLogViewModel {
     @discardableResult
     func createRoll(camera: Camera, filmStock: String, capacity: Int = 36) -> Roll {
         // Deactivate any currently active roll on this camera
-        for roll in camera.rolls where roll.isActive && roll.deletedAt == nil {
+        for roll in camera.rolls where roll.isActive {
             roll.isActive = false
         }
 
@@ -349,7 +345,7 @@ final class FilmLogViewModel {
     }
 
     func deleteRoll(_ roll: Roll) {
-        roll.softDelete()
+        modelContext.delete(roll)
         if activeRoll?.id == roll.id {
             activeRoll = nil
             logItems = []
@@ -366,27 +362,18 @@ final class FilmLogViewModel {
     }
 
     func deleteCamera(_ camera: Camera) {
-        camera.softDelete()
-        // Also soft-delete all rolls on this camera
-        for roll in camera.rolls where roll.deletedAt == nil {
-            roll.softDelete()
-        }
         // If the active roll belonged to this camera, clear state
         if let activeRoll, activeRoll.camera?.id == camera.id {
             self.activeRoll = nil
             logItems = []
         }
+        modelContext.delete(camera)
     }
 
     /// All cameras and instant film groups for the camera list, sorted by most recently used.
     func allCameraListEntries() -> [any CameraListEntry] {
-        let cameras: [Camera] = (try? modelContext.fetch(
-            FetchDescriptor<Camera>(predicate: #Predicate { $0.deletedAt == nil })
-        )) ?? []
-
-        let groups: [InstantFilmGroup] = (try? modelContext.fetch(
-            FetchDescriptor<InstantFilmGroup>(predicate: #Predicate { $0.deletedAt == nil })
-        )) ?? []
+        let cameras: [Camera] = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
+        let groups: [InstantFilmGroup] = (try? modelContext.fetch(FetchDescriptor<InstantFilmGroup>())) ?? []
 
         let entries: [any CameraListEntry] = cameras + groups
 
@@ -406,7 +393,6 @@ final class FilmLogViewModel {
     }
 
     func deleteInstantFilmGroup(_ group: InstantFilmGroup) {
-        group.softDelete()
         if activeInstantFilmGroup?.id == group.id {
             activeInstantFilmGroup = nil
             activeInstantFilmCamera = nil
@@ -414,6 +400,7 @@ final class FilmLogViewModel {
             settings.activeInstantFilmCameraId = nil
             logItems = []
         }
+        modelContext.delete(group)
     }
 
     @discardableResult
@@ -432,17 +419,14 @@ final class FilmLogViewModel {
     }
 
     func removeInstantFilmCamera(_ camera: InstantFilmCamera) {
-        camera.softDelete()
-        for roll in camera.rolls where roll.deletedAt == nil {
-            roll.softDelete()
-        }
         if activeInstantFilmCamera?.id == camera.id {
             // Switch to another sub-camera in the group if available
-            let remaining = activeInstantFilmGroup?.cameras.filter { $0.deletedAt == nil && $0.id != camera.id }
+            let remaining = activeInstantFilmGroup?.cameras.filter { $0.id != camera.id }
             activeInstantFilmCamera = remaining?.first
             settings.activeInstantFilmCameraId = activeInstantFilmCamera?.id
             reloadItems()
         }
+        modelContext.delete(camera)
     }
 
     func switchToInstantFilmGroup(_ group: InstantFilmGroup, camera: InstantFilmCamera? = nil) {
@@ -451,7 +435,7 @@ final class FilmLogViewModel {
 
         activeInstantFilmGroup = group
         settings.activeInstantFilmGroupId = group.id
-        activeInstantFilmCamera = camera ?? group.cameras.first(where: { $0.deletedAt == nil })
+        activeInstantFilmCamera = camera ?? group.cameras.first
         settings.activeInstantFilmCameraId = activeInstantFilmCamera?.id
         reloadItems()
     }
@@ -463,9 +447,9 @@ final class FilmLogViewModel {
 
     /// Returns the active pack (roll) for a sub-camera, creating a new one if the current pack is full.
     private func activePackForSubCamera(_ camera: InstantFilmCamera) -> Roll {
-        let activePacks = camera.rolls.filter { $0.deletedAt == nil && $0.isActive }
+        let activePacks = camera.rolls.filter { $0.isActive }
         if let pack = activePacks.last {
-            let frameCount = pack.logItems.filter { $0.deletedAt == nil }.count
+            let frameCount = pack.logItems.count
             if frameCount < camera.packCapacity {
                 return pack
             }
@@ -484,9 +468,7 @@ final class FilmLogViewModel {
     /// Total shots for a sub-camera across all its packs.
     func totalFrameCount(for camera: InstantFilmCamera) -> Int {
         camera.rolls
-            .filter { $0.deletedAt == nil }
             .flatMap { $0.logItems }
-            .filter { $0.deletedAt == nil }
             .count
     }
 
@@ -505,9 +487,7 @@ final class FilmLogViewModel {
             let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
             let cutoffDate = min(sevenDaysAgo, settings.lastAppLaunchDate ?? Date.distantPast)
 
-            let descriptor = FetchDescriptor<LogItem>(
-                predicate: #Predicate<LogItem> { $0.deletedAt == nil }
-            )
+            let descriptor = FetchDescriptor<LogItem>()
 
             do {
                 let allItems = try modelContext.fetch(descriptor)

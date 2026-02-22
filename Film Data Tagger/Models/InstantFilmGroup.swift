@@ -14,9 +14,6 @@ final class InstantFilmGroup {
     var name: String
     var createdAt: Date
 
-    /// When non-nil, this group has been soft-deleted
-    var deletedAt: Date?
-
     /// The sub-cameras in this group (e.g., "Polaroid 600", "SX-70")
     @Relationship(deleteRule: .cascade, inverse: \InstantFilmCamera.group)
     var cameras: [InstantFilmCamera] = []
@@ -25,18 +22,5 @@ final class InstantFilmGroup {
         self.id = UUID()
         self.name = name
         self.createdAt = Date()
-        self.deletedAt = nil
-    }
-
-    func softDelete() {
-        self.deletedAt = Date()
-    }
-
-    func restore() {
-        self.deletedAt = nil
-    }
-
-    var isDeleted: Bool {
-        deletedAt != nil
     }
 }

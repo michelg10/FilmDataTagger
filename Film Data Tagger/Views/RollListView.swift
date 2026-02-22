@@ -30,7 +30,7 @@ struct RollListView: View {
     var camera: Camera
 
     private var rolls: [Roll] {
-        camera.rolls.filter { !$0.isDeleted }
+        camera.rolls
     }
 
     private var activeRoll: Roll? {
@@ -42,7 +42,7 @@ struct RollListView: View {
     }
 
     private var totalExposures: Int {
-        rolls.flatMap { $0.logItems }.filter { $0.deletedAt == nil }.count
+        rolls.flatMap { $0.logItems }.count
     }
 
     var body: some View {
