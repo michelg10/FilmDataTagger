@@ -83,7 +83,7 @@ struct CameraListView: View {
         if topBarState == .camera {
             return "plus.circle.fill"
         }
-        let hasRolls = !(selectedCamera?.rolls.isEmpty ?? true)
+        let hasRolls = !(selectedCamera?.rolls?.isEmpty ?? true)
         return hasRolls ? "checkmark.arrow.trianglehead.counterclockwise" : "plus"
     }
 

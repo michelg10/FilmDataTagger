@@ -39,26 +39,27 @@ extension Camera: CameraListEntry {
     var displayName: String { name }
 
     var listSubtitle: String {
-        let allItems = rolls.flatMap { $0.logItems }
+        let allRolls = rolls ?? []
+        let allItems = allRolls.flatMap { $0.logItems ?? [] }
 
-        if allItems.isEmpty && rolls.isEmpty {
+        if allItems.isEmpty && allRolls.isEmpty {
             return "no exposures"
         }
 
         var parts: [String] = []
 
         // Active roll film stock (or "no roll loaded")
-        if let active = rolls.first(where: { $0.isActive }) {
+        if let active = allRolls.first(where: { $0.isActive }) {
             parts.append(active.filmStock)
-        } else if !rolls.isEmpty {
+        } else if !allRolls.isEmpty {
             parts.append("no roll loaded")
         }
 
         // Roll count
-        if rolls.count == 1 {
+        if allRolls.count == 1 {
             parts.append("1 roll")
-        } else if rolls.count > 1 {
-            parts.append("\(rolls.count) rolls")
+        } else if allRolls.count > 1 {
+            parts.append("\(allRolls.count) rolls")
         }
 
         // Exposure count
@@ -100,7 +101,7 @@ private func formatLoadedDate(_ date: Date) -> String {
 
 extension Roll {
     var activeItemCount: Int {
-        logItems.count
+        (logItems ?? []).count
     }
 
     var rollSummary: String {
@@ -118,9 +119,9 @@ extension InstantFilmGroup: CameraListEntry {
     var displayName: String { name }
 
     var listSubtitle: String {
-        let allItems = cameras
-            .flatMap { $0.rolls }
-            .flatMap { $0.logItems }
+        let allItems = (cameras ?? [])
+            .flatMap { $0.rolls ?? [] }
+            .flatMap { $0.logItems ?? [] }
 
         if allItems.isEmpty {
             return "no exposures"

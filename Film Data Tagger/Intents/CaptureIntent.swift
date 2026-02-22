@@ -17,7 +17,9 @@ struct LogExposureIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
-        let container = try ModelContainer(for: Camera.self, Roll.self, LogItem.self, InstantFilmGroup.self, InstantFilmCamera.self)
+        let schema = Schema([Camera.self, Roll.self, LogItem.self, InstantFilmGroup.self, InstantFilmCamera.self])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: .automatic)
+        let container = try ModelContainer(for: schema, configurations: [config])
         let context = container.mainContext
 
         // Find or create active roll
@@ -48,12 +50,12 @@ struct LogExposureIntent: AppIntent {
         }
 
         context.insert(item)
-        roll.logItems.append(item)
+        roll.logItems = (roll.logItems ?? []) + [item]
         roll.touch()
 
         try context.save()
 
-        let exposureCount = roll.logItems.count
+        let exposureCount = (roll.logItems ?? []).count
         let locationStatus = item.hasLocation ? "with location" : "without location"
 
         return .result(value: "Logged exposure #\(exposureCount) \(locationStatus)")

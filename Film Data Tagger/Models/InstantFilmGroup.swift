@@ -10,13 +10,13 @@ import SwiftData
 
 @Model
 final class InstantFilmGroup {
-    @Attribute(.unique) var id: UUID
-    var name: String
-    var createdAt: Date
+    var id: UUID = UUID()
+    var name: String = "SystemReserved:DataError"
+    var createdAt: Date = Date.distantPast
 
     /// The sub-cameras in this group (e.g., "Polaroid 600", "SX-70")
     @Relationship(deleteRule: .cascade, inverse: \InstantFilmCamera.group)
-    var cameras: [InstantFilmCamera] = []
+    var cameras: [InstantFilmCamera]?
 
     init(name: String) {
         self.id = UUID()

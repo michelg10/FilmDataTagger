@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import SwiftData
+import CoreData
 import CoreLocation
 
 @Observable
@@ -52,8 +53,13 @@ final class FilmLogViewModel {
         self.modelContext = modelContext
     }
 
+    nonisolated(unsafe) private var remoteChangeObserver: Any?
+
     deinit {
         geocodeTask?.cancel()
+        if let observer = remoteChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 
     // MARK: - Setup
@@ -74,6 +80,19 @@ final class FilmLogViewModel {
         geocodeRecentUngeocodedItems()
         recordAppLaunch()
         startLiveGeocoding()
+        observeRemoteChanges()
+    }
+
+    private func observeRemoteChanges() {
+        remoteChangeObserver = NotificationCenter.default.addObserver(
+            forName: .NSPersistentStoreRemoteChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.reloadItems()
+            }
+        }
     }
 
     private func recordAppLaunch() {
@@ -83,12 +102,12 @@ final class FilmLogViewModel {
     private func reloadItems() {
         if let group = activeInstantFilmGroup {
             // Instant film: aggregate all logItems across all rolls of all sub-cameras
-            logItems = group.cameras
-                .flatMap { $0.rolls }
-                .flatMap { $0.logItems }
+            logItems = (group.cameras ?? [])
+                .flatMap { $0.rolls ?? [] }
+                .flatMap { $0.logItems ?? [] }
                 .sorted { $0.createdAt < $1.createdAt }
         } else {
-            logItems = (activeRoll?.logItems ?? [])
+            logItems = (activeRoll?.logItems ?? [] as [LogItem])
                 .sorted { $0.createdAt < $1.createdAt }
         }
     }
@@ -108,7 +127,7 @@ final class FilmLogViewModel {
             if let group = try? modelContext.fetch(descriptor).first {
                 let camera: InstantFilmCamera?
                 if let storedCameraId = settings.activeInstantFilmCameraId {
-                    camera = group.cameras.first { $0.id == storedCameraId }
+                    camera = (group.cameras ?? []).first { $0.id == storedCameraId }
                 } else {
                     camera = nil
                 }
@@ -200,7 +219,7 @@ final class FilmLogViewModel {
         }
 
         modelContext.insert(item)
-        roll.logItems.append(item)
+        roll.logItems = (roll.logItems ?? []) + [item]
         roll.touch()
         logItems.append(item)
 
@@ -223,7 +242,7 @@ final class FilmLogViewModel {
         }
         let item = LogItem.placeholder(roll: roll)
         modelContext.insert(item)
-        roll.logItems.append(item)
+        roll.logItems = (roll.logItems ?? []) + [item]
         roll.touch()
         logItems.append(item)
     }
@@ -309,7 +328,7 @@ final class FilmLogViewModel {
         if let camera = roll.camera {
             let newRoll = Roll(filmStock: roll.filmStock, camera: camera, capacity: roll.capacity)
             modelContext.insert(newRoll)
-            camera.rolls.append(newRoll)
+            camera.rolls = (camera.rolls ?? []) + [newRoll]
             activeRoll = newRoll
             reloadItems()
         } else {
@@ -321,13 +340,13 @@ final class FilmLogViewModel {
     @discardableResult
     func createRoll(camera: Camera, filmStock: String, capacity: Int = 36) -> Roll {
         // Deactivate any currently active roll on this camera
-        for roll in camera.rolls where roll.isActive {
+        for roll in camera.rolls ?? [] where roll.isActive {
             roll.isActive = false
         }
 
         let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity)
         modelContext.insert(roll)
-        camera.rolls.append(roll)
+        camera.rolls = (camera.rolls ?? []) + [roll]
 
         switchToRoll(roll)
         return roll
@@ -407,13 +426,13 @@ final class FilmLogViewModel {
     func addInstantFilmCamera(to group: InstantFilmGroup, name: String, packCapacity: Int) -> InstantFilmCamera {
         let camera = InstantFilmCamera(name: name, packCapacity: packCapacity, group: group)
         modelContext.insert(camera)
-        group.cameras.append(camera)
+        group.cameras = (group.cameras ?? []) + [camera]
 
         // Create the first pack (roll) for this camera
         let pack = Roll(filmStock: group.name, capacity: packCapacity)
         pack.instantFilmCamera = camera
         modelContext.insert(pack)
-        camera.rolls.append(pack)
+        camera.rolls = (camera.rolls ?? []) + [pack]
 
         return camera
     }
@@ -421,8 +440,8 @@ final class FilmLogViewModel {
     func removeInstantFilmCamera(_ camera: InstantFilmCamera) {
         if activeInstantFilmCamera?.id == camera.id {
             // Switch to another sub-camera in the group if available
-            let remaining = activeInstantFilmGroup?.cameras.filter { $0.id != camera.id }
-            activeInstantFilmCamera = remaining?.first
+            let remaining = (activeInstantFilmGroup?.cameras ?? []).filter { $0.id != camera.id }
+            activeInstantFilmCamera = remaining.first
             settings.activeInstantFilmCameraId = activeInstantFilmCamera?.id
             reloadItems()
         }
@@ -435,7 +454,7 @@ final class FilmLogViewModel {
 
         activeInstantFilmGroup = group
         settings.activeInstantFilmGroupId = group.id
-        activeInstantFilmCamera = camera ?? group.cameras.first
+        activeInstantFilmCamera = camera ?? (group.cameras ?? []).first
         settings.activeInstantFilmCameraId = activeInstantFilmCamera?.id
         reloadItems()
     }
@@ -447,9 +466,9 @@ final class FilmLogViewModel {
 
     /// Returns the active pack (roll) for a sub-camera, creating a new one if the current pack is full.
     private func activePackForSubCamera(_ camera: InstantFilmCamera) -> Roll {
-        let activePacks = camera.rolls.filter { $0.isActive }
+        let activePacks = (camera.rolls ?? []).filter { $0.isActive }
         if let pack = activePacks.last {
-            let frameCount = pack.logItems.count
+            let frameCount = (pack.logItems ?? []).count
             if frameCount < camera.packCapacity {
                 return pack
             }
@@ -461,14 +480,14 @@ final class FilmLogViewModel {
         let newPack = Roll(filmStock: activeInstantFilmGroup?.name ?? "", capacity: camera.packCapacity)
         newPack.instantFilmCamera = camera
         modelContext.insert(newPack)
-        camera.rolls.append(newPack)
+        camera.rolls = (camera.rolls ?? []) + [newPack]
         return newPack
     }
 
     /// Total shots for a sub-camera across all its packs.
     func totalFrameCount(for camera: InstantFilmCamera) -> Int {
-        camera.rolls
-            .flatMap { $0.logItems }
+        (camera.rolls ?? [])
+            .flatMap { $0.logItems ?? [] }
             .count
     }
 

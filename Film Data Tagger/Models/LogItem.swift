@@ -11,13 +11,13 @@ import CoreLocation
 
 @Model
 final class LogItem {
-    @Attribute(.unique) var id: UUID
+    var id: UUID = UUID()
 
     /// The roll this item belongs to
     var roll: Roll?
 
     /// When `hasRealCreatedAt` is false, `createdAt` is a synthetic value used only for sort ordering.
-    var createdAt: Date
+    var createdAt: Date = Date.distantPast
     var hasRealCreatedAt: Bool = true
 
     /// Optional notes for this frame
@@ -76,7 +76,7 @@ final class LogItem {
     /// Frame number computed from position in roll (1-indexed), or nil if not in a roll
     var frameNumber: Int? {
         guard let roll = roll else { return nil }
-        let sortedItems = roll.logItems.sorted { $0.createdAt < $1.createdAt }
+        let sortedItems = (roll.logItems ?? []).sorted { $0.createdAt < $1.createdAt }
         guard let index = sortedItems.firstIndex(where: { $0.id == self.id }) else { return nil }
         return index + 1
     }

@@ -10,12 +10,12 @@ import SwiftData
 
 @Model
 final class Camera {
-    @Attribute(.unique) var id: UUID
-    var name: String
-    var createdAt: Date
+    var id: UUID = UUID()
+    var name: String = "SystemReserved:DataError"
+    var createdAt: Date = Date.distantPast
 
     @Relationship(deleteRule: .cascade, inverse: \Roll.camera)
-    var rolls: [Roll] = []
+    var rolls: [Roll]?
 
     init(name: String) {
         self.id = UUID()

@@ -30,7 +30,7 @@ struct RollListView: View {
     var camera: Camera
 
     private var rolls: [Roll] {
-        camera.rolls
+        camera.rolls ?? []
     }
 
     private var activeRoll: Roll? {
