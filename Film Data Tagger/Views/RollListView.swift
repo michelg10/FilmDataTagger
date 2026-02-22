@@ -41,8 +41,10 @@ struct RollListView: View {
         rolls.filter { !$0.isActive }.sorted { $0.modifiedAt > $1.modifiedAt }
     }
 
+    var onSelectRoll: ((Roll) -> Void)?
+
     private var totalExposures: Int {
-        rolls.flatMap { $0.logItems }.count
+        rolls.flatMap { $0.logItems ?? [] }.count
     }
 
     var body: some View {
@@ -70,23 +72,31 @@ struct RollListView: View {
                                 .font(.system(size: 15, weight: .heavy, design: .default))
                                 .fontWidth(.expanded)
                                 .opacity(0.6)
-                            
-                            RollListRow(roll: activeRoll)
-                                .padding(.top, 12)
-                                .padding(.bottom, 15)
+
+                            Button { onSelectRoll?(activeRoll) } label: {
+                                RollListRow(roll: activeRoll)
+                                    .padding(.top, 12)
+                                    .padding(.bottom, 15)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
                         }
-                        
+
                         if !pastRolls.isEmpty {
                             Text("Past rolls")
                                 .font(.system(size: 15, weight: .heavy, design: .default))
                                 .fontWidth(.expanded)
                                 .opacity(0.6)
                                 .padding(.top, 15)
-                            
+
                             ForEach(pastRolls, id: \.id) { roll in
-                                RollListRow(roll: roll)
-                                    .padding(.top, pastRolls.first?.id == roll.id ? 12 : 15)
-                                    .padding(.bottom, 15)
+                                Button { onSelectRoll?(roll) } label: {
+                                    RollListRow(roll: roll)
+                                        .padding(.top, pastRolls.first?.id == roll.id ? 12 : 15)
+                                        .padding(.bottom, 15)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                         

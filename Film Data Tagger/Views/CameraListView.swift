@@ -73,6 +73,7 @@ struct CameraListRow: View {
 
 struct CameraListView: View {
     var entries: [any CameraListEntry]
+    var onSelectRoll: ((Roll) -> Void)?
     @Environment(\.dismiss) private var dismiss
     @Namespace var namespace
     @State private var topBarState: TopBarState = .camera
@@ -128,8 +129,11 @@ struct CameraListView: View {
             }
             .navigationDestination(for: UUID.self) { id in
                 if let camera = entries.first(where: { $0.id == id }) as? Camera {
-                    RollListView(camera: camera)
-                        .onAppear { selectedCamera = camera }
+                    RollListView(camera: camera, onSelectRoll: { roll in
+                        onSelectRoll?(roll)
+                        dismiss()
+                    })
+                    .onAppear { selectedCamera = camera }
                 }
             }
         }
