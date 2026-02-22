@@ -128,29 +128,35 @@ struct ExposureListView: View {
             .ignoresSafeArea(edges: .bottom)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Button {
-                        onTitleTapped?()
-                    } label: {
-                        HStack(spacing: 0) {
-                            VStack(alignment: .leading, spacing: 5) {
-                                Text(cameraName)
-                                    .font(.system(size: 28, weight: .bold, design: .default))
-                                    .fontWidth(.expanded)
-                                    .foregroundStyle(Color.white)
-                                Text(filmStock)
-                                    .font(.system(size: 20, weight: .bold, design: .default))
-                                    .foregroundStyle(Color(hex: 0xAAAAAA))
-                            }
-                            Spacer(minLength: 0)
-                        }
-                        .frame(width: UIScreen.main.bounds.width - 32)
-                        .padding(.top, 33)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+                    // the button was here, but hit testing with a toolbar item was funny, so we use a placeholder rectangle here to maintain the glass-y blur effect but move the button into an overlay where hit testing is reliable
+                    Rectangle()
+                        .frame(width: UIScreen.main.bounds.width - 32, height: 96)
+                        .opacity(0.00001)
                 }
             }
             .preferredColorScheme(.dark)
+        }.overlay(alignment: .top) {
+            Button {
+                onTitleTapped?()
+            } label: {
+                HStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(cameraName)
+                            .font(.system(size: 28, weight: .bold, design: .default))
+                            .fontWidth(.expanded)
+                            .foregroundStyle(Color.white)
+                            .padding(.top, 7)
+                        Text(filmStock)
+                            .font(.system(size: 20, weight: .bold, design: .default))
+                            .foregroundStyle(Color(hex: 0xAAAAAA))
+                    }
+                    Spacer(minLength: 0)
+                }.padding(.horizontal, 16)
+                .frame(height: 81, alignment: .topLeading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 59)
         }
     }
 }

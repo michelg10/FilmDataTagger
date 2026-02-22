@@ -9,7 +9,7 @@ import SwiftUI
 
 struct LogItemView: View {
     struct LogItemInfoItem: Identifiable {
-        let id = UUID()
+        var id: String
         var icon: Image
         var mainText: Text
         let secondaryText: Text?
@@ -83,9 +83,9 @@ struct LogItemView: View {
                 exposureNumber: 1,
                 previewImage: .init("test-image"),
                 infoItems: [
-                    .init(icon: .init(systemName: "clock.fill"), mainText: Text("3:45 P.M."), secondaryText: Text("1/5/2023")),
-                    .init(icon: .init(systemName: "location.fill"), mainText: Text("The University of Hong Kong"), secondaryText: nil),
-                    .init(icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/4.5, 1/125s"), secondaryText: Text("\(Image(systemName: "bolt.slash.fill"))"))
+                    .init(id: "time", icon: .init(systemName: "clock.fill"), mainText: Text("3:45 P.M."), secondaryText: Text("1/5/2023")),
+                    .init(id: "location", icon: .init(systemName: "location.fill"), mainText: Text("The University of Hong Kong"), secondaryText: nil),
+                    .init(id: "camera", icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/4.5, 1/125s"), secondaryText: Text("\(Image(systemName: "bolt.slash.fill"))"))
                 ]
             )
             
@@ -93,9 +93,9 @@ struct LogItemView: View {
                 exposureNumber: 2,
                 previewImage: .init("test-image"),
                 infoItems: [
-                    .init(icon: .init(systemName: "clock.fill"), mainText: Text("9:15 A.M."), secondaryText: Text("1/12/2023")),
-                    .init(icon: .init(systemName: "location.fill"), mainText: Text("Central Park, New York"), secondaryText: nil),
-                    .init(icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/2.8, 1/250s"), secondaryText: Text("\(Image(systemName: "bolt.fill"))"))
+                    .init(id: "time", icon: .init(systemName: "clock.fill"), mainText: Text("9:15 A.M."), secondaryText: Text("1/12/2023")),
+                    .init(id: "location", icon: .init(systemName: "location.fill"), mainText: Text("Central Park, New York"), secondaryText: nil),
+                    .init(id: "camera", icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/2.8, 1/250s"), secondaryText: Text("\(Image(systemName: "bolt.fill"))"))
                 ]
             )
             
@@ -103,9 +103,9 @@ struct LogItemView: View {
                 exposureNumber: 3,
                 previewImage: .init("test-image"),
                 infoItems: [
-                    .init(icon: .init(systemName: "clock.fill"), mainText: Text("11:30 P.M."), secondaryText: Text("2/14/2023")),
-                    .init(icon: .init(systemName: "location.fill"), mainText: Text("Shibuya Crossing, Tokyo"), secondaryText: nil),
-                    .init(icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/1.4, 1/60s"), secondaryText: Text("\(Image(systemName: "bolt.fill"))"))
+                    .init(id: "time", icon: .init(systemName: "clock.fill"), mainText: Text("11:30 P.M."), secondaryText: Text("2/14/2023")),
+                    .init(id: "location", icon: .init(systemName: "location.fill"), mainText: Text("Shibuya Crossing, Tokyo"), secondaryText: nil),
+                    .init(id: "camera", icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/1.4, 1/60s"), secondaryText: Text("\(Image(systemName: "bolt.fill"))"))
                 ]
             )
             
@@ -113,9 +113,9 @@ struct LogItemView: View {
                 exposureNumber: 4,
                 previewImage: .init("test-image"),
                 infoItems: [
-                    .init(icon: .init(systemName: "clock.fill"), mainText: Text("6:20 A.M."), secondaryText: Text("3/8/2023")),
-                    .init(icon: .init(systemName: "location.fill"), mainText: Text("Golden Gate Bridge"), secondaryText: nil),
-                    .init(icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/8, 1/500s"), secondaryText: Text("\(Image(systemName: "bolt.slash.fill"))"))
+                    .init(id: "time", icon: .init(systemName: "clock.fill"), mainText: Text("6:20 A.M."), secondaryText: Text("3/8/2023")),
+                    .init(id: "location", icon: .init(systemName: "location.fill"), mainText: Text("Golden Gate Bridge"), secondaryText: nil),
+                    .init(id: "camera", icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/8, 1/500s"), secondaryText: Text("\(Image(systemName: "bolt.slash.fill"))"))
                 ]
             )
             
@@ -123,9 +123,9 @@ struct LogItemView: View {
                 exposureNumber: 5,
                 previewImage: .init("test-image"),
                 infoItems: [
-                    .init(icon: .init(systemName: "clock.fill"), mainText: Text("1:05 P.M."), secondaryText: Text("4/20/2023")),
-                    .init(icon: .init(systemName: "location.fill"), mainText: Text("Louvre Museum, Paris"), secondaryText: nil),
-                    .init(icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/5.6, 1/125s"), secondaryText: Text("\(Image(systemName: "bolt.slash.fill"))"))
+                    .init(id: "time", icon: .init(systemName: "clock.fill"), mainText: Text("1:05 P.M."), secondaryText: Text("4/20/2023")),
+                    .init(id: "location", icon: .init(systemName: "location.fill"), mainText: Text("Louvre Museum, Paris"), secondaryText: nil),
+                    .init(id: "camera", icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/5.6, 1/125s"), secondaryText: Text("\(Image(systemName: "bolt.slash.fill"))"))
                 ]
             )
             
@@ -133,9 +133,9 @@ struct LogItemView: View {
                 exposureNumber: 6,
                 previewImage: .init("test-image"),
                 infoItems: [
-                    .init(icon: .init(systemName: "clock.fill"), mainText: Text("8:45 P.M."), secondaryText: Text("5/2/2023")),
-                    .init(icon: .init(systemName: "location.fill"), mainText: Text("Times Square"), secondaryText: nil),
-                    .init(icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/2, 1/30s"), secondaryText: Text("\(Image(systemName: "bolt.fill"))"))
+                    .init(id: "time", icon: .init(systemName: "clock.fill"), mainText: Text("8:45 P.M."), secondaryText: Text("5/2/2023")),
+                    .init(id: "location", icon: .init(systemName: "location.fill"), mainText: Text("Times Square"), secondaryText: nil),
+                    .init(id: "camera", icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/2, 1/30s"), secondaryText: Text("\(Image(systemName: "bolt.fill"))"))
                 ]
             )
             
@@ -143,9 +143,9 @@ struct LogItemView: View {
                 exposureNumber: 7,
                 previewImage: .init("test-image"),
                 infoItems: [
-                    .init(icon: .init(systemName: "clock.fill"), mainText: Text("4:10 P.M."), secondaryText: Text("6/15/2023")),
-                    .init(icon: .init(systemName: "location.fill"), mainText: Text("Santa Monica Pier"), secondaryText: nil),
-                    .init(icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/11, 1/1000s"), secondaryText: Text("\(Image(systemName: "bolt.slash.fill"))"))
+                    .init(id: "time", icon: .init(systemName: "clock.fill"), mainText: Text("4:10 P.M."), secondaryText: Text("6/15/2023")),
+                    .init(id: "location", icon: .init(systemName: "location.fill"), mainText: Text("Santa Monica Pier"), secondaryText: nil),
+                    .init(id: "camera", icon: .init(systemName: "camera.fill"), mainText: Text("\(Image(systemName: "f.cursive"))/11, 1/1000s"), secondaryText: Text("\(Image(systemName: "bolt.slash.fill"))"))
                 ]
             )
             
