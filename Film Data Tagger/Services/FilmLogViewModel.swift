@@ -240,7 +240,6 @@ final class FilmLogViewModel {
             roll = activePackForSubCamera(subCamera)
         } else {
             guard let openRoll else { return }
-            activateRollIfNeeded(openRoll)
             roll = openRoll
         }
         let item = LogItem.placeholder(roll: roll)
