@@ -165,12 +165,13 @@ private struct CaptureSheetFullContent: View {
 }
 
 private struct CaptureSheetCompactContent: View {
-    var viewModel: FilmLogViewModel
+    var referencePhotosEnabled: Bool
+    var currentPlaceName: String?
     var lastCaptureDate: Date?
 
     var body: some View {
         HStack(spacing: 0) {
-            Image(systemName: "eye\(viewModel.referencePhotosEnabled ? "" : ".slash").fill")
+            Image(systemName: referencePhotosEnabled ? "eye.fill" : "eye.slash.fill")
                 .font(.system(size: 16, weight: .semibold, design: .default))
                 .foregroundStyle(Color.white)
                 .frame(width: 25, height: 19)
@@ -188,7 +189,7 @@ private struct CaptureSheetCompactContent: View {
             CompactInfoRow(
                 icon: Image(systemName: "location.fill")
                     .font(.system(size: 15, weight: .semibold, design: .default)),
-                text: viewModel.currentPlaceName ?? "Locating..."
+                text: currentPlaceName ?? "Locating..."
             )
         }.padding(.horizontal, 27)
         .padding(.bottom, 15)
@@ -257,7 +258,8 @@ struct CaptureSheet: View {
             .opacity(isCompact ? 0 : 1)
 
             CaptureSheetCompactContent(
-                viewModel: viewModel,
+                referencePhotosEnabled: viewModel.referencePhotosEnabled,
+                currentPlaceName: viewModel.currentPlaceName,
                 lastCaptureDate: lastCaptureDate
             )
             .frame(maxHeight: isCompact ? nil : 0)

@@ -163,17 +163,28 @@ struct NewRollSheet: View {
                         .font(.system(size: 17, weight: .semibold, design: .default))
                         .foregroundStyle(Color.white.opacity(0.55))
                 }
-                Picker(
-                    "Exposures",
-                    selection: $exposureCount,
-                    content: {
-                        Text("12").tag(12)
-                        Text("15").tag(15)
-                        Text("24").tag(24)
-                        Text("36").tag(36)
-                    }
-                ).pickerStyle(.segmented)
-            }.padding(.bottom, 42)
+                UIKitSegmentedControl(
+                    segments: ["12", "15", "24", "36"],
+                    selectedIndex: Binding(
+                        get: {
+                            [12, 15, 24, 36].firstIndex(of: exposureCount)
+                        },
+                        set: { index in
+                            exposureCount = index.map { [12, 15, 24, 36][$0] }
+                        }
+                    ),
+                    height: 40,
+                    selectedTextAttributes: [
+                        .font: UIFont.systemFont(ofSize: 15, weight: .semibold),
+                    ],
+                    normalTextAttributes: [
+                        .font: UIFont.systemFont(ofSize: 15, weight: .medium),
+                        .kern: -0.45,
+                    ],
+                    selectedTintColor: UIColor(Color(hex: 0x646464)),
+                    controlBackgroundColor: UIColor(Color(hex: 0x2E2E2E))
+                )
+            }.padding(.bottom, 44)
             Button {
                 playHaptic(.finishRoll)
                 guard let camera = viewModel.activeCamera else { return }
@@ -197,7 +208,7 @@ struct NewRollSheet: View {
         }.padding(.horizontal, 15 + 8)
         .padding(.top, 15 + 7)
         .ignoresSafeArea(.all)
-        .presentationDetents([.height(378)])
+        .presentationDetents([.height(CGFloat(sheetScaleCompensationFactor * 405 - bottomSafeAreaInset))])
         .presentationDragIndicator(.hidden)
         .presentationBackgroundInteraction(.disabled)
         .sheetContentClip(cornerRadius: 35)
