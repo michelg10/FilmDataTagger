@@ -56,10 +56,11 @@ struct LogItemView: View {
                         infoItem.icon
                             .font(.system(size: 11, weight: .medium))
                             .frame(width: 17, height: 14, alignment: .center)
-                            .opacity(0.85)
+                            .opacity(0.6)
                             .padding(.trailing, 5)
                         Group {
                             infoItem.mainText
+                                .opacity(0.9)
                             if let secondaryText = infoItem.secondaryText {
                                 Text(" ")
                                 secondaryText
