@@ -153,7 +153,7 @@ private struct CaptureSheetFullContent: View {
                     text: viewModel.currentPlaceName ?? "Locating...",
                     subtext: viewModel.currentLocation.map {
                         String(format: "%.4f / %.4f", $0.coordinate.latitude, $0.coordinate.longitude)
-                    } ?? "",
+                    } ?? (viewModel.currentPlaceName == "Unknown" ? "Location unavailable" : "Locating..."),
                     textSubtextPadding: 3.0
                 )
             }
@@ -233,14 +233,13 @@ private struct CaptureButton: View {
 // MARK: - CaptureSheet
 
 struct CaptureSheet: View {
-    static let iOSSheetPadding = 27
-    static let compactDetent: PresentationDetent = .height(CGFloat(147 - iOSSheetPadding))
-    static let fullDetent: PresentationDetent = .height(CGFloat(283 - iOSSheetPadding))
+    static let compactDetent: PresentationDetent = .height(CGFloat(sheetScaleCompensationFactor * 147 - bottomSafeAreaInset))
+    static let fullDetent: PresentationDetent = .height(CGFloat(sheetScaleCompensationFactor * 278 - bottomSafeAreaInset))
 
     var viewModel: FilmLogViewModel
     var isScrolling: Bool = false
     var frameCount: Int = 0
-    var rollCapacity: Int = 36
+    var rollCapacity: Int
     var lastCaptureDate: Date?
 
     @State private var selectedDetent: PresentationDetent = fullDetent
@@ -298,6 +297,7 @@ struct CaptureSheet: View {
                 viewModel: FilmLogViewModel(
                     modelContext: try! ModelContainer(for: LogItem.self, Roll.self, Camera.self).mainContext
                 )
+                , rollCapacity: 36
             )
         }
 }

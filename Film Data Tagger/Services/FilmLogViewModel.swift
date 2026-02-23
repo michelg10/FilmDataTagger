@@ -181,6 +181,14 @@ final class FilmLogViewModel {
 
     private func startLiveGeocoding() {
         geocodeTask = Task {
+            // Show "Unknown" after 15s if we still have no location
+            Task {
+                try? await Task.sleep(for: .seconds(15))
+                if currentPlaceName == nil {
+                    currentPlaceName = "Unknown"
+                }
+            }
+
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(3))
                 guard let location = locationManager.currentLocation else { continue }
