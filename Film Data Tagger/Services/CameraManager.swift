@@ -18,6 +18,7 @@ final class CameraManager: NSObject {
     private var photoContinuation: CheckedContinuation<Data?, Never>?
     var isRunning = false
     var permissionDenied = false
+    var cameraUnavailable = false
 
     /// Request camera permission. Returns true if granted, false if denied.
     @discardableResult
@@ -63,6 +64,7 @@ final class CameraManager: NSObject {
         guard let device,
               let input = try? AVCaptureDeviceInput(device: device) else {
             session.commitConfiguration()
+            Task { @MainActor in self.cameraUnavailable = true }
             return
         }
 
@@ -77,7 +79,9 @@ final class CameraManager: NSObject {
     }
 
     func capturePhoto() async -> Data? {
-        guard session.isRunning else { return nil }
+        guard session.isRunning, output.connection(with: .video)?.isActive == true else {
+            return nil
+        }
 
         return await withCheckedContinuation { continuation in
             self.photoContinuation = continuation

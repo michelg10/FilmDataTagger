@@ -23,7 +23,7 @@ struct LogItemView: View {
     var body: some View {
         HStack(spacing: 12) {
             if let exposureNumber = exposureNumber {
-                Text(String(format: "%02d", exposureNumber))
+                Text(String(format: "%02d", exposureNumber % 100))
                     .font(.system(size: 20, weight: .bold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)

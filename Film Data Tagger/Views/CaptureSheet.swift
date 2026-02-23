@@ -76,13 +76,15 @@ private struct CaptureSheetFullContent: View {
         HStack(spacing: 18) {
             // reference photo
             ZStack {
-                if viewModel.cameraManager.permissionDenied {
+                if viewModel.cameraManager.permissionDenied || viewModel.cameraManager.cameraUnavailable {
                     ZStack {
                         Rectangle()
                             .foregroundStyle(Color(hex: 0x454545))
                         VStack(spacing: 6) {
-                            Image(systemName: "hand.raised.slash.fill")
-                            Text("no camera\naccess")
+                            Image(systemName: viewModel.cameraManager.cameraUnavailable
+                                  ? "camera.fill" : "hand.raised.slash.fill")
+                            Text(viewModel.cameraManager.cameraUnavailable
+                                 ? "no camera\navailable" : "no camera\naccess")
                                 .multilineTextAlignment(.center)
                         }
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
@@ -125,7 +127,9 @@ private struct CaptureSheetFullContent: View {
             .animation(.easeInOut(duration: 0.25), value: viewModel.cameraManager.permissionDenied)
             .onTapGesture {
                 playHaptic(.viewfinderToggle)
-                if viewModel.cameraManager.permissionDenied {
+                if viewModel.cameraManager.cameraUnavailable {
+                    // No camera hardware — nothing to do
+                } else if viewModel.cameraManager.permissionDenied {
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(url)
                     }
