@@ -319,24 +319,6 @@ final class FilmLogViewModel {
 
     // MARK: - Roll Management
 
-    func finishRoll() {
-        guard let roll = activeRoll else { return }
-        roll.isActive = false
-        roll.touch()
-
-        // Temporary: auto-create a new roll on the same camera until we have UI
-        if let camera = roll.camera {
-            let newRoll = Roll(filmStock: roll.filmStock, camera: camera, capacity: roll.capacity)
-            modelContext.insert(newRoll)
-            camera.rolls = (camera.rolls ?? []) + [newRoll]
-            activeRoll = newRoll
-            reloadItems()
-        } else {
-            activeRoll = nil
-            logItems = []
-        }
-    }
-
     @discardableResult
     func createRoll(camera: Camera, filmStock: String, capacity: Int = 36) -> Roll {
         // Deactivate any currently active roll on this camera
