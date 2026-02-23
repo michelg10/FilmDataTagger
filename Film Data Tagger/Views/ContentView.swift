@@ -87,13 +87,7 @@ struct ContentView: View {
                         lastCaptureDate: logItems.last(where: { $0.hasRealCreatedAt })?.createdAt
                     )
                     .sheet(isPresented: $showCameraList) {
-                        CameraListView(
-                            entries: viewModel.allCameraListEntries(),
-                            onSelectRoll: { roll in
-                                viewModel.switchToRoll(roll)
-                                showCameraList = false
-                            }
-                        )
+                        CameraListView(viewModel: viewModel)
                     }.sheet(isPresented: $showNewRoll) {
                         NewRollSheet(viewModel: viewModel)
                     }

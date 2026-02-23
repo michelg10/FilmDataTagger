@@ -28,6 +28,8 @@ struct RollListRow: View {
 
 struct RollListView: View {
     var camera: Camera
+    var viewModel: FilmLogViewModel
+    var onDismissSheet: (() -> Void)?
 
     private var rolls: [Roll] {
         camera.rolls ?? []
@@ -41,7 +43,7 @@ struct RollListView: View {
         rolls.filter { !$0.isActive }.sorted { $0.modifiedAt > $1.modifiedAt }
     }
 
-    var onSelectRoll: ((Roll) -> Void)?
+    @State private var rollToDelete: Roll?
 
     private var totalExposures: Int {
         rolls.flatMap { $0.logItems ?? [] }.count
@@ -73,7 +75,10 @@ struct RollListView: View {
                                 .fontWidth(.expanded)
                                 .opacity(0.6)
 
-                            Button { onSelectRoll?(activeRoll) } label: {
+                            Button {
+                                viewModel.switchToRoll(activeRoll)
+                                onDismissSheet?()
+                            } label: {
                                 RollListRow(roll: activeRoll)
                                     .padding(.top, 12)
                                     .padding(.bottom, 15)
@@ -90,13 +95,23 @@ struct RollListView: View {
                                 .padding(.top, 15)
 
                             ForEach(pastRolls, id: \.id) { roll in
-                                Button { onSelectRoll?(roll) } label: {
+                                Button {
+                                    viewModel.switchToRoll(roll)
+                                    onDismissSheet?()
+                                } label: {
                                     RollListRow(roll: roll)
                                         .padding(.top, pastRolls.first?.id == roll.id ? 12 : 15)
                                         .padding(.bottom, 15)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        rollToDelete = roll
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
                             }
                         }
                         
@@ -113,6 +128,26 @@ struct RollListView: View {
                     .padding(.horizontal, 16)
                     .frame(maxHeight: .infinity, alignment: .center)
             }
+        }
+        .alert(
+            "Delete \"\(rollToDelete?.filmStock ?? "")\"?",
+            isPresented: Binding(
+                get: { rollToDelete != nil },
+                set: { if !$0 { rollToDelete = nil } }
+            )
+        ) {
+            Button("Delete", role: .destructive) {
+                if let roll = rollToDelete {
+                    viewModel.deleteRoll(roll)
+                    rollToDelete = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                rollToDelete = nil
+            }
+        } message: {
+            let count = (rollToDelete?.logItems ?? []).count
+            Text("This will permanently delete \"\(rollToDelete?.filmStock ?? "")\" and its \(count) logged exposure\(count == 1 ? "" : "s") from all your devices. Data already saved to Photos or exported files won't be affected.")
         }
         .navigationBarBackButtonHidden()
         .toolbar {

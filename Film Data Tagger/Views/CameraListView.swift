@@ -72,8 +72,7 @@ struct CameraListRow: View {
 }
 
 struct CameraListView: View {
-    var entries: [any CameraListEntry]
-    var onSelectRoll: ((Roll) -> Void)?
+    var viewModel: FilmLogViewModel
     @Environment(\.dismiss) private var dismiss
     @Namespace var namespace
     @State private var topBarState: TopBarState = .camera
@@ -91,6 +90,7 @@ struct CameraListView: View {
     var body: some View {
         NavigationStack(path: $path) {
             Group {
+                let entries = viewModel.allCameraListEntries()
                 if !entries.isEmpty {
                     ScrollView {
                         VStack(spacing: 0) {
@@ -128,11 +128,13 @@ struct CameraListView: View {
                 }
             }
             .navigationDestination(for: UUID.self) { id in
+                let entries = viewModel.allCameraListEntries()
                 if let camera = entries.first(where: { $0.id == id }) as? Camera {
-                    RollListView(camera: camera, onSelectRoll: { roll in
-                        onSelectRoll?(roll)
-                        dismiss()
-                    })
+                    RollListView(
+                        camera: camera,
+                        viewModel: viewModel,
+                        onDismissSheet: { dismiss() }
+                    )
                     .onAppear { selectedCamera = camera }
                 }
             }
