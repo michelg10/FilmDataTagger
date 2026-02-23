@@ -74,10 +74,10 @@ struct CameraListRow: View {
 struct CameraListView: View {
     var viewModel: FilmLogViewModel
     @Environment(\.dismiss) private var dismiss
-    @Namespace var namespace
     @State private var topBarState: TopBarState = .camera
     @State private var path = NavigationPath()
     @State private var selectedCamera: Camera?
+    @State private var showNewRoll = false
 
     private var bottomButtonIcon: String {
         if topBarState == .camera {
@@ -99,8 +99,10 @@ struct CameraListView: View {
                                     CameraListRow(entry: entry)
                                         .padding(.vertical, 15)
                                 }
+                                .transition(.asymmetric(insertion: .opacity, removal: .identity))
                             }
-                        }.padding(.top, 13)
+                        }.animation(.easeOut(duration: 0.25), value: entries.map(\.id))
+                        .padding(.top, 13)
                             .padding(.bottom, 162) // overscroll
                     }
                 } else {
@@ -139,6 +141,11 @@ struct CameraListView: View {
                 }
             }
         }
+        .sheet(isPresented: $showNewRoll) {
+            NewRollSheet(viewModel: viewModel, onRollCreated: {
+                dismiss()
+            })
+        }
         .onChange(of: path.count) {
             withAnimation(.easeInOut(duration: 0.2)) {
                 topBarState = path.isEmpty ? .camera : .roll
@@ -161,7 +168,10 @@ struct CameraListView: View {
         }
         .overlay(alignment: .bottom) {
             Button {
-                // TODO
+                if topBarState == .roll {
+                    playHaptic(.finishRoll)
+                    showNewRoll = true
+                }
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: bottomButtonIcon)
@@ -176,8 +186,9 @@ struct CameraListView: View {
                         .padding(.trailing, 25)
                 }.foregroundStyle(Color.white.opacity(0.95))
                 .frame(height: 61)
-            }.glassEffect(.regular.interactive(), in: Capsule())
-            .glassEffectID("principal", in: namespace)
+                .contentShape(Rectangle())
+            }
+            .glassEffect(.regular.interactive(), in: Capsule())
             .buttonStyle(.plain)
             .offset(y: -1)
         }

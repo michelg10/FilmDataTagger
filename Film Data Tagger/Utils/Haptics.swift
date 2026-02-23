@@ -35,23 +35,28 @@ enum Haptic {
     }
 }
 
+private let hapticQueue = DispatchQueue(label: "haptics", qos: .userInteractive)
+
 private let hapticEngine: CHHapticEngine? = {
     let engine = try? CHHapticEngine()
     engine?.isAutoShutdownEnabled = true
     engine?.playsHapticsOnly = true
+    try? engine?.start()
     return engine
 }()
 
 func playHaptic(_ haptic: Haptic) {
     guard let engine = hapticEngine else { return }
-    try? engine.start()
-    let event = CHHapticEvent(
-        eventType: .hapticTransient,
-        parameters: [
-            CHHapticEventParameter(parameterID: .hapticIntensity, value: haptic.intensity),
-            CHHapticEventParameter(parameterID: .hapticSharpness, value: haptic.sharpness),
-        ],
-        relativeTime: 0
-    )
-    try? engine.makePlayer(with: CHHapticPattern(events: [event], parameters: [])).start(atTime: 0)
+    hapticQueue.async {
+        try? engine.start()
+        let event = CHHapticEvent(
+            eventType: .hapticTransient,
+            parameters: [
+                CHHapticEventParameter(parameterID: .hapticIntensity, value: haptic.intensity),
+                CHHapticEventParameter(parameterID: .hapticSharpness, value: haptic.sharpness),
+            ],
+            relativeTime: 0
+        )
+        try? engine.makePlayer(with: CHHapticPattern(events: [event], parameters: [])).start(atTime: 0)
+    }
 }

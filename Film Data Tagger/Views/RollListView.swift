@@ -105,6 +105,7 @@ struct RollListView: View {
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
+                                .transition(.asymmetric(insertion: .opacity, removal: .identity))
                                 .contextMenu {
                                     Button(role: .destructive) {
                                         rollToDelete = roll
@@ -115,7 +116,8 @@ struct RollListView: View {
                             }
                         }
                         
-                    }.padding(.horizontal, 16)
+                    }.animation(.easeOut(duration: 0.25), value: pastRolls.map(\.id))
+                    .padding(.horizontal, 16)
                         .padding(.bottom, 162) // overscroll
                         .offset(y: -46)
                 }

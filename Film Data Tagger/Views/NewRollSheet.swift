@@ -28,11 +28,95 @@ struct FormTextFieldStyle: TextFieldStyle {
     }
 }
 
+private let filmStockPlaceholders = [
+    // Portra
+    "Sproktra 160",
+    "Sproktra 400",
+    "Sproktra 800",
+    
+    // Kodak Ektar
+    "Sprok Ekzip 100",
+    
+    // Ektachrome
+    "Sprokachrome S100",
+    
+    // Kodak Pro Image
+    "Sprok Max Image 100",
+    
+    // Kodak Gold
+    "Sprok Bold 200",
+    
+    // Kodak UltraMax
+    "Sprok MaxPro 400",
+    
+    // Kodak ColorPlus 200
+    "Sprok ColorAir 200",
+    
+    // Kodacolor
+    "Sprokacolor 200",
+    
+    // Kodak Tri-X 400
+    "Sprok OS-X 400",
+    
+    // Kodak T-Max 400
+    "Sprok T-Ultra 400",
+    
+    // Kodak T-Max P3200
+    "Sprok T-Ultra P3200",
+    
+    // Fuji Color Negative
+    "Sprokbook Color Negative 200",
+    "Sprokbook Color Negative 400",
+    
+    // Fuji Acros 100
+    "Sprokros 100",
+    
+    // Fuji Velvia
+    "Sprok Velvia 50",
+    "Sprok Velvia 100",
+    
+    // Fuji Provia
+    "Maxvia 100F",
+    
+    // Ilford HP5 5 Plus
+    "Sprokord HP5 Max",
+    
+    // Ilford FP4 Plus
+    "Sprokord FP4 Max",
+    
+    // Ilford Delta 3200
+    "Sprokord Alpha 3200",
+    
+    // Kentmere Pan 200
+    "Sprokmere Pan 200",
+    
+    // Harman Phoenix
+    "CodeAssign Phoenix II 200",
+    "CodeAssign Phoenix 200",
+    
+    // Cinestill
+    "SproStill 800T",
+    "SproStill 400D",
+    
+    // Lomography Color Negative
+    "Sprokography Color Negative 100",
+    "Sprokography Color Negative 400",
+    "Sprokography Color Negative 800",
+    
+    // Generics
+    "Sprokbook 100",
+    "Sprokbook 200",
+    "Sprokbook 400",
+    "Sprokbook 800"
+]
+
 struct NewRollSheet: View {
     var viewModel: FilmLogViewModel
+    var onRollCreated: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var filmName: String = ""
     @State private var exposureCount: Int? = 36
+    @State private var placeholder: String = filmStockPlaceholders.randomElement()!
 
     var body: some View {
         let rollIsValid = !filmName.isEmpty && (exposureCount ?? 0) > 0
@@ -58,7 +142,7 @@ struct NewRollSheet: View {
                 TextField(
                     "Roll name",
                     text: $filmName,
-                    prompt: Text("Sprokbook 400").foregroundStyle(Color.white.opacity(0.25))
+                    prompt: Text(placeholder).foregroundStyle(Color.white.opacity(0.25))
                 )
                 .textFieldStyle(FormTextFieldStyle())
                 // separator
@@ -91,10 +175,11 @@ struct NewRollSheet: View {
                 ).pickerStyle(.segmented)
             }.padding(.bottom, 42)
             Button {
-                playHaptic(.capture)
+                playHaptic(.finishRoll)
                 guard let camera = viewModel.activeCamera else { return }
                 viewModel.createRoll(camera: camera, filmStock: filmName, capacity: exposureCount ?? 36)
                 dismiss()
+                onRollCreated?()
             } label: {
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Spacer(minLength: 0)
