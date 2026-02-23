@@ -24,18 +24,19 @@ final class FilmLogViewModel {
         set { settings.referencePhotosEnabled = newValue }
     }
 
-    var activeRoll: Roll? {
-        didSet { settings.activeRollId = activeRoll?.id }
+    /// The currently open (viewed) roll. May or may not be the active roll for its camera.
+    var openRoll: Roll? {
+        didSet { settings.openRollId = openRoll?.id }
     }
 
-    /// The sorted, non-deleted items for the active roll/group. All mutations go through the view model.
+    /// The sorted items for the open roll/group. All mutations go through the view model.
     private(set) var logItems: [LogItem] = []
 
-    /// The camera for the current active roll.
-    var activeCamera: Camera? { activeRoll?.camera }
+    /// The camera for the currently open roll.
+    var activeCamera: Camera? { openRoll?.camera }
 
-    /// Roll capacity from the active roll.
-    var rollCapacity: Int { activeRoll?.capacity ?? 36 }
+    /// Roll capacity from the open roll.
+    var rollCapacity: Int { openRoll?.capacity ?? 36 }
 
     // MARK: - Instant film state
 
@@ -107,7 +108,7 @@ final class FilmLogViewModel {
                 .flatMap { $0.logItems ?? [] }
                 .sorted { $0.createdAt < $1.createdAt }
         } else {
-            logItems = (activeRoll?.logItems ?? [] as [LogItem])
+            logItems = (openRoll?.logItems ?? [] as [LogItem])
                 .sorted { $0.createdAt < $1.createdAt }
         }
     }
@@ -136,27 +137,27 @@ final class FilmLogViewModel {
             }
         }
 
-        // 2. Try the persisted active roll ID
-        if let storedId = settings.activeRollId {
+        // 2. Try the persisted open roll ID
+        if let storedId = settings.openRollId {
             let descriptor = FetchDescriptor<Roll>(
                 predicate: #Predicate<Roll> { roll in
                     roll.id == storedId
                 }
             )
             if let roll = try? modelContext.fetch(descriptor).first {
-                activeRoll = roll
+                openRoll = roll
                 reloadItems()
                 return
             }
         }
 
-        // 3. Fallback: find any active, non-deleted regular roll
+        // 3. Fallback: find any active regular roll
         let activeDescriptor = FetchDescriptor<Roll>(
             predicate: #Predicate<Roll> { $0.isActive == true },
             sortBy: [SortDescriptor(\.modifiedAt, order: .reverse)]
         )
         if let roll = try? modelContext.fetch(activeDescriptor).first {
-            activeRoll = roll
+            openRoll = roll
             reloadItems()
             return
         }
@@ -172,7 +173,7 @@ final class FilmLogViewModel {
         let roll = Roll(filmStock: "Kodak Portra 400", camera: camera)
         modelContext.insert(roll)
 
-        activeRoll = roll
+        openRoll = roll
         reloadItems()
     }
 
@@ -199,8 +200,9 @@ final class FilmLogViewModel {
             guard let subCamera = activeInstantFilmCamera else { return }
             roll = activePackForSubCamera(subCamera)
         } else {
-            guard let activeRoll else { return }
-            roll = activeRoll
+            guard let openRoll else { return }
+            activateRollIfNeeded(openRoll)
+            roll = openRoll
         }
 
         let item = LogItem(roll: roll)
@@ -237,8 +239,9 @@ final class FilmLogViewModel {
             guard let subCamera = activeInstantFilmCamera else { return }
             roll = activePackForSubCamera(subCamera)
         } else {
-            guard let activeRoll else { return }
-            roll = activeRoll
+            guard let openRoll else { return }
+            activateRollIfNeeded(openRoll)
+            roll = openRoll
         }
         let item = LogItem.placeholder(roll: roll)
         modelContext.insert(item)
@@ -314,7 +317,7 @@ final class FilmLogViewModel {
     }
 
     var canLogExposure: Bool {
-        activeRoll != nil || (activeInstantFilmGroup != nil && activeInstantFilmCamera != nil)
+        openRoll != nil || (activeInstantFilmGroup != nil && activeInstantFilmCamera != nil)
     }
 
     // MARK: - Roll Management
@@ -341,14 +344,24 @@ final class FilmLogViewModel {
         settings.activeInstantFilmGroupId = nil
         settings.activeInstantFilmCameraId = nil
 
-        activeRoll = roll
+        openRoll = roll
         reloadItems()
+    }
+
+    /// If the roll isn't already the active roll for its camera, activate it
+    /// (deactivating the previous active roll on that camera).
+    private func activateRollIfNeeded(_ roll: Roll) {
+        guard !roll.isActive, let camera = roll.camera else { return }
+        for r in camera.rolls ?? [] where r.isActive {
+            r.isActive = false
+        }
+        roll.isActive = true
     }
 
     func deleteRoll(_ roll: Roll) {
         modelContext.delete(roll)
-        if activeRoll?.id == roll.id {
-            activeRoll = nil
+        if openRoll?.id == roll.id {
+            openRoll = nil
             logItems = []
         }
     }
@@ -363,9 +376,9 @@ final class FilmLogViewModel {
     }
 
     func deleteCamera(_ camera: Camera) {
-        // If the active roll belonged to this camera, clear state
-        if let activeRoll, activeRoll.camera?.id == camera.id {
-            self.activeRoll = nil
+        // If the open roll belonged to this camera, clear state
+        if let openRoll, openRoll.camera?.id == camera.id {
+            self.openRoll = nil
             logItems = []
         }
         modelContext.delete(camera)
@@ -432,7 +445,7 @@ final class FilmLogViewModel {
 
     func switchToInstantFilmGroup(_ group: InstantFilmGroup, camera: InstantFilmCamera? = nil) {
         // Clear regular camera state
-        activeRoll = nil
+        openRoll = nil
 
         activeInstantFilmGroup = group
         settings.activeInstantFilmGroupId = group.id

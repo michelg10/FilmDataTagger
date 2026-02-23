@@ -50,8 +50,8 @@ struct ContentView: View {
             ZStack(alignment: .bottom) {
                 ExposureListView(
                     logItems: logItems,
-                    cameraName: viewModel?.activeRoll?.camera?.name ?? "",
-                    filmStock: viewModel?.activeRoll?.filmStock ?? "",
+                    cameraName: viewModel?.openRoll?.camera?.name ?? "",
+                    filmStock: viewModel?.openRoll?.filmStock ?? "",
                     isScrolling: $isScrolling,
                     onDelete: { item in
                         viewModel?.deleteItem(item)

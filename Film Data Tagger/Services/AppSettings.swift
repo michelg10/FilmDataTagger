@@ -22,10 +22,10 @@ final class AppSettings {
 
     // MARK: - Active state
 
-    /// The currently active roll ID (regular camera mode).
-    var activeRollId: UUID? {
-        get { uuid(forKey: Keys.activeRollId) }
-        set { setUUID(newValue, forKey: Keys.activeRollId) }
+    /// The currently open (viewed) roll ID (regular camera mode).
+    var openRollId: UUID? {
+        get { uuid(forKey: Keys.openRollId) }
+        set { setUUID(newValue, forKey: Keys.openRollId) }
     }
 
     /// The currently active instant film group ID.
@@ -67,7 +67,7 @@ final class AppSettings {
 
     private enum Keys {
         static let isInitialized = "isInitialized"
-        static let activeRollId = "activeRollId"
+        static let openRollId = "openRollId"
         static let activeInstantFilmGroupId = "activeInstantFilmGroupId"
         static let activeInstantFilmCameraId = "activeInstantFilmCameraId"
         static let referencePhotosEnabled = "referencePhotosEnabled"

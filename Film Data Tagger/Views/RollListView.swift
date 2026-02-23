@@ -16,11 +16,11 @@ struct RollListRow: View {
                 .font(.system(size: 20, weight: .semibold, design: .default))
                 .fontWidth(.expanded)
             Text(roll.rollSummary)
-                .font(.system(size: 15, weight: .regular, design: .default))
+                .font(.system(size: 13, weight: .medium, design: .default))
                 .fontWidth(.expanded)
                 .opacity(0.58)
                 .multilineTextAlignment(.leading)
-                .lineHeight(.exact(points: 20))
+                .lineHeight(.exact(points: 17))
         }.frame(maxWidth: .infinity, alignment: .leading)
         .foregroundStyle(Color.white)
     }
@@ -65,13 +65,13 @@ struct RollListView: View {
                             .font(.system(size: 15, weight: .heavy, design: .default))
                             .fontWidth(.expanded)
                             .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.bottom, 30)
+                            .padding(.bottom, 28)
                         
                         // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
                         
                         if let activeRoll {
                             Text("Active roll")
-                                .font(.system(size: 15, weight: .heavy, design: .default))
+                                .font(.system(size: 15, weight: .bold, design: .default))
                                 .fontWidth(.expanded)
                                 .opacity(0.6)
 
@@ -81,7 +81,7 @@ struct RollListView: View {
                             } label: {
                                 RollListRow(roll: activeRoll)
                                     .padding(.top, 12)
-                                    .padding(.bottom, 15)
+                                    .padding(.bottom, 14)
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
@@ -89,10 +89,10 @@ struct RollListView: View {
 
                         if !pastRolls.isEmpty {
                             Text("Past rolls")
-                                .font(.system(size: 15, weight: .heavy, design: .default))
+                                .font(.system(size: 15, weight: .bold, design: .default))
                                 .fontWidth(.expanded)
                                 .opacity(0.6)
-                                .padding(.top, 15)
+                                .padding(.top, 14)
 
                             ForEach(pastRolls, id: \.id) { roll in
                                 Button {
@@ -100,8 +100,8 @@ struct RollListView: View {
                                     onDismissSheet?()
                                 } label: {
                                     RollListRow(roll: roll)
-                                        .padding(.top, pastRolls.first?.id == roll.id ? 12 : 15)
-                                        .padding(.bottom, 15)
+                                        .padding(.top, pastRolls.first?.id == roll.id ? 12 : 14)
+                                        .padding(.bottom, 14)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
