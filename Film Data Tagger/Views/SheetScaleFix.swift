@@ -78,10 +78,10 @@ private struct SheetScaleFixBridge: UIViewRepresentable {
                     .translatedBy(x: 0, y: 2.096692111959287 + max(min((sheetTransform.ty + 2.096692111959287) * -0.1, 1), -1))
                 contentView.transform = inverse
                 contentView.clipsToBounds = false
-                print("[INV] scale=\(sheetTransform.a) ty=\(sheetTransform.ty) -> inverseScale=\(inverseScale)")
+//                print("[INV] scale=\(sheetTransform.a) ty=\(sheetTransform.ty) -> inverseScale=\(inverseScale)")
             } else if !contentView.transform.isIdentity {
                 contentView.transform = .identity
-                print("[INV] reset to identity")
+//                print("[INV] reset to identity")
             }
         }
     }

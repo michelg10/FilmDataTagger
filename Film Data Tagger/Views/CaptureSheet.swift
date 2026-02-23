@@ -212,7 +212,7 @@ private struct CaptureButton: View {
             .font(.system(size: 22, weight: .bold, design: .default))
             .fontWidth(.expanded)
         }.frame(height: 63)
-        .glassEffect(.regular.tint(.white.opacity(0.87)).interactive(), in: Capsule(style: .continuous))
+        .glassEffect(.regular.tint(.white.opacity(0.91)).interactive(), in: Capsule(style: .continuous))
         .contentShape(Capsule())
         .contextMenu {
             Button {

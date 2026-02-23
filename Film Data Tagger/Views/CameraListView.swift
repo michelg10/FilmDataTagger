@@ -25,7 +25,7 @@ struct SheetTopBar: View {
                 Image(systemName: state == .camera ? "gearshape.fill" : "chevron.left")
                     .contentTransition(.symbolEffect(.replace, options: .speed(2.0)))
                     .font(.system(size: 20, weight: .semibold, design: .default))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color.white.opacity(0.95))
                     .frame(width: 44, height: 44)
             }.glassEffect(.regular.interactive(), in: Circle())
 
@@ -36,7 +36,7 @@ struct SheetTopBar: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 20, weight: .semibold, design: .default))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color.white.opacity(0.95))
                     .frame(width: 44, height: 44)
             }.glassEffect(.regular.interactive(), in: Circle())
         }.padding(.horizontal, 16)
@@ -172,7 +172,7 @@ struct CameraListView: View {
                         .font(.system(size: 19, weight: .semibold, design: .default))
                         .fontWidth(.expanded)
                         .padding(.trailing, 25)
-                }.foregroundStyle(Color.white)
+                }.foregroundStyle(Color.white.opacity(0.95))
                 .frame(height: 61)
             }.glassEffect(.regular.interactive(), in: Capsule())
             .glassEffectID("principal", in: namespace)
