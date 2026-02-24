@@ -105,7 +105,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .sheetFloatingView(offset: 20 - 30) {
+            .sheetFloatingView(offset: 20 - 29) {
                 if viewModel?.openRoll != nil {
                     FinishRollButton(action: {
                         showNewRoll = true
