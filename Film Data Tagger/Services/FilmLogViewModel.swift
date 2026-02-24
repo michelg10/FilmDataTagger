@@ -26,14 +26,22 @@ final class FilmLogViewModel {
 
     /// The currently open (viewed) roll. May or may not be the active roll for its camera.
     var openRoll: Roll? {
-        didSet { settings.openRollId = openRoll?.id }
+        didSet {
+            settings.openRollId = openRoll?.id
+            if let roll = openRoll {
+                openCamera = roll.camera
+            }
+        }
     }
 
     /// The sorted items for the open roll/group. All mutations go through the view model.
     private(set) var logItems: [LogItem] = []
 
-    /// The camera for the currently open roll.
-    var activeCamera: Camera? { openRoll?.camera }
+    /// The currently selected camera. Derived from openRoll when a roll is set,
+    /// or persisted independently when no roll is selected.
+    var openCamera: Camera? {
+        didSet { settings.openCameraId = openCamera?.id }
+    }
 
     /// Roll capacity from the open roll.
     var rollCapacity: Int { openRoll?.capacity ?? 36 }
@@ -151,7 +159,18 @@ final class FilmLogViewModel {
             }
         }
 
-        // 3. Fallback: find any active regular roll
+        // 3. Try the persisted open camera ID (no roll selected)
+        if let storedCameraId = settings.openCameraId {
+            let descriptor = FetchDescriptor<Camera>(
+                predicate: #Predicate<Camera> { $0.id == storedCameraId }
+            )
+            if let camera = try? modelContext.fetch(descriptor).first {
+                openCamera = camera
+                return
+            }
+        }
+
+        // 4. Fallback: find any active regular roll
         let activeDescriptor = FetchDescriptor<Roll>(
             predicate: #Predicate<Roll> { $0.isActive == true },
             sortBy: [SortDescriptor(\.modifiedAt, order: .reverse)]
@@ -161,9 +180,6 @@ final class FilmLogViewModel {
             reloadItems()
             return
         }
-
-        // 4. Nothing found — create default
-        createDefaultRoll()
     }
 
     private func createDefaultRoll() {
@@ -366,10 +382,12 @@ final class FilmLogViewModel {
     }
 
     func deleteRoll(_ roll: Roll) {
+        let camera = roll.camera
         modelContext.delete(roll)
         if openRoll?.id == roll.id {
             openRoll = nil
             logItems = []
+            openCamera = camera
         }
     }
 
@@ -383,9 +401,9 @@ final class FilmLogViewModel {
     }
 
     func deleteCamera(_ camera: Camera) {
-        // If the open roll belonged to this camera, clear state
-        if let openRoll, openRoll.camera?.id == camera.id {
-            self.openRoll = nil
+        if openCamera?.id == camera.id {
+            openRoll = nil
+            openCamera = nil
             logItems = []
         }
         modelContext.delete(camera)

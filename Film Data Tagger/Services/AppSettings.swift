@@ -28,6 +28,12 @@ final class AppSettings {
         set { setUUID(newValue, forKey: Keys.openRollId) }
     }
 
+    /// The currently selected camera ID (used when no roll is open).
+    var openCameraId: UUID? {
+        get { uuid(forKey: Keys.openCameraId) }
+        set { setUUID(newValue, forKey: Keys.openCameraId) }
+    }
+
     /// The currently active instant film group ID.
     var activeInstantFilmGroupId: UUID? {
         get { uuid(forKey: Keys.activeInstantFilmGroupId) }
@@ -68,6 +74,7 @@ final class AppSettings {
     private enum Keys {
         static let isInitialized = "isInitialized"
         static let openRollId = "openRollId"
+        static let openCameraId = "openCameraId"
         static let activeInstantFilmGroupId = "activeInstantFilmGroupId"
         static let activeInstantFilmCameraId = "activeInstantFilmCameraId"
         static let referencePhotosEnabled = "referencePhotosEnabled"

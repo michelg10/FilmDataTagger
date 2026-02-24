@@ -85,6 +85,13 @@ struct RollListView: View {
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    rollToDelete = activeRoll
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
                         }
 
                         if !pastRolls.isEmpty {

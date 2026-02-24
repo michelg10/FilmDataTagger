@@ -52,6 +52,7 @@ struct ExposureListView: View {
     let logItems: [LogItem]
     var cameraName: String = ""
     var filmStock: String = ""
+    var hasRoll: Bool = true
     @Binding var isScrolling: Bool
     var onDelete: ((LogItem) -> Void)?
     var onMovePlaceholderBefore: ((LogItem, LogItem) -> Void)?
@@ -63,14 +64,19 @@ struct ExposureListView: View {
         NavigationStack {
             Group {
                 if logItems.isEmpty {
-                    Text("start your roll!")
-                        .font(.system(size: 25, weight: .bold, design: .default))
-                        .fontWidth(.expanded)
-                        .foregroundStyle(Color.white.opacity(0.5))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(.bottom, 227)
-                        .padding(.top, 18)
-                        .offset(y: -21)
+                    if hasRoll {
+                        Text("start your roll!")
+                            .font(.system(size: 25, weight: .bold, design: .default))
+                            .fontWidth(.expanded)
+                            .foregroundStyle(Color.white.opacity(0.5))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding(.bottom, 227)
+                            .padding(.top, 18)
+                            .offset(y: -21)
+                    } else {
+                        Color.clear
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
                 } else {
                     ScrollViewReader { proxy in
                         ScrollView {

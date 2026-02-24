@@ -185,25 +185,16 @@ struct NewRollSheet: View {
                     controlBackgroundColor: UIColor(Color(hex: 0x2E2E2E))
                 )
             }.padding(.bottom, 44)
-            Button {
+            PrimaryButton(enabled: rollIsValid, action: {
                 playHaptic(.finishRoll)
-                guard let camera = viewModel.activeCamera else { return }
+                guard let camera = viewModel.openCamera else { return }
                 viewModel.createRoll(camera: camera, filmStock: filmName, capacity: exposureCount ?? 36)
                 dismiss()
                 onRollCreated?()
-            } label: {
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    Spacer(minLength: 0)
-                    Text("Add roll")
-                    Spacer(minLength: 0)
-                }.foregroundStyle(rollIsValid ? Color.black : Color.white.opacity(0.3))
-                .font(.system(size: 22, weight: .bold, design: .default))
-                .fontWidth(.expanded)
-            }.frame(height: 63)
-            .disabled(!rollIsValid)
-            .glassEffect(.regular.tint(.white.opacity(rollIsValid ? 0.91 : 0.055)).interactive(rollIsValid), in: Capsule(style: .continuous))
-            .contentShape(Capsule())
-            .animation(.easeInOut(duration: 0.12), value: rollIsValid)
+            }) {
+                Text("Add roll")
+            }
+            
             Spacer(minLength: 0)
         }.padding(.horizontal, 15 + 8)
         .padding(.top, 15 + 7)

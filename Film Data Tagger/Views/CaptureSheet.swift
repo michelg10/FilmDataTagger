@@ -212,22 +212,14 @@ private struct CaptureButton: View {
     var onAddPlaceholder: () -> Void
 
     var body: some View {
-        Button {
+        PrimaryButton(action: {
             playHaptic(.capture)
             onCapture()
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Spacer(minLength: 0)
-                Text("\(frameCount) / \(rollCapacity) •")
-                    .opacity(0.46)
-                Text(" Capture")
-                Spacer(minLength: 0)
-            }.foregroundStyle(Color.black)
-            .font(.system(size: 22, weight: .bold, design: .default))
-            .fontWidth(.expanded)
-        }.frame(height: 63)
-        .glassEffect(.regular.tint(.white.opacity(0.91)).interactive(), in: Capsule(style: .continuous))
-        .contentShape(Capsule())
+        }) {
+            Text("\(frameCount) / \(rollCapacity) •")
+                .opacity(0.46)
+            Text(" Capture")
+        }
         .contextMenu {
             Button {
                 onAddPlaceholder()

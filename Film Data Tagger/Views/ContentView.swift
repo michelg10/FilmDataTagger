@@ -9,6 +9,8 @@ import SwiftUI
 import SwiftData
 
 struct FinishRollButton: View {
+    var icon: String = "checkmark.arrow.trianglehead.counterclockwise"
+    var text: String = "Finish roll"
     var action: () -> Void
     var shadow1Opacity: Double = 0.36
     var shadow1Radius: Double = 24.8
@@ -21,10 +23,10 @@ struct FinishRollButton: View {
             action()
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Image(systemName: "checkmark.arrow.trianglehead.counterclockwise")
+                Image(systemName: icon)
                     .font(.system(size: 17, weight: .semibold, design: .default))
                     .padding(.leading, 14)
-                Text("Finish roll")
+                Text(text)
                     .padding(.trailing, 21)
                     .font(.system(size: 17, weight: .semibold, design: .default))
             }.foregroundStyle(Color.white.opacity(0.95))
@@ -55,8 +57,10 @@ struct ContentView: View {
             ZStack(alignment: .bottom) {
                 ExposureListView(
                     logItems: logItems,
-                    cameraName: viewModel?.openRoll?.camera?.name ?? "",
-                    filmStock: viewModel?.openRoll?.filmStock ?? "",
+                    cameraName: viewModel?.openCamera?.name ?? "No camera selected",
+                    filmStock: viewModel?.openRoll?.filmStock
+                        ?? (viewModel?.openCamera != nil ? "No roll selected" : ""),
+                    hasRoll: viewModel?.openRoll != nil,
                     isScrolling: $isScrolling,
                     onDelete: { item in
                         viewModel?.deleteItem(item)
@@ -99,9 +103,17 @@ struct ContentView: View {
                 }
             }
             .sheetFloatingView(offset: 20 - 30) {
-                FinishRollButton(action: {
-                    showNewRoll = true
-                })
+                if viewModel?.openRoll != nil {
+                    FinishRollButton(action: {
+                        showNewRoll = true
+                    })
+                } else if viewModel?.openCamera != nil {
+                    FinishRollButton(icon: "plus", text: "New roll", action: {
+                        showNewRoll = true
+                    })
+                } else {
+                    EmptyView()
+                }
             }
             .onAppear {
                 // hack to disable sheet animation
