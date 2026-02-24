@@ -14,11 +14,13 @@ import UIKit
 
 extension View {
     /// Adds a floating view that stays `offset` points above the presented sheet.
+    /// Pass `height` to skip automatic measurement.
     func sheetFloatingView<F: View>(
         offset: CGFloat = 20,
+        height: CGFloat? = nil,
         @ViewBuilder content: @escaping () -> F
     ) -> some View {
-        background(SheetFloatingBridge(offset: offset, floatingContent: content))
+        background(SheetFloatingBridge(offset: offset, fixedHeight: height, floatingContent: content))
     }
 }
 
@@ -26,6 +28,7 @@ extension View {
 
 private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
     let offset: CGFloat
+    let fixedHeight: CGFloat?
     let floatingContent: () -> F
 
     func makeUIView(context: Context) -> UIView {
@@ -39,6 +42,7 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIView, context: Context) {
         context.coordinator.offset = offset
+        context.coordinator.fixedHeight = fixedHeight
         if let child = context.coordinator.floatingChild {
             child.rootView = floatingContent()
             context.coordinator.invalidateSize()
@@ -55,15 +59,14 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
     final class Coordinator {
         weak var anchorView: UIView?
         var offset: CGFloat = 20
+        var fixedHeight: CGFloat?
         var pendingContent: F?
 
         var floatingChild: UIHostingController<F>?
         var displayLink: CADisplayLink?
         var isSetUp = false
 
-        var lastModelY: CGFloat = 0
         var cachedSize: CGSize = .zero
-        var springAnimator: UIViewPropertyAnimator?
 
         weak var discoveredPresentedView: UIView?
         weak var discoveredContainerView: UIView?
@@ -130,16 +133,25 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
             // (above the sheet, but the containerView itself is below any inner sheets)
             containerView.bringSubviewToFront(childView)
 
-            let modelY = presentedView.convert(presentedView.bounds, to: nil).minY
+            // Use the presentation layer to follow in-flight sheet animations.
+            // Convert through layers to stay in containerView coordinates even while animating.
+            let presentedLayer = presentedView.layer.presentation() ?? presentedView.layer
+            let rectInContainer = presentedLayer.convert(presentedLayer.bounds, to: containerView.layer)
+            guard rectInContainer.minY.isFinite, rectInContainer.height.isFinite else { return }
+            let modelY = rectInContainer.minY
 
-            // Measure size once
+            // Measure size once. Known problem: height measurement is janky
             if cachedSize == .zero {
-                let measured = childView.sizeThatFits(
-                    CGSize(width: UIScreen.main.bounds.width,
-                           height: CGFloat.greatestFiniteMagnitude)
-                )
-                guard measured.width > 0, measured.height > 0 else { return }
-                cachedSize = measured
+                if let fixedHeight {
+                    cachedSize = CGSize(width: UIScreen.main.bounds.width, height: fixedHeight)
+                } else {
+                    let measured = childView.sizeThatFits(
+                        CGSize(width: UIScreen.main.bounds.width,
+                               height: CGFloat.greatestFiniteMagnitude)
+                    )
+                    guard measured.width > 0, measured.height > 0 else { return }
+                    cachedSize = measured
+                }
             }
 
             let size = cachedSize
@@ -149,25 +161,7 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
             let targetY = modelY - offset - size.height
             let targetFrame = CGRect(x: x, y: targetY, width: size.width, height: size.height)
 
-            let jump = abs(modelY - lastModelY)
-            let isFirstPosition = lastModelY == 0
-            lastModelY = modelY
-
-            if isFirstPosition {
-                childView.frame = targetFrame
-            } else if jump > 50 {
-                springAnimator?.stopAnimation(true)
-                let anim = UIViewPropertyAnimator(duration: 0.5, dampingRatio: 0.78)
-                anim.addAnimations { childView.frame = targetFrame }
-                anim.startAnimation()
-                springAnimator = anim
-            } else if springAnimator?.isRunning == true && jump > 2 {
-                springAnimator?.stopAnimation(true)
-                springAnimator = nil
-                childView.frame = targetFrame
-            } else if springAnimator?.isRunning != true {
-                childView.frame = targetFrame
-            }
+            childView.frame = targetFrame
         }
 
     }

@@ -42,7 +42,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var viewModel: FilmLogViewModel?
-    @State private var showSheet = false
+    @State private var showSheet = true
     @State private var showCameraList = false
     @State private var showNewRoll = false
     @State private var isScrolling = false
@@ -83,12 +83,6 @@ struct ContentView: View {
                 )
             }.ignoresSafeArea(.all)
             .background(Color.black)
-            .onAppear {
-                if viewModel == nil {
-                    viewModel = FilmLogViewModel(modelContext: modelContext)
-                    viewModel?.setup()
-                }
-            }
             .sheet(isPresented: $showSheet) {
                 if let viewModel {
                     CaptureSheet(
@@ -105,7 +99,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .sheetFloatingView(offset: 20 - 29) {
+            .sheetFloatingView(offset: 20, height: 48) {
                 if viewModel?.openRoll != nil {
                     FinishRollButton(action: {
                         showNewRoll = true
@@ -119,11 +113,9 @@ struct ContentView: View {
                 }
             }
             .onAppear {
-                // hack to disable sheet animation
-                var transaction = Transaction()
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    showSheet = true
+                if viewModel == nil {
+                    viewModel = FilmLogViewModel(modelContext: modelContext)
+                    viewModel?.setup()
                 }
             }
         }
