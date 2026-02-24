@@ -368,6 +368,12 @@ final class FilmLogViewModel {
         settings.activeInstantFilmCameraId = nil
 
         openRoll = roll
+
+        // If no roll is currently active on this camera, activate the selected one
+        if let camera = roll.camera, !(camera.rolls ?? []).contains(where: { $0.isActive }) {
+            activateRollIfNeeded(roll)
+        }
+
         reloadItems()
     }
 

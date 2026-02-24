@@ -70,28 +70,30 @@ struct RollListView: View {
                         // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
                         
                         if let activeRoll {
-                            Text("Active roll")
-                                .font(.system(size: 15, weight: .bold, design: .default))
-                                .fontWidth(.expanded)
-                                .opacity(0.6)
+                            Group {
+                                Text("Active roll")
+                                    .font(.system(size: 15, weight: .bold, design: .default))
+                                    .fontWidth(.expanded)
+                                    .opacity(0.6)
 
-                            Button {
-                                viewModel.switchToRoll(activeRoll)
-                                onDismissSheet?()
-                            } label: {
-                                RollListRow(roll: activeRoll)
-                                    .padding(.top, 12)
-                                    .padding(.bottom, 14)
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                Button(role: .destructive) {
-                                    rollToDelete = activeRoll
+                                Button {
+                                    viewModel.switchToRoll(activeRoll)
+                                    onDismissSheet?()
                                 } label: {
-                                    Label("Delete", systemImage: "trash")
+                                    RollListRow(roll: activeRoll)
+                                        .padding(.top, 12)
+                                        .padding(.bottom, 14)
+                                        .contentShape(Rectangle())
                                 }
-                            }
+                                .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        rollToDelete = activeRoll
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                            }.transition(.asymmetric(insertion: .opacity, removal: .opacity))
                         }
 
                         if !pastRolls.isEmpty {
@@ -123,7 +125,8 @@ struct RollListView: View {
                             }
                         }
                         
-                    }.animation(.easeOut(duration: 0.25), value: pastRolls.map(\.id))
+                    }.animation(.easeOut(duration: 0.25), value: activeRoll?.id)
+                    .animation(.easeOut(duration: 0.25), value: pastRolls.map(\.id))
                     .padding(.horizontal, 16)
                         .padding(.bottom, 162) // overscroll
                         .offset(y: -46)

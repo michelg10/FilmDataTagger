@@ -206,19 +206,24 @@ private struct CaptureSheetCompactContent: View {
 }
 
 private struct CaptureButton: View {
+    var hasRoll: Bool
     var frameCount: Int
     var rollCapacity: Int
     var onCapture: () -> Void
     var onAddPlaceholder: () -> Void
 
     var body: some View {
-        PrimaryButton(action: {
+        PrimaryButton(enabled: hasRoll, action: {
             playHaptic(.capture)
             onCapture()
         }) {
-            Text("\(frameCount) / \(rollCapacity) •")
-                .opacity(0.46)
-            Text(" Capture")
+            if hasRoll {
+                Text("\(frameCount) / \(rollCapacity) •")
+                    .opacity(0.46)
+                Text(" Capture")
+            } else {
+                Text("Capture")
+            }
         }
         .contextMenu {
             Button {
@@ -269,6 +274,7 @@ struct CaptureSheet: View {
             .opacity(isCompact ? 1 : 0)
 
             CaptureButton(
+                hasRoll: viewModel.openRoll != nil,
                 frameCount: frameCount,
                 rollCapacity: rollCapacity,
                 onCapture: { Task { await viewModel.logExposure() } },
