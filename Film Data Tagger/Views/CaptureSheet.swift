@@ -169,12 +169,18 @@ private struct CaptureSheetFullContent: View {
 
 private struct CaptureSheetCompactContent: View {
     var referencePhotosEnabled: Bool
+    var cameraUnavailable: Bool
+    var permissionDenied: Bool
     var currentPlaceName: String?
     var lastCaptureDate: Date?
 
+    private var showEyeSlash: Bool {
+        !referencePhotosEnabled || cameraUnavailable || permissionDenied
+    }
+
     var body: some View {
         HStack(spacing: 0) {
-            Image(systemName: referencePhotosEnabled ? "eye.fill" : "eye.slash.fill")
+            Image(systemName: showEyeSlash ? "eye.slash.fill" : "eye.fill")
                 .font(.system(size: 16, weight: .semibold, design: .default))
                 .foregroundStyle(Color.white)
                 .frame(width: 25, height: 19)
@@ -262,6 +268,8 @@ struct CaptureSheet: View {
 
             CaptureSheetCompactContent(
                 referencePhotosEnabled: viewModel.referencePhotosEnabled,
+                cameraUnavailable: viewModel.cameraManager.cameraUnavailable,
+                permissionDenied: viewModel.cameraManager.permissionDenied,
                 currentPlaceName: viewModel.currentPlaceName,
                 lastCaptureDate: lastCaptureDate
             )
