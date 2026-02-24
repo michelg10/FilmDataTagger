@@ -393,6 +393,7 @@ final class FilmLogViewModel {
         let maxExtra = min(4, itemCount)
         let next = roll.extraExposures + 1
         roll.extraExposures = next > maxExtra ? 0 : next
+        playHaptic(.cycleExtraExposures)
         reloadItems()
     }
 
