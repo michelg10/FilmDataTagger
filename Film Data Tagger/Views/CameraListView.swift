@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 enum TopBarState {
     case camera
@@ -44,30 +45,112 @@ struct SheetTopBar: View {
     }
 }
 
+struct CameraRollProgress: View {
+    var isSelected: Bool
+    var isInstantFilm: Bool
+    var exposureCount: Int?
+    var totalExposureCount: Int?
+    
+    var exposureProgress: Double? {
+        guard let exposureCount = exposureCount, let totalExposureCount = totalExposureCount else {
+            return nil
+        }
+        
+        return max(min(Double(exposureCount) / Double(totalExposureCount), 1.0), 0.0)
+    }
+    
+    
+    var body: some View {
+        ZStack {
+            if isInstantFilm {
+                Circle()
+                    .stroke(Color.init(hex: isSelected ? 0xD4D4D4 : 0x323232), lineWidth: 6)
+                    .frame(width: 53, height: 53)
+                
+                Circle()
+                    .stroke(Color.init(hex: isSelected ? 0x757575 : 0x2A2A2A), lineWidth: 2)
+                    .frame(width: 21, height: 21)
+                
+                Circle()
+                    .stroke(Color.init(hex: isSelected ? 0x757575 : 0x2A2A2A), lineWidth: 1.5)
+                    .frame(width: 7, height: 7)
+            } else {
+                RingView(
+                    diameter: 53,
+                    strokeWidth: 6,
+                    progress: exposureProgress ?? 0,
+                    fillColor: isSelected ? .init(hex: 0xFFFFFF) : .init(hex: 0x747474),
+                    trackColor: isSelected ? .init(hex: 0x3E3E3E) : .init(hex: 0x2B2B2B)
+                )
+                if let exposureCount = exposureCount {
+                    Text(String(exposureCount))
+                        .font(.system(size: 14, weight: .bold, design: .default))
+                        .fontWidth(.expanded)
+                        .foregroundStyle(Color.white.opacity(isSelected ? 1.0 : 0.55))
+                } else {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 18, weight: .bold, design: .default))
+                        .foregroundStyle(Color.init(hex: 0x868686))
+                }
+            }
+        }.frame(width: 59, height: 59)
+    }
+}
+
 struct CameraListRow: View {
     var entry: any CameraListEntry
 
     var body: some View {
         HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 7) {
-                Text(entry.displayName)
+            CameraRollProgress(
+                isSelected: true,
+                isInstantFilm: true
+            ).padding(.trailing, 17)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Olympus XA")
                     .font(.system(size: 22, weight: .semibold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
-                Text(entry.listSubtitle)
-                    .font(.system(size: 15, weight: .medium, design: .default))
+                    .padding(.bottom, 6)
+                    .lineLimit(1)
+                Text("Kodak Portra 400")
+                    .font(.system(size: 15, weight: .semibold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
-                    .opacity(0.5)
-                    .lineHeight(.exact(points: 20))
-                    .multilineTextAlignment(.leading)
+                    .opacity(0.6)
+                    .lineLimit(1)
+                    .padding(.bottom, 8)
+                HStack(spacing: 16) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "film.stack")
+                            .font(.system(size: 15, weight: .semibold, design: .default))
+                            .foregroundStyle(Color.white.opacity(0.4))
+                        Text("9") // this should be the number of film rolls
+                            .font(.system(size: 15, weight: .semibold, design: .default))
+                            .fontWidth(.expanded)
+                            .foregroundStyle(Color.white.opacity(0.8))
+                    }
+                    
+                    HStack(spacing: 7) {
+                        Image(systemName: "film.stack.fill")
+                            .font(.system(size: 15, weight: .semibold, design: .default))
+                            .foregroundStyle(Color.white.opacity(0.4))
+                        Text("103") // this should be the number of film rolls
+                            .font(.system(size: 15, weight: .semibold, design: .default))
+                            .fontWidth(.expanded)
+                            .foregroundStyle(Color.white.opacity(0.8))
+                    }
+                }
             }
-            Spacer(minLength: 50)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 17, weight: .bold, design: .default))
-                .foregroundStyle(Color.white)
-                .opacity(0.5)
-        }
+            Spacer(minLength: 20)
+            HStack(spacing: 9) {
+                Text("5h")
+                    .font(.system(size: 15, weight: .semibold, design: .default))
+                    .fontWidth(.expanded)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 17, weight: .bold, design: .default))
+            }.foregroundStyle(Color.white.opacity(0.5))
+        }.frame(height: 75)
     }
 }
 
@@ -193,4 +276,27 @@ struct CameraListView: View {
             .offset(y: -1)
         }
     }
+}
+
+#Preview {
+    @Previewable @State var container = PreviewSampleData.makeContainer()
+
+    let viewModel: FilmLogViewModel = {
+        let vm = FilmLogViewModel(modelContext: container.mainContext)
+
+        let camera2 = Camera(name: "Olympus XA")
+        container.mainContext.insert(camera2)
+        let roll2 = Roll(filmStock: "Fuji Superia 400", camera: camera2)
+        container.mainContext.insert(roll2)
+        camera2.rolls = [roll2]
+
+        return vm
+    }()
+
+    Color.black.ignoresSafeArea()
+        .sheet(isPresented: .constant(true)) {
+            CameraListView(viewModel: viewModel)
+        }
+        .modelContainer(container)
+        .preferredColorScheme(.dark)
 }
