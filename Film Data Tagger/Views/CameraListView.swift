@@ -56,7 +56,7 @@ struct CameraRollProgress: View {
             return nil
         }
         
-        return max(min((Double(exposureCount) + 0.01) / (Double(totalExposureCount) + 0.01), 1.0), 0.0)
+        return max((Double(exposureCount) + 0.01) / (Double(totalExposureCount) + 0.01), 0.0)
     }
     
     
@@ -80,7 +80,9 @@ struct CameraRollProgress: View {
                     strokeWidth: 6,
                     progress: exposureProgress ?? 0,
                     fillColor: isSelected ? .init(hex: 0xFFFFFF) : .init(hex: 0x747474),
-                    trackColor: isSelected ? .init(hex: 0x3E3E3E) : .init(hex: 0x2B2B2B)
+                    trackColor: isSelected ? .init(hex: 0x3E3E3E) : .init(hex: 0x2B2B2B),
+                    overflowShadowColor: .black.opacity(0.75),
+                    overflowShadowRadius: 2.9
                 )
                 if let exposureCount = exposureCount {
                     Text(String(min(exposureCount, 999)))
