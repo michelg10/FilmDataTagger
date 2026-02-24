@@ -13,10 +13,46 @@ import Foundation
 protocol CameraListEntry {
     var id: UUID { get }
     var displayName: String { get }
-    var listSubtitle: String { get }
+    var isInstantFilm: Bool { get }
+    var allRolls: [Roll] { get }
+    var activeRoll: Roll? { get }
+    var rollCount: Int { get }
+    var totalExposureCount: Int { get }
+    var filmStockLabel: String? { get }
+    var lastUsedCompact: String? { get }
+}
+
+// MARK: - Default implementations
+
+extension CameraListEntry {
+    var rollCount: Int { allRolls.count }
+
+    var totalExposureCount: Int {
+        allRolls.flatMap { $0.logItems ?? [] }.count
+    }
+
+    var lastUsedCompact: String? {
+        let allItems = allRolls.flatMap { $0.logItems ?? [] }
+        guard let lastDate = allItems.map(\.createdAt).max() else { return nil }
+        return compactTimeString(from: lastDate)
+    }
 }
 
 // MARK: - Relative time formatting
+
+private func compactTimeString(from date: Date) -> String {
+    let seconds = Int(Date().timeIntervalSince(date))
+    if seconds < 60 { return "now" }
+    let minutes = seconds / 60
+    if minutes < 60 { return "\(minutes)m" }
+    let hours = minutes / 60
+    if hours < 24 { return "\(hours)h" }
+    let days = hours / 24
+    if days < 30 { return "\(days)d" }
+    let months = days / 30
+    if days < 365 { return "\(months)mo" }
+    return "\(days / 365)yr"
+}
 
 func relativeTimeString(from date: Date) -> String {
     let seconds = Int(Date().timeIntervalSince(date))
@@ -37,44 +73,12 @@ func relativeTimeString(from date: Date) -> String {
 
 extension Camera: CameraListEntry {
     var displayName: String { name }
+    var isInstantFilm: Bool { false }
+    var allRolls: [Roll] { rolls ?? [] }
+    var activeRoll: Roll? { allRolls.first(where: { $0.isActive }) }
 
-    var listSubtitle: String {
-        let allRolls = rolls ?? []
-        let allItems = allRolls.flatMap { $0.logItems ?? [] }
-
-        if allItems.isEmpty && allRolls.isEmpty {
-            return "no exposures"
-        }
-
-        var parts: [String] = []
-
-        // Active roll film stock (or "no roll loaded")
-        if let active = allRolls.first(where: { $0.isActive }) {
-            parts.append(active.filmStock)
-        } else if !allRolls.isEmpty {
-            parts.append("no roll loaded")
-        }
-
-        // Roll count
-        if allRolls.count == 1 {
-            parts.append("1 roll")
-        } else if allRolls.count > 1 {
-            parts.append("\(allRolls.count) rolls")
-        }
-
-        // Exposure count
-        if allItems.isEmpty {
-            parts.append("0 exposures")
-        } else {
-            parts.append("\(allItems.count) exposure\(allItems.count == 1 ? "" : "s")")
-        }
-
-        // Last used
-        if let lastDate = allItems.map(\.createdAt).max() {
-            parts.append(relativeTimeString(from: lastDate))
-        }
-
-        return parts.joined(separator: " \u{2022} ")
+    var filmStockLabel: String? {
+        activeRoll?.filmStock ?? (allRolls.isEmpty ? nil : "no roll loaded")
     }
 }
 
@@ -117,26 +121,9 @@ extension Roll {
 
 extension InstantFilmGroup: CameraListEntry {
     var displayName: String { name }
+    var isInstantFilm: Bool { true }
+    var allRolls: [Roll] { (cameras ?? []).flatMap { $0.rolls ?? [] } }
+    var activeRoll: Roll? { nil }
 
-    var listSubtitle: String {
-        let allItems = (cameras ?? [])
-            .flatMap { $0.rolls ?? [] }
-            .flatMap { $0.logItems ?? [] }
-
-        if allItems.isEmpty {
-            return "no exposures"
-        }
-
-        var parts: [String] = []
-
-        // Exposure count
-        parts.append("\(allItems.count) exposure\(allItems.count == 1 ? "" : "s")")
-
-        // Last used
-        if let lastDate = allItems.map(\.createdAt).max() {
-            parts.append(relativeTimeString(from: lastDate))
-        }
-
-        return parts.joined(separator: " \u{2022} ")
-    }
+    var filmStockLabel: String? { nil }
 }

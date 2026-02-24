@@ -56,7 +56,7 @@ struct CameraRollProgress: View {
             return nil
         }
         
-        return max(min(Double(exposureCount) / Double(totalExposureCount), 1.0), 0.0)
+        return max(min((Double(exposureCount) + 0.1) / (Double(totalExposureCount) + 0.1), 1.0), 0.0)
     }
     
     
@@ -99,43 +99,50 @@ struct CameraRollProgress: View {
 
 struct CameraListRow: View {
     var entry: any CameraListEntry
+    var isSelected: Bool
 
     var body: some View {
         HStack(spacing: 0) {
             CameraRollProgress(
-                isSelected: true,
-                isInstantFilm: true
+                isSelected: isSelected,
+                isInstantFilm: entry.isInstantFilm,
+                exposureCount: entry.activeRoll.map { ($0.logItems ?? []).count },
+                totalExposureCount: entry.activeRoll?.capacity
             ).padding(.trailing, 17)
             VStack(alignment: .leading, spacing: 0) {
-                Text("Olympus XA")
+                Text(entry.displayName)
                     .font(.system(size: 22, weight: .semibold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
                     .padding(.bottom, 6)
                     .lineLimit(1)
-                Text("Kodak Portra 400")
-                    .font(.system(size: 15, weight: .semibold, design: .default))
-                    .fontWidth(.expanded)
-                    .foregroundStyle(Color.white)
-                    .opacity(0.6)
-                    .lineLimit(1)
-                    .padding(.bottom, 8)
+                if let filmStockLabel = entry.filmStockLabel {
+                    Text(filmStockLabel)
+                        .font(.system(size: 15, weight: .semibold, design: .default))
+                        .fontWidth(.expanded)
+                        .foregroundStyle(Color.white)
+                        .opacity(0.6)
+                        .lineLimit(1)
+                        .padding(.bottom, 8)
+                }
                 HStack(spacing: 16) {
-                    HStack(spacing: 7) {
-                        Image(systemName: "film.stack")
-                            .font(.system(size: 15, weight: .semibold, design: .default))
-                            .foregroundStyle(Color.white.opacity(0.4))
-                        Text("9") // this should be the number of film rolls
-                            .font(.system(size: 15, weight: .semibold, design: .default))
-                            .fontWidth(.expanded)
-                            .foregroundStyle(Color.white.opacity(0.8))
+                    if !entry.isInstantFilm {
+                        HStack(spacing: 7) {
+                            Image(systemName: "film.stack")
+                                .font(.system(size: 15, weight: .semibold, design: .default))
+                                .foregroundStyle(Color.white.opacity(0.4))
+                            Text("\(entry.rollCount)")
+                                .font(.system(size: 15, weight: .semibold, design: .default))
+                                .fontWidth(.expanded)
+                                .foregroundStyle(Color.white.opacity(0.8))
+                        }
                     }
-                    
+
                     HStack(spacing: 7) {
                         Image(systemName: "film.stack.fill")
                             .font(.system(size: 15, weight: .semibold, design: .default))
                             .foregroundStyle(Color.white.opacity(0.4))
-                        Text("103") // this should be the number of film rolls
+                        Text("\(entry.totalExposureCount)")
                             .font(.system(size: 15, weight: .semibold, design: .default))
                             .fontWidth(.expanded)
                             .foregroundStyle(Color.white.opacity(0.8))
@@ -144,9 +151,11 @@ struct CameraListRow: View {
             }
             Spacer(minLength: 20)
             HStack(spacing: 9) {
-                Text("5h")
-                    .font(.system(size: 15, weight: .semibold, design: .default))
-                    .fontWidth(.expanded)
+                if let lastUsed = entry.lastUsedCompact {
+                    Text(lastUsed)
+                        .font(.system(size: 15, weight: .semibold, design: .default))
+                        .fontWidth(.expanded)
+                }
                 Image(systemName: "chevron.right")
                     .font(.system(size: 17, weight: .bold, design: .default))
             }.foregroundStyle(Color.white.opacity(0.5))
@@ -179,7 +188,11 @@ struct CameraListView: View {
                         VStack(spacing: 0) {
                             ForEach(entries, id: \.id) { entry in
                                 NavigationLink(value: entry.id) {
-                                    CameraListRow(entry: entry)
+                                    CameraListRow(
+                                        entry: entry,
+                                        isSelected: entry.id == viewModel.openRoll?.camera?.id
+                                            || entry.id == viewModel.activeInstantFilmGroup?.id
+                                    )
                                         .padding(.vertical, 15)
                                 }
                                 .transition(.asymmetric(insertion: .opacity, removal: .identity))
@@ -201,6 +214,7 @@ struct CameraListView: View {
             }
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(hex: 0x151515))
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     Text("Cameras")
