@@ -56,7 +56,7 @@ struct CameraRollProgress: View {
             return nil
         }
         
-        return max(min((Double(exposureCount) + 0.1) / (Double(totalExposureCount) + 0.1), 1.0), 0.0)
+        return max(min((Double(exposureCount) + 0.01) / (Double(totalExposureCount) + 0.01), 1.0), 0.0)
     }
     
     
@@ -83,7 +83,7 @@ struct CameraRollProgress: View {
                     trackColor: isSelected ? .init(hex: 0x3E3E3E) : .init(hex: 0x2B2B2B)
                 )
                 if let exposureCount = exposureCount {
-                    Text(String(exposureCount))
+                    Text(String(min(exposureCount, 999)))
                         .font(.system(size: 14, weight: .bold, design: .default))
                         .fontWidth(.expanded)
                         .foregroundStyle(Color.white.opacity(isSelected ? 1.0 : 0.55))
@@ -123,7 +123,6 @@ struct CameraListRow: View {
                         .foregroundStyle(Color.white)
                         .opacity(0.6)
                         .lineLimit(1)
-                        .padding(.bottom, 8)
                 }
                 HStack(spacing: 16) {
                     if !entry.isInstantFilm {
@@ -139,7 +138,7 @@ struct CameraListRow: View {
                     }
 
                     HStack(spacing: 7) {
-                        Image(systemName: "film.stack.fill")
+                        Image(systemName: "rectangle.stack.fill")
                             .font(.system(size: 15, weight: .semibold, design: .default))
                             .foregroundStyle(Color.white.opacity(0.4))
                         Text("\(entry.totalExposureCount)")
@@ -147,7 +146,8 @@ struct CameraListRow: View {
                             .fontWidth(.expanded)
                             .foregroundStyle(Color.white.opacity(0.8))
                     }
-                }
+                }.frame(height: 18)
+                .padding(.top, 8)
             }
             Spacer(minLength: 20)
             HStack(spacing: 9) {
@@ -186,20 +186,26 @@ struct CameraListView: View {
                 if !entries.isEmpty {
                     ScrollView {
                         VStack(spacing: 0) {
-                            ForEach(entries, id: \.id) { entry in
+                            ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                                 NavigationLink(value: entry.id) {
                                     CameraListRow(
                                         entry: entry,
                                         isSelected: entry.id == viewModel.openRoll?.camera?.id
                                             || entry.id == viewModel.activeInstantFilmGroup?.id
                                     )
-                                        .padding(.vertical, 15)
+                                        .padding(.vertical, 18)
                                 }
                                 .transition(.asymmetric(insertion: .opacity, removal: .identity))
+                                if index < entries.count - 1 {
+                                    Rectangle()
+                                        .fill(Color.white.opacity(0.07))
+                                        .frame(height: 1)
+                                        .padding(.leading, 68)
+                                }
                             }
                         }.animation(.easeOut(duration: 0.25), value: entries.map(\.id))
-                        .padding(.top, 13)
-                            .padding(.bottom, 162) // overscroll
+                        .padding(.top, 6)
+                        .padding(.bottom, 162) // overscroll
                     }
                 } else {
                     Text("no cameras\nadded")
