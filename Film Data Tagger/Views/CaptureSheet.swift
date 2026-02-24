@@ -10,6 +10,9 @@ import SwiftData
 import AVFoundation
 import CoreLocation
 
+private let referencePhotoSize = (143.0 / 347.0) * (UIScreen.main.bounds.width - 2 * (15 + 8))
+private let fullDetentHeight = (110 + 25 + referencePhotoSize) * sheetScaleCompensationFactor - bottomSafeAreaInset
+
 // MARK: - Helpers
 
 private func formatElapsed(from date: Date?, now: Date) -> String? {
@@ -120,7 +123,7 @@ private struct CaptureSheetFullContent: View {
                     .transition(.opacity)
                 }
             }
-            .frame(width: 143, height: 143)
+            .frame(width: referencePhotoSize, height: referencePhotoSize)
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .animation(.easeInOut(duration: 0.25), value: viewModel.referencePhotosEnabled)
             .animation(.easeInOut(duration: 0.25), value: viewModel.cameraManager.isRunning)
@@ -235,7 +238,7 @@ private struct CaptureButton: View {
 
 struct CaptureSheet: View {
     static let compactDetent: PresentationDetent = .height(CGFloat(sheetScaleCompensationFactor * 147 - bottomSafeAreaInset))
-    static let fullDetent: PresentationDetent = .height(CGFloat(sheetScaleCompensationFactor * 278 - bottomSafeAreaInset))
+    static let fullDetent: PresentationDetent = .height(fullDetentHeight)
 
     var viewModel: FilmLogViewModel
     var isScrolling: Bool = false
