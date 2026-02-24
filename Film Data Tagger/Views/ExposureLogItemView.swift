@@ -11,10 +11,13 @@ import SwiftData
 /// Bridges a LogItem model to LogItemView
 struct ExposureLogItemView: View {
     let item: LogItem
+    var onCycleExtraExposures: (() -> Void)?
 
     var body: some View {
         LogItemView(
             exposureNumber: item.frameNumber,
+            isPreFrame: item.isPreFrame,
+            onFrameNumberTapped: (item.isPreFrame || item.frameNumber == 1) ? onCycleExtraExposures : nil,
             previewImage: item.photoData
                 .flatMap { UIImage(data: $0) }
                 .map { Image(uiImage: $0) },

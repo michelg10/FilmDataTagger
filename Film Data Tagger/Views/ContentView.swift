@@ -74,6 +74,9 @@ struct ContentView: View {
                     onMovePlaceholderToEnd: { item in
                         viewModel?.movePlaceholderToEnd(item)
                     },
+                    onCycleExtraExposures: {
+                        viewModel?.cycleExtraExposures()
+                    },
                     onTitleTapped: {
                         showCameraList = true
                     }

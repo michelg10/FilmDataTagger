@@ -109,7 +109,7 @@ extension Roll {
     }
 
     var rollSummary: String {
-        var desc = "\(activeItemCount) / \(capacity) exposure\(capacity == 1 ? "" : "s") • Loaded \(formatLoadedDate(createdAt))"
+        var desc = "\(activeItemCount) / \(totalCapacity) exposure\(totalCapacity == 1 ? "" : "s") • Loaded \(formatLoadedDate(createdAt))"
         if !isActive {
             desc += " • \(relativeTimeString(from: modifiedAt))"
         }

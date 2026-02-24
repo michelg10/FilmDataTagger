@@ -73,11 +73,20 @@ final class LogItem {
         latitude != nil && longitude != nil
     }
 
-    /// Frame number computed from position in roll (1-indexed), or nil if not in a roll
+    /// Whether this item is a pre-first-frame exposure
+    var isPreFrame: Bool {
+        guard let roll = roll else { return false }
+        let sortedItems = (roll.logItems ?? []).sorted { $0.createdAt < $1.createdAt }
+        guard let index = sortedItems.firstIndex(where: { $0.id == self.id }) else { return false }
+        return index < roll.extraExposures
+    }
+
+    /// Frame number computed from position in roll (1-indexed, offset by extraExposures), or nil if not in a roll
     var frameNumber: Int? {
         guard let roll = roll else { return nil }
         let sortedItems = (roll.logItems ?? []).sorted { $0.createdAt < $1.createdAt }
         guard let index = sortedItems.firstIndex(where: { $0.id == self.id }) else { return nil }
-        return index + 1
+        if index < roll.extraExposures { return nil }
+        return index - roll.extraExposures + 1
     }
 }

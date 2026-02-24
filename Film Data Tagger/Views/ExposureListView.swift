@@ -14,9 +14,10 @@ private struct ExposureRow: View {
     var onDelete: ((LogItem) -> Void)?
     var onMovePlaceholderBefore: ((LogItem, LogItem) -> Void)?
     var onMovePlaceholderAfter: ((LogItem, LogItem) -> Void)?
+    var onCycleExtraExposures: (() -> Void)?
 
     var body: some View {
-        ExposureLogItemView(item: item)
+        ExposureLogItemView(item: item, onCycleExtraExposures: onCycleExtraExposures)
             .id(item.id)
             .padding(.vertical, 8) // 2 * 8pt = 16pt spacing between items; padding allows context menu hit testing
             .contextMenu {
@@ -58,6 +59,7 @@ struct ExposureListView: View {
     var onMovePlaceholderBefore: ((LogItem, LogItem) -> Void)?
     var onMovePlaceholderAfter: ((LogItem, LogItem) -> Void)?
     var onMovePlaceholderToEnd: ((LogItem) -> Void)?
+    var onCycleExtraExposures: (() -> Void)?
     var onTitleTapped: (() -> Void)?
 
     var body: some View {
@@ -87,7 +89,8 @@ struct ExposureListView: View {
                                         logItems: logItems,
                                         onDelete: onDelete,
                                         onMovePlaceholderBefore: onMovePlaceholderBefore,
-                                        onMovePlaceholderAfter: onMovePlaceholderAfter
+                                        onMovePlaceholderAfter: onMovePlaceholderAfter,
+                                        onCycleExtraExposures: onCycleExtraExposures
                                     )
                                 }
                             }

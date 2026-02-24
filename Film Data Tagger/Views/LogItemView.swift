@@ -17,18 +17,33 @@ struct LogItemView: View {
     
     /// Exposure number to display, must be <100
     var exposureNumber: Int?
+    var isPreFrame: Bool = false
+    var onFrameNumberTapped: (() -> Void)?
     var previewImage: Image?
     var infoItems: [LogItemInfoItem]
-    
+
     var body: some View {
         HStack(spacing: 12) {
-            if let exposureNumber = exposureNumber {
+            if isPreFrame {
+                Circle()
+                    .fill(Color.white.opacity(0.8))
+                    .frame(width: 10, height: 10)
+                    .frame(width: 38, alignment: .center)
+                    .frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture { onFrameNumberTapped?() }
+            } else if let exposureNumber = exposureNumber {
                 Text(String(format: "%02d", exposureNumber % 100))
                     .font(.system(size: 20, weight: .bold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
                     .frame(width: 38, alignment: .center)
+                    .frame(maxHeight: .infinity)
                     .opacity(0.85)
+                    .if(onFrameNumberTapped != nil) { view in
+                        view.contentShape(Rectangle())
+                            .onTapGesture { onFrameNumberTapped?() }
+                    }
             }
             
             Group {

@@ -43,8 +43,8 @@ final class FilmLogViewModel {
         didSet { settings.openCameraId = openCamera?.id }
     }
 
-    /// Roll capacity from the open roll.
-    var rollCapacity: Int { openRoll?.capacity ?? 36 }
+    /// Total roll capacity (including extra pre-first-frame exposures).
+    var rollCapacity: Int { openRoll?.totalCapacity ?? 36 }
 
     // MARK: - Instant film state
 
@@ -385,6 +385,15 @@ final class FilmLogViewModel {
             r.isActive = false
         }
         roll.isActive = true
+    }
+
+    func cycleExtraExposures() {
+        guard let roll = openRoll else { return }
+        let itemCount = (roll.logItems ?? []).count
+        let maxExtra = min(4, itemCount)
+        let next = roll.extraExposures + 1
+        roll.extraExposures = next > maxExtra ? 0 : next
+        reloadItems()
     }
 
     func deleteRoll(_ roll: Roll) {

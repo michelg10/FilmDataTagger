@@ -24,6 +24,9 @@ final class Roll {
     /// Number of frames per roll (e.g., 12, 24, 36)
     var capacity: Int = 36
 
+    /// Number of pre-first-frame exposures (0–4), for carefully loaded rolls
+    var extraExposures: Int = 0
+
     /// Whether this is the active roll for its camera. Only one roll per camera should be active.
     var isActive: Bool = true
 
@@ -42,6 +45,9 @@ final class Roll {
         self.createdAt = Date()
         self.modifiedAt = Date()
     }
+
+    /// Total capacity including extra pre-first-frame exposures
+    var totalCapacity: Int { capacity + extraExposures }
 
     /// Call this whenever the roll is modified
     func touch() {

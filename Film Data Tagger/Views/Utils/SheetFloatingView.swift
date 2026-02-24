@@ -41,6 +41,7 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
         context.coordinator.offset = offset
         if let child = context.coordinator.floatingChild {
             child.rootView = floatingContent()
+            context.coordinator.invalidateSize()
         } else {
             context.coordinator.pendingContent = floatingContent()
         }
@@ -67,6 +68,10 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
         weak var discoveredPresentedView: UIView?
         weak var discoveredContainerView: UIView?
         deinit { displayLink?.invalidate() }
+
+        func invalidateSize() {
+            cachedSize = .zero
+        }
 
         func ensureDisplayLink() {
             guard displayLink == nil else { return }
@@ -167,4 +172,3 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
 
     }
 }
-

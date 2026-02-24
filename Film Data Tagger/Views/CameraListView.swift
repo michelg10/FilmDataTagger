@@ -109,7 +109,7 @@ struct CameraListRow: View {
                 isSelected: isSelected,
                 isInstantFilm: entry.isInstantFilm,
                 exposureCount: entry.activeRoll.map { ($0.logItems ?? []).count },
-                totalExposureCount: entry.activeRoll?.capacity
+                totalExposureCount: entry.activeRoll?.totalCapacity
             ).padding(.trailing, 17)
             VStack(alignment: .leading, spacing: 0) {
                 Text(entry.displayName)
