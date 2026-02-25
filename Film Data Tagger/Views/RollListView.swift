@@ -37,11 +37,40 @@ struct BlockProgressBar: Layout {
 
 struct RollListRow: View {
     var roll: Roll
+    var maxCapacity: Int = 36
+
+    private var exposureCount: Int {
+        (roll.logItems ?? []).count
+    }
+
+    private var exposureCountDisplay: String {
+        exposureCount > 99 ? "99+" : "\(exposureCount)"
+    }
+
+    private static let loadedDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d, yyyy"
+        return f
+    }()
+
+    private var lastUsedText: String {
+        let interval = Date().timeIntervalSince(roll.modifiedAt)
+        let minutes = Int(interval / 60)
+        let hours = Int(interval / 3600)
+        let days = Int(interval / 86400)
+        if days > 0 {
+            return "\(days)d"
+        } else if hours > 0 {
+            return "\(hours)h"
+        } else {
+            return "\(max(1, minutes))m"
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 13) {
             HStack(alignment: .bottom, spacing: 0) {
-                Text("Kodak Portra 400")
+                Text(roll.filmStock)
                     .font(.system(size: 20, weight: .semibold, design: .default))
                     .fontWidth(.expanded)
                     .lineLimit(2)
@@ -49,8 +78,8 @@ struct RollListRow: View {
                     .lineHeight(.exact(points: 24))
                     .foregroundStyle(Color.white)
                 Spacer(minLength: 20)
-                let exposureCountText = Text("24").foregroundStyle(Color.white.opacity(0.9)) // clip this at 99+ for numbers greater than 99
-                let totalExposureText = Text(" / 36").foregroundStyle(Color.white.opacity(0.5))
+                let exposureCountText = Text(exposureCountDisplay).foregroundStyle(Color.white.opacity(0.9))
+                let totalExposureText = Text(" / \(roll.totalCapacity)").foregroundStyle(Color.white.opacity(0.5))
                 Text("\(exposureCountText)\(totalExposureText)")
                     .font(.system(size: 15, weight: .semibold, design: .default))
                     .fontWidth(.expanded)
@@ -58,20 +87,17 @@ struct RollListRow: View {
             }
             
             BlockProgressBar {
-                let allRollsMaxExposureCount = 40
-                let currentRollTotalExposures = 36
-                let currentRollExposed = 25
-                
-                ForEach(0..<allRollsMaxExposureCount, id: \.self) { i in
+                ForEach(0..<maxCapacity, id: \.self) { i in
                     VStack(spacing: 2) {
                         Rectangle().frame(height: 2).opacity(0.25)
                         Rectangle()
+                            .opacity(i < exposureCount ? 1 : 0.15)
                         Rectangle().frame(height: 2).opacity(0.25)
                     }.foregroundStyle(Color.white.opacity(0.95))
-                    .opacity(i < currentRollTotalExposures ? 1 : 0)
+                    .opacity(i < roll.totalCapacity ? 1 : 0)
 
                     // separator (except after last element)
-                    if i < allRollsMaxExposureCount - 1 {
+                    if i < maxCapacity - 1 {
                         Color.clear
                     }
                 }
@@ -79,12 +105,12 @@ struct RollListRow: View {
             
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 let loadedText = Text("Loaded").foregroundStyle(Color.white.opacity(0.5))
-                let dateLoadedText = Text("Jan 20, 2026").foregroundStyle(Color.white.opacity(0.9))
+                let dateLoadedText = Text(Self.loadedDateFormatter.string(from: roll.createdAt)).foregroundStyle(Color.white.opacity(0.9))
                 Text("\(loadedText) \(dateLoadedText)")
                 
                 Spacer(minLength: 20)
                 
-                let usedAgoTime = Text("30d").foregroundStyle(Color.white.opacity(0.9))
+                let usedAgoTime = Text(lastUsedText).foregroundStyle(Color.white.opacity(0.9))
                 Text("used \(usedAgoTime) ago")
                     .foregroundStyle(Color.white.opacity(0.5))
             }.font(.system(size: 13, weight: .semibold, design: .default))
@@ -115,6 +141,10 @@ struct RollListView: View {
 
     private var totalExposures: Int {
         rolls.flatMap { $0.logItems ?? [] }.count
+    }
+
+    private var maxCapacity: Int {
+        rolls.map(\.totalCapacity).max() ?? 36
     }
 
     var body: some View {
@@ -148,7 +178,7 @@ struct RollListView: View {
                                     viewModel.switchToRoll(activeRoll)
                                     onDismissSheet?()
                                 } label: {
-                                    RollListRow(roll: activeRoll)
+                                    RollListRow(roll: activeRoll, maxCapacity: maxCapacity)
                                         .padding(.vertical, 20)
                                         .contentShape(Rectangle())
                                 }
@@ -172,7 +202,7 @@ struct RollListView: View {
 
                             ForEach(Array(pastRolls.enumerated()), id: \.element.id) { index, roll in
                                 if index > 0 {
-                                    Color.white.opacity(0.18)
+                                    Color.white.opacity(0.07)
                                         .frame(height: 1)
                                         .padding(.horizontal, 8)
                                 }
@@ -181,7 +211,7 @@ struct RollListView: View {
                                     viewModel.switchToRoll(roll)
                                     onDismissSheet?()
                                 } label: {
-                                    RollListRow(roll: roll)
+                                    RollListRow(roll: roll, maxCapacity: maxCapacity)
                                         .padding(.vertical, 20)
                                         .contentShape(Rectangle())
                                 }
