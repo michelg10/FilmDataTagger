@@ -42,7 +42,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var viewModel: FilmLogViewModel?
-    @State private var showSheet = true
+    @State private var showSheet = false
     @State private var showCameraList = false
     @State private var showNewRoll = false
     @State private var isScrolling = false
@@ -116,6 +116,13 @@ struct ContentView: View {
                 if viewModel == nil {
                     viewModel = FilmLogViewModel(modelContext: modelContext)
                     viewModel?.setup()
+                }
+                if !showSheet {
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        showSheet = true
+                    }
                 }
             }
         }
