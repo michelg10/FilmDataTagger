@@ -53,7 +53,7 @@ struct RollListRow: View {
         return f
     }()
 
-    private var lastUsedText: String {
+    private var lastUsedText: String? {
         let interval = Date().timeIntervalSince(roll.modifiedAt)
         let minutes = Int(interval / 60)
         let hours = Int(interval / 3600)
@@ -62,8 +62,10 @@ struct RollListRow: View {
             return "\(days)d"
         } else if hours > 0 {
             return "\(hours)h"
+        } else if minutes >= 1 {
+            return "\(minutes)m"
         } else {
-            return "\(max(1, minutes))m"
+            return nil
         }
     }
 
@@ -91,17 +93,17 @@ struct RollListRow: View {
                     VStack(spacing: 2) {
                         Rectangle().frame(height: 2).opacity(0.25)
                         Rectangle()
-                            .opacity(i < exposureCount ? 1 : 0.15)
                         Rectangle().frame(height: 2).opacity(0.25)
                     }.foregroundStyle(Color.white.opacity(0.95))
+                    .opacity(i < exposureCount ? 1 : 0.15)
                     .opacity(i < roll.totalCapacity ? 1 : 0)
 
                     // separator (except after last element)
                     if i < maxCapacity - 1 {
                         Color.clear
                     }
-                }
-            }.opacity(roll.isActive ? 1 : 0.75)
+                }.opacity(roll.isActive ? 1 : 0.75)
+            }
             
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 let loadedText = Text("Loaded").foregroundStyle(Color.white.opacity(0.5))
@@ -110,8 +112,8 @@ struct RollListRow: View {
                 
                 Spacer(minLength: 20)
                 
-                let usedAgoTime = Text(lastUsedText).foregroundStyle(Color.white.opacity(0.9))
-                Text("used \(usedAgoTime) ago")
+                let usedAgoTime = Text(lastUsedText ?? "now").foregroundStyle(Color.white.opacity(0.9))
+                Text("used \(usedAgoTime)\(lastUsedText == nil ? "" : " ago")")
                     .foregroundStyle(Color.white.opacity(0.5))
             }.font(.system(size: 13, weight: .semibold, design: .default))
             .fontWidth(.expanded)
