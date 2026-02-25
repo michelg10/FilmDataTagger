@@ -200,8 +200,8 @@ struct RollListView: View {
                     }.animation(.easeOut(duration: 0.25), value: activeRoll?.id)
                     .animation(.easeOut(duration: 0.25), value: pastRolls.map(\.id))
                     .padding(.horizontal, 16)
-                        .padding(.bottom, 162) // overscroll
-                        .offset(y: -46)
+                    .offset(y: -46)
+                    .padding(.bottom, 217 - 20 - bottomSafeAreaInset - 46) // overscroll
                 }
             } else {
                 Text("no rolls logged")

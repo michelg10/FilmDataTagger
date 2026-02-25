@@ -207,7 +207,7 @@ struct CameraListView: View {
                             }
                         }.animation(.easeOut(duration: 0.25), value: entries.map(\.id))
                         .padding(.top, 6)
-                        .padding(.bottom, 162) // overscroll
+                        .padding(.bottom, 217 - 18 - bottomSafeAreaInset) // overscroll
                     }
                 } else {
                     Text("no cameras\nadded")
