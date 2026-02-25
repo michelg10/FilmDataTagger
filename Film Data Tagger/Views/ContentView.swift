@@ -54,13 +54,14 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            ZStack(alignment: .bottom) {
+            ZStack {
                 ExposureListView(
                     logItems: logItems,
                     cameraName: viewModel?.openCamera?.name ?? "No camera selected",
                     filmStock: viewModel?.openRoll?.filmStock
                         ?? (viewModel?.openCamera != nil ? "No roll selected" : ""),
                     hasRoll: viewModel?.openRoll != nil,
+                    scrollContextID: viewModel?.openRoll?.id ?? viewModel?.openCamera?.id,
                     isScrolling: $isScrolling,
                     onDelete: { item in
                         viewModel?.deleteItem(item)

@@ -54,6 +54,7 @@ struct ExposureListView: View {
     var cameraName: String = ""
     var filmStock: String = ""
     var hasRoll: Bool = true
+    var scrollContextID: UUID? = nil
     @Binding var isScrolling: Bool
     var onDelete: ((LogItem) -> Void)?
     var onMovePlaceholderBefore: ((LogItem, LogItem) -> Void)?
@@ -97,8 +98,8 @@ struct ExposureListView: View {
                             .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))
                             .padding(.horizontal, 16)
                             .offset(y: -21)
-
-                            // Drop zone for moving placeholders to end of list
+                            
+                            // Overscroll / drop zone for moving placeholders to end of list
                             Color.clear
                                 .frame(height: 396)
                                 .contentShape(Rectangle())
@@ -166,7 +167,7 @@ struct ExposureListView: View {
             }
             .buttonStyle(.plain)
             .padding(.top, 59)
-        }
+        }.id(scrollContextID)
     }
 }
 
