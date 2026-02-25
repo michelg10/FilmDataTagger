@@ -6,23 +6,91 @@
 //
 
 import SwiftUI
+import SwiftData
+
+struct BlockProgressBar: Layout {
+    let elementRatio: CGFloat = 6.6
+    let separatorRatio: CGFloat = 3.53
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let height = subviews.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
+        return CGSize(width: proposal.width ?? 0, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let n = (subviews.count + 1) / 2 // elements; separators are the odd-indexed views
+        let totalUnits = CGFloat(n) * elementRatio + CGFloat(n - 1) * separatorRatio
+        let unit = bounds.width / totalUnits
+
+        var x = bounds.minX
+        for (i, subview) in subviews.enumerated() {
+            let w = (i % 2 == 0) ? unit * elementRatio : unit * separatorRatio
+            subview.place(
+                at: CGPoint(x: x, y: bounds.midY),
+                anchor: .leading,
+                proposal: ProposedViewSize(width: w, height: bounds.height)
+            )
+            x += w
+        }
+    }
+}
 
 struct RollListRow: View {
     var roll: Roll
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(roll.filmStock)
-                .font(.system(size: 20, weight: .semibold, design: .default))
-                .fontWidth(.expanded)
-            Text(roll.rollSummary)
-                .font(.system(size: 13, weight: .medium, design: .default))
-                .fontWidth(.expanded)
-                .opacity(0.58)
-                .multilineTextAlignment(.leading)
-                .lineHeight(.exact(points: 17))
-        }.frame(maxWidth: .infinity, alignment: .leading)
-        .foregroundStyle(Color.white)
+        VStack(alignment: .leading, spacing: 13) {
+            HStack(alignment: .bottom, spacing: 0) {
+                Text("Kodak Portra 400")
+                    .font(.system(size: 20, weight: .semibold, design: .default))
+                    .fontWidth(.expanded)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .lineHeight(.exact(points: 24))
+                    .foregroundStyle(Color.white)
+                Spacer(minLength: 20)
+                let exposureCountText = Text("24").foregroundStyle(Color.white.opacity(0.9)) // clip this at 99+ for numbers greater than 99
+                let totalExposureText = Text(" / 36").foregroundStyle(Color.white.opacity(0.5))
+                Text("\(exposureCountText)\(totalExposureText)")
+                    .font(.system(size: 15, weight: .semibold, design: .default))
+                    .fontWidth(.expanded)
+                    .opacity(roll.isActive ? 1 : 0.9)
+            }
+            
+            BlockProgressBar {
+                let allRollsMaxExposureCount = 40
+                let currentRollTotalExposures = 36
+                let currentRollExposed = 25
+                
+                ForEach(0..<allRollsMaxExposureCount, id: \.self) { i in
+                    VStack(spacing: 2) {
+                        Rectangle().frame(height: 2).opacity(0.25)
+                        Rectangle()
+                        Rectangle().frame(height: 2).opacity(0.25)
+                    }.foregroundStyle(Color.white.opacity(0.95))
+                    .opacity(i < currentRollTotalExposures ? 1 : 0)
+
+                    // separator (except after last element)
+                    if i < allRollsMaxExposureCount - 1 {
+                        Color.clear
+                    }
+                }
+            }.opacity(roll.isActive ? 1 : 0.75)
+            
+            HStack(spacing: 0) {
+                let loadedText = Text("Loaded").foregroundStyle(Color.white.opacity(0.5))
+                let dateLoadedText = Text("Jan 20, 2026").foregroundStyle(Color.white.opacity(0.9))
+                Text("\(loadedText) \(dateLoadedText)")
+                
+                Spacer(minLength: 20)
+                
+                let usedAgoTime = Text("30d").foregroundStyle(Color.white.opacity(0.9))
+                Text("used \(usedAgoTime) ago")
+                    .foregroundStyle(Color.white.opacity(0.5))
+            }.font(.system(size: 13, weight: .semibold, design: .default))
+            .fontWidth(.expanded)
+            .opacity(roll.isActive ? 1 : 0.8)
+        }
     }
 }
 
@@ -75,14 +143,14 @@ struct RollListView: View {
                                     .font(.system(size: 15, weight: .bold, design: .default))
                                     .fontWidth(.expanded)
                                     .opacity(0.6)
+                                    .background(Color.red)
 
                                 Button {
                                     viewModel.switchToRoll(activeRoll)
                                     onDismissSheet?()
                                 } label: {
                                     RollListRow(roll: activeRoll)
-                                        .padding(.top, 12)
-                                        .padding(.bottom, 14)
+                                        .padding(.vertical, 20)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
@@ -92,8 +160,9 @@ struct RollListView: View {
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
-                                }
-                            }.transition(.asymmetric(insertion: .opacity, removal: .opacity))
+                                }.background(Color.green)
+                            }.padding(.bottom, 20)
+                            .transition(.asymmetric(insertion: .opacity, removal: .opacity))
                         }
 
                         if !pastRolls.isEmpty {
@@ -101,7 +170,6 @@ struct RollListView: View {
                                 .font(.system(size: 15, weight: .bold, design: .default))
                                 .fontWidth(.expanded)
                                 .opacity(0.6)
-                                .padding(.top, 14)
 
                             ForEach(pastRolls, id: \.id) { roll in
                                 Button {
@@ -109,8 +177,7 @@ struct RollListView: View {
                                     onDismissSheet?()
                                 } label: {
                                     RollListRow(roll: roll)
-                                        .padding(.top, pastRolls.first?.id == roll.id ? 12 : 14)
-                                        .padding(.bottom, 14)
+                                        .padding(.vertical, 20)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
@@ -177,4 +244,22 @@ struct RollListView: View {
             }
         }
     }
+}
+
+#Preview {
+    let container = PreviewSampleData.makeContainer()
+    let context = container.mainContext
+    let camera = try! context.fetch(FetchDescriptor<Camera>()).first!
+
+    // Add a past roll
+    let pastRoll = Roll(filmStock: "Fuji Superia 400", camera: camera)
+    pastRoll.isActive = false
+    context.insert(pastRoll)
+
+    let viewModel = FilmLogViewModel(modelContext: context)
+    return NavigationStack {
+        RollListView(camera: camera, viewModel: viewModel)
+    }
+    .modelContainer(container)
+    .preferredColorScheme(.dark)
 }
