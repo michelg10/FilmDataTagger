@@ -77,7 +77,7 @@ struct RollListRow: View {
                 }
             }.opacity(roll.isActive ? 1 : 0.75)
             
-            HStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
                 let loadedText = Text("Loaded").foregroundStyle(Color.white.opacity(0.5))
                 let dateLoadedText = Text("Jan 20, 2026").foregroundStyle(Color.white.opacity(0.9))
                 Text("\(loadedText) \(dateLoadedText)")
@@ -130,10 +130,10 @@ struct RollListView: View {
                             Text(" roll\(rolls.count == 1 ? "" : "s")")
                                 .opacity(0.6)
                         }.foregroundStyle(Color.white)
-                            .font(.system(size: 15, weight: .heavy, design: .default))
-                            .fontWidth(.expanded)
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.bottom, 28)
+                        .font(.system(size: 15, weight: .heavy, design: .default))
+                        .fontWidth(.expanded)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.bottom, 30)
                         
                         // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
                         
