@@ -138,12 +138,11 @@ struct RollListView: View {
                         // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
                         
                         if let activeRoll {
-                            Group {
+                            VStack(alignment: .leading, spacing: 0) {
                                 Text("Active roll")
                                     .font(.system(size: 15, weight: .bold, design: .default))
                                     .fontWidth(.expanded)
                                     .opacity(0.6)
-                                    .background(Color.red)
 
                                 Button {
                                     viewModel.switchToRoll(activeRoll)
@@ -160,7 +159,7 @@ struct RollListView: View {
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
-                                }.background(Color.green)
+                                }
                             }.padding(.bottom, 20)
                             .transition(.asymmetric(insertion: .opacity, removal: .opacity))
                         }
@@ -171,7 +170,13 @@ struct RollListView: View {
                                 .fontWidth(.expanded)
                                 .opacity(0.6)
 
-                            ForEach(pastRolls, id: \.id) { roll in
+                            ForEach(Array(pastRolls.enumerated()), id: \.element.id) { index, roll in
+                                if index > 0 {
+                                    Color.white.opacity(0.18)
+                                        .frame(height: 1)
+                                        .padding(.horizontal, 8)
+                                }
+                                
                                 Button {
                                     viewModel.switchToRoll(roll)
                                     onDismissSheet?()
@@ -229,6 +234,7 @@ struct RollListView: View {
             Text("This will permanently delete \"\(rollToDelete?.filmStock ?? "")\" and its \(count) logged exposure\(count == 1 ? "" : "s") from all your devices. Data already saved to Photos or exported files won't be affected.")
         }
         .navigationBarBackButtonHidden()
+        .background(Color(hex: 0x151515))
         .toolbar {
             ToolbarItem(placement: .principal) {
                 HStack(spacing: 0) {
