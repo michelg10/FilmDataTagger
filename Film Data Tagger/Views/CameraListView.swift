@@ -177,8 +177,8 @@ struct CameraListView: View {
         if topBarState == .camera {
             return "plus.circle.fill"
         }
-        let hasRolls = !(selectedCamera?.rolls?.isEmpty ?? true)
-        return hasRolls ? "checkmark.arrow.trianglehead.counterclockwise" : "plus"
+        let hasActiveRoll = selectedCamera?.rolls?.contains(where: { $0.isActive }) ?? false
+        return hasActiveRoll ? "checkmark.arrow.trianglehead.counterclockwise" : "plus"
     }
 
     var body: some View {
@@ -282,7 +282,6 @@ struct CameraListView: View {
                     Image(systemName: bottomButtonIcon)
                         .contentTransition(.opacity)
                         .font(.system(size: 26, weight: .semibold, design: .default))
-                        .frame(width: 32, height: 31)
                         .padding(.leading, 16)
                     Text(topBarState == .camera ? "New camera" : "New roll")
 //                        .contentTransition(.numericText())

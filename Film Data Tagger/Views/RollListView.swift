@@ -240,7 +240,7 @@ struct RollListView: View {
                     .opacity(0.4)
                     .padding(.bottom, 141)
                     .padding(.horizontal, 16)
-                    .frame(maxHeight: .infinity, alignment: .center)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
         }
         .alert(
