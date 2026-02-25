@@ -41,6 +41,7 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
+        context.coordinator.anchorView = uiView
         context.coordinator.offset = offset
         context.coordinator.fixedHeight = fixedHeight
         if let child = context.coordinator.floatingChild {
@@ -49,7 +50,10 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
         } else {
             context.coordinator.pendingContent = floatingContent()
         }
-        context.coordinator.ensureDisplayLink()
+        context.coordinator.installOrUpdateFloatingViewIfPossible()
+        DispatchQueue.main.async {
+            context.coordinator.installOrUpdateFloatingViewIfPossible()
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -63,38 +67,30 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
         var pendingContent: F?
 
         var floatingChild: UIHostingController<F>?
-        var displayLink: CADisplayLink?
         var isSetUp = false
 
         var cachedSize: CGSize = .zero
+        var measuredWidth: CGFloat = .zero
 
         weak var discoveredPresentedView: UIView?
         weak var discoveredContainerView: UIView?
-        deinit { displayLink?.invalidate() }
+        var activeConstraints: [NSLayoutConstraint] = []
+        var bottomConstraint: NSLayoutConstraint?
+        var heightConstraint: NSLayoutConstraint?
+        var usesFixedHeightLayout: Bool?
 
         func invalidateSize() {
             cachedSize = .zero
-        }
-
-        func ensureDisplayLink() {
-            guard displayLink == nil else { return }
-            displayLink = CADisplayLink(target: self, selector: #selector(tick))
-            displayLink?.add(to: .main, forMode: .common)
+            measuredWidth = .zero
         }
 
         /// Finds the first presented sheet's views.
         private func findSheetViews() -> (presentedView: UIView, containerView: UIView)? {
-            if let pv = discoveredPresentedView, pv.window != nil,
-               let cv = discoveredContainerView, cv.window != nil {
-                return (pv, cv)
-            }
             guard let window = anchorView?.window,
                   let presented = window.rootViewController?.presentedViewController,
                   let pv = presented.presentationController?.presentedView,
                   let cv = presented.presentationController?.containerView
             else { return nil }
-            discoveredPresentedView = pv
-            discoveredContainerView = cv
             return (pv, cv)
         }
 
@@ -103,19 +99,74 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
             let child = UIHostingController(rootView: content)
             child.view.backgroundColor = .clear
             child.view.isUserInteractionEnabled = true
-
-            // Give an initial frame so the hosting controller can lay out
-            child.view.frame = CGRect(
-                x: 0, y: -200,
-                width: UIScreen.main.bounds.width, height: 100
-            )
+            child.view.translatesAutoresizingMaskIntoConstraints = false
 
             containerView.addSubview(child.view)
             floatingChild = child
             isSetUp = true
         }
 
-        @objc private func tick() {
+        private func ensureZOrder(childView: UIView, above presentedView: UIView, in containerView: UIView) {
+            guard childView.superview === containerView else { return }
+            let childIndex = containerView.subviews.firstIndex(of: childView)
+            let presentedIndex = containerView.subviews.firstIndex(of: presentedView)
+            guard let childIndex, let presentedIndex, childIndex <= presentedIndex else { return }
+            containerView.insertSubview(childView, aboveSubview: presentedView)
+        }
+
+        private func measureSizeIfNeeded(childView: UIView, maxWidth: CGFloat) -> CGSize {
+            guard fixedHeight == nil else {
+                return CGSize(width: maxWidth, height: fixedHeight ?? 0)
+            }
+            if cachedSize == .zero || measuredWidth != maxWidth {
+                let measured = childView.sizeThatFits(
+                    CGSize(width: maxWidth, height: CGFloat.greatestFiniteMagnitude)
+                )
+                guard measured.width > 0, measured.height > 0 else { return .zero }
+                cachedSize = measured
+                measuredWidth = maxWidth
+            }
+            return cachedSize
+        }
+
+        private func rebuildConstraintsIfNeeded(
+            childView: UIView,
+            presentedView: UIView,
+            containerView: UIView
+        ) -> Bool {
+            guard containerView.bounds.width > 0 else { return false }
+            NSLayoutConstraint.deactivate(activeConstraints)
+            activeConstraints.removeAll()
+            bottomConstraint = nil
+            heightConstraint = nil
+
+            let bottom = childView.bottomAnchor.constraint(equalTo: presentedView.topAnchor, constant: -offset)
+            var constraints: [NSLayoutConstraint] = [bottom]
+
+            if let fixedHeight {
+                constraints.append(childView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor))
+                constraints.append(childView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor))
+                let height = childView.heightAnchor.constraint(equalToConstant: fixedHeight)
+                constraints.append(height)
+                heightConstraint = height
+            } else {
+                let size = measureSizeIfNeeded(childView: childView, maxWidth: containerView.bounds.width)
+                guard size != .zero else { return false }
+                constraints.append(childView.centerXAnchor.constraint(equalTo: containerView.centerXAnchor))
+                constraints.append(childView.widthAnchor.constraint(equalToConstant: size.width))
+                let height = childView.heightAnchor.constraint(equalToConstant: size.height)
+                constraints.append(height)
+                heightConstraint = height
+            }
+
+            NSLayoutConstraint.activate(constraints)
+            activeConstraints = constraints
+            bottomConstraint = bottom
+            usesFixedHeightLayout = fixedHeight != nil
+            return true
+        }
+
+        func installOrUpdateFloatingViewIfPossible() {
             guard let views = findSheetViews() else { return }
             let (presentedView, containerView) = views
 
@@ -128,41 +179,46 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
 
             guard let child = floatingChild else { return }
             let childView = child.view!
+            let containerChanged = childView.superview !== containerView
+                || discoveredPresentedView !== presentedView
+                || discoveredContainerView !== containerView
 
-            // Ensure floating view stays on top within the containerView
-            // (above the sheet, but the containerView itself is below any inner sheets)
-            containerView.bringSubviewToFront(childView)
-
-            // Use the presentation layer to follow in-flight sheet animations.
-            // Convert through layers to stay in containerView coordinates even while animating.
-            let presentedLayer = presentedView.layer.presentation() ?? presentedView.layer
-            let rectInContainer = presentedLayer.convert(presentedLayer.bounds, to: containerView.layer)
-            guard rectInContainer.minY.isFinite, rectInContainer.height.isFinite else { return }
-            let modelY = rectInContainer.minY
-
-            // Measure size once. Known problem: height measurement is janky
-            if cachedSize == .zero {
-                if let fixedHeight {
-                    cachedSize = CGSize(width: UIScreen.main.bounds.width, height: fixedHeight)
-                } else {
-                    let measured = childView.sizeThatFits(
-                        CGSize(width: UIScreen.main.bounds.width,
-                               height: CGFloat.greatestFiniteMagnitude)
+            if containerChanged {
+                if childView.superview !== containerView {
+                    childView.removeFromSuperview()
+                    containerView.addSubview(childView)
+                }
+                let didBuildConstraints = rebuildConstraintsIfNeeded(
+                    childView: childView,
+                    presentedView: presentedView,
+                    containerView: containerView
+                )
+                if didBuildConstraints {
+                    discoveredPresentedView = presentedView
+                    discoveredContainerView = containerView
+                }
+            } else {
+                let wantsFixedHeightLayout = fixedHeight != nil
+                if usesFixedHeightLayout != wantsFixedHeightLayout {
+                    _ = rebuildConstraintsIfNeeded(
+                        childView: childView,
+                        presentedView: presentedView,
+                        containerView: containerView
                     )
-                    guard measured.width > 0, measured.height > 0 else { return }
-                    cachedSize = measured
+                }
+                bottomConstraint?.constant = -offset
+                if let fixedHeight {
+                    heightConstraint?.constant = fixedHeight
+                } else if measuredWidth != containerView.bounds.width {
+                    _ = rebuildConstraintsIfNeeded(
+                        childView: childView,
+                        presentedView: presentedView,
+                        containerView: containerView
+                    )
                 }
             }
 
-            let size = cachedSize
-            let screenWidth = containerView.bounds.width
-            let x = (screenWidth - size.width) / 2
-            // Position in containerView coordinates (containerView is full-screen)
-            let targetY = modelY - offset - size.height
-            let targetFrame = CGRect(x: x, y: targetY, width: size.width, height: size.height)
-
-            childView.frame = targetFrame
+            ensureZOrder(childView: childView, above: presentedView, in: containerView)
         }
-
     }
 }
