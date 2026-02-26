@@ -151,7 +151,7 @@ struct RollListView: View {
     }
 
     var body: some View {
-        Group {
+        ZStack {
             if !rolls.isEmpty {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
