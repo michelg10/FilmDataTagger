@@ -168,15 +168,25 @@ struct CameraListRow: View {
 struct CameraListView: View {
     var viewModel: FilmLogViewModel
     @Environment(\.dismiss) private var dismiss
+    @Query private var cameras: [Camera]
+    @Query private var instantFilmGroups: [InstantFilmGroup]
     @State private var topBarState: TopBarState = .camera
     @State private var path = NavigationPath()
     @State private var selectedCamera: Camera?
     @State private var showNewRoll = false
     @State private var showNewCamera = false
+    @State private var pendingCameraNavigation: UUID?
+
+    private var allEntries: [any CameraListEntry] {
+        let entries: [any CameraListEntry] = cameras + instantFilmGroups
+        return entries.sorted { a, b in
+            a.id.uuidString < b.id.uuidString
+        }
+    }
 
     private var bottomButtonIcon: String {
         if topBarState == .camera {
-            return "plus.circle.fill"
+            return "plus"
         }
         let hasActiveRoll = selectedCamera?.rolls?.contains(where: { $0.isActive }) ?? false
         return hasActiveRoll ? "checkmark.arrow.trianglehead.counterclockwise" : "plus"
@@ -185,7 +195,7 @@ struct CameraListView: View {
     var body: some View {
         NavigationStack(path: $path) {
             Group {
-                let entries = viewModel.allCameraListEntries()
+                let entries = allEntries
                 if !entries.isEmpty {
                     ScrollView {
                         VStack(spacing: 0) {
@@ -236,8 +246,7 @@ struct CameraListView: View {
                 }
             }
             .navigationDestination(for: UUID.self) { id in
-                let entries = viewModel.allCameraListEntries()
-                if let camera = entries.first(where: { $0.id == id }) as? Camera {
+                if let camera = cameras.first(where: { $0.id == id }) {
                     RollListView(
                         camera: camera,
                         viewModel: viewModel,
@@ -256,8 +265,15 @@ struct CameraListView: View {
                 Text("error: expected non-nil camera for RollFormSheet, got nil")
             }
         }
-        .sheet(isPresented: $showNewCamera) {
-            NewCameraSheet(viewModel: viewModel)
+        .sheet(isPresented: $showNewCamera, onDismiss: {
+            if let id = pendingCameraNavigation {
+                pendingCameraNavigation = nil
+                path.append(id)
+            }
+        }) {
+            NewCameraSheet(viewModel: viewModel, onCameraCreated: { id in
+                pendingCameraNavigation = id
+            })
         }
         .onChange(of: path.count) {
             withAnimation(.easeInOut(duration: 0.2)) {
