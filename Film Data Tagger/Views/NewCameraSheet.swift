@@ -16,16 +16,31 @@ private let standardCameraPlaceholders = [
     "Sproca CP",
 ]
 
-private let instantFilmPlaceholders = [
+private let polaroidPlaceholders = [
+    "Sprokaroid", // we repeat Sprokaroid twice for it to be more common
     "Sprokaroid",
+    "Sprokaroid Swift"
+]
+
+private let instaxPlaceholders = [
     "Sprokax",
+    "Sprokax Plus",
+    "Sprokax Expanded",
 ]
 
 private func randomCameraPlaceholder(instantFilm: Bool) -> String {
     if instantFilm {
-        return Double.random(in: 0..<1) < 0.11
-            ? "1mpossib1e"
-            : instantFilmPlaceholders.randomElement()!
+        // easter egg
+        if Double.random(in: 0..<1) < 0.11 {
+            return "1mpossib1e"
+        }
+        
+        // otherwise, prefer Polaroid, but allow Instax too
+        if Double.random(in: 0..<1) < 0.66 {
+            return polaroidPlaceholders.randomElement()!
+        } else {
+            return instaxPlaceholders.randomElement()!
+        }
     } else {
         return standardCameraPlaceholders.randomElement()!
     }
@@ -46,7 +61,8 @@ struct NewCameraSheet: View {
     private var isEditing: Bool { editingEntry != nil }
 
     var body: some View {
-        FormSheet(title: isEditing ? "Edit camera" : "New camera", sheetHeight: isEditing ? 255 : 366, titleBarPadding: 11, formIsAboveAnotherSheet: formIsAboveAnotherSheet) {
+        let noun = isInstantFilm ? "group" : "camera"
+        FormSheet(title: isEditing ? "Edit \(noun)" : "New \(noun)", sheetHeight: isEditing ? 255 : 366, titleBarPadding: 11, formIsAboveAnotherSheet: formIsAboveAnotherSheet) {
             VStack(spacing: 21) {
                 if !isEditing {
                     VStack(alignment: .leading, spacing: 0) {
@@ -115,7 +131,7 @@ struct NewCameraSheet: View {
                     onCameraCreated?(id)
                 }
             }, isAboveAnotherSheet: formIsAboveAnotherSheet) {
-                Text(isEditing ? "Edit camera" : "Add camera")
+                Text(isEditing ? "Edit \(noun)" : "Add \(noun)")
             }
         }
         .sheet(isPresented: $showInstantFilmInfo) {
