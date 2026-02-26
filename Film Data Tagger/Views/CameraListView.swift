@@ -286,7 +286,8 @@ struct CameraListView: View {
                 leadingIconTapped: {
                     switch topBarState {
                     case .camera:
-                        showNewCamera = true
+                        // TODO
+                        print("TODO: show settings pane")
                     case .roll:
                         path = NavigationPath()
                     }
