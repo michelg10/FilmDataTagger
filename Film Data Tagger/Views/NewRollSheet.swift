@@ -115,6 +115,7 @@ private let filmStockPlaceholders = [
 struct NewRollSheet: View {
     var viewModel: FilmLogViewModel
     var camera: Camera
+    var editingRoll: Roll? = nil
     var onRollCreated: (() -> Void)?
     var formIsAboveAnotherSheet: Bool = false
     @Environment(\.dismiss) private var dismiss
@@ -122,11 +123,14 @@ struct NewRollSheet: View {
     @State private var exposureCount: Int? = 36
     @State private var placeholder: String = filmStockPlaceholders.randomElement()!
 
+    private var isEditing: Bool { editingRoll != nil }
+
     var body: some View {
         let rollIsValid = !filmName.isEmpty && (exposureCount ?? 0) > 0
+        let extraExposures = editingRoll?.extraExposures ?? 0
         VStack(spacing: 0) {
             HStack(spacing: 0) {
-                Text("New Roll")
+                Text(isEditing ? "Edit roll" : "New roll")
                     .font(.system(size: 22, weight: .bold, design: .default))
                     .fontWidth(.expanded)
                     .padding(.leading, 8)
@@ -163,9 +167,15 @@ struct NewRollSheet: View {
                         prompt: Text("36").foregroundStyle(Color.white.opacity(formIsAboveAnotherSheet ? 0.3 : 0.25))
                     ).keyboardType(.numberPad)
                     .textFieldStyle(FormTextFieldStyle(formIsAboveAnotherSheet: formIsAboveAnotherSheet))
-                    Text("exposures")
-                        .font(.system(size: 17, weight: .semibold, design: .default))
-                        .foregroundStyle(Color.white.opacity(0.55))
+                    if extraExposures > 0 {
+                        Text("+\(extraExposures) exposures")
+                            .font(.system(size: 17, weight: .semibold, design: .default))
+                            .foregroundStyle(Color.white.opacity(0.55))
+                    } else {
+                        Text("exposures")
+                            .font(.system(size: 17, weight: .semibold, design: .default))
+                            .foregroundStyle(Color.white.opacity(0.55))
+                    }
                 }
                 UIKitSegmentedControl(
                     segments: ["12", "15", "24", "36"],
@@ -192,11 +202,15 @@ struct NewRollSheet: View {
             }.padding(.bottom, 44)
             PrimaryButton(enabled: rollIsValid, action: {
                 playHaptic(.finishRoll)
-                viewModel.createRoll(camera: camera, filmStock: filmName, capacity: exposureCount ?? 36)
+                if let editingRoll {
+                    viewModel.editRoll(editingRoll, filmStock: filmName, capacity: exposureCount ?? 36)
+                } else {
+                    viewModel.createRoll(camera: camera, filmStock: filmName, capacity: exposureCount ?? 36)
+                }
                 dismiss()
                 onRollCreated?()
             }, isAboveAnotherSheet: formIsAboveAnotherSheet) {
-                Text("Add roll")
+                Text(isEditing ? "Edit roll" : "Add roll")
             }
             
             Spacer(minLength: 0)
@@ -208,5 +222,12 @@ struct NewRollSheet: View {
         .presentationBackgroundInteraction(.disabled)
         .sheetContentClip(cornerRadius: 35)
         .sheetScaleFix()
+        .onAppear {
+            if let editingRoll {
+                filmName = editingRoll.filmStock
+                exposureCount = editingRoll.capacity
+                placeholder = editingRoll.filmStock
+            }
+        }
     }
 }

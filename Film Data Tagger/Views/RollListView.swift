@@ -140,6 +140,7 @@ struct RollListView: View {
     }
 
     @State private var rollToDelete: Roll?
+    @State private var rollToEdit: Roll?
 
     private var totalExposures: Int {
         rolls.flatMap { $0.logItems ?? [] }.count
@@ -172,6 +173,11 @@ struct RollListView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .contextMenu {
+                                    Button {
+                                        rollToEdit = activeRoll
+                                    } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
                                     Button(role: .destructive) {
                                         rollToDelete = activeRoll
                                     } label: {
@@ -206,6 +212,11 @@ struct RollListView: View {
                                 .buttonStyle(.plain)
                                 .transition(.asymmetric(insertion: .opacity, removal: .identity))
                                 .contextMenu {
+                                    Button {
+                                        rollToEdit = roll
+                                    } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
                                     Button(role: .destructive) {
                                         rollToDelete = roll
                                     } label: {
@@ -253,6 +264,14 @@ struct RollListView: View {
         }
         .navigationBarBackButtonHidden()
         .background(Color(hex: 0x151515))
+        .sheet(item: $rollToEdit) { roll in
+            NewRollSheet(
+                viewModel: viewModel,
+                camera: camera,
+                editingRoll: roll,
+                formIsAboveAnotherSheet: true
+            )
+        }
         .toolbar {
             ToolbarItem(placement: .principal) {
                 VStack(alignment: .leading, spacing: 4) {

@@ -372,6 +372,13 @@ final class FilmLogViewModel {
         reloadItems()
     }
 
+    func editRoll(_ roll: Roll, filmStock: String, capacity: Int) {
+        roll.filmStock = filmStock
+        roll.capacity = capacity
+        roll.touch()
+        reloadItems()
+    }
+
     /// If the roll isn't already the active roll for its camera, activate it
     /// (deactivating the previous active roll on that camera).
     private func activateRollIfNeeded(_ roll: Roll) {
