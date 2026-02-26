@@ -13,6 +13,7 @@ struct FormSheet<Content: View>: View {
     var titleBarPadding: CGFloat = 21
     var formIsAboveAnotherSheet: Bool = false
     var bottomAlignTitle: Bool = false
+    var adjustTopPadding: CGFloat = 0
     @ViewBuilder var content: Content
     @Environment(\.dismiss) private var dismiss
 
@@ -39,7 +40,7 @@ struct FormSheet<Content: View>: View {
 
             Spacer(minLength: 0)
         }.padding(.horizontal, 15 + 8)
-        .padding(.top, 15 + 7)
+        .padding(.top, 15 + 7 + adjustTopPadding)
         .ignoresSafeArea(.all)
         .presentationDetents([.height(CGFloat(sheetScaleCompensationFactor * sheetHeight - bottomSafeAreaInset))])
         .presentationDragIndicator(.hidden)

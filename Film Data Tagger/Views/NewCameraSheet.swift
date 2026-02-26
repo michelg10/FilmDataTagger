@@ -113,15 +113,39 @@ struct NewCameraSheet: View {
 struct InstantFilmInfoSheet: View {
     @Environment(\.dismiss) private var dismiss
 
+    private static let infoText = "Instant film mode collects exposures from multiple cameras into one shared log — one place for all your shots, regardless of which camera took them. Sprokbook tracks remaining shots on all your cameras so you know when to reload."
+    private static let infoFont = UIFont.systemFont(ofSize: 17, weight: .medium)
+    private static let infoLineSpacing = 24 - infoFont.lineHeight
+
+    private static var textHeight: CGFloat {
+        let horizontalPadding: CGFloat = (15 + 8) * 2 + 8 + 6 // FormSheet padding + leading/trailing
+        let width = UIScreen.main.bounds.width - horizontalPadding
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = infoLineSpacing
+        let boundingRect = NSAttributedString(
+            string: infoText,
+            attributes: [.font: infoFont, .paragraphStyle: paragraphStyle]
+        ).boundingRect(with: CGSize(width: width, height: .greatestFiniteMagnitude),
+                       options: [.usesLineFragmentOrigin, .usesFontLeading],
+                       context: nil)
+        return ceil(boundingRect.height)
+    }
+
+    // chrome: top padding (15) + title bar (44) + titleBarPadding (10) + text + random text space UIKit seems to consistently add (3) + text bottom padding (44) + button (63) + safe area - iOS bottom padding (8pt)
+    private static var sheetHeight: CGFloat {
+        15 + 44 + 10 + textHeight + 3 + 44 + 63 + bottomSafeAreaInset - 8
+    }
+
     var body: some View {
-        FormSheet(title: "Instant film", sheetHeight: 346, titleBarPadding: 10, formIsAboveAnotherSheet: true, bottomAlignTitle: true) {
+        print(Self.sheetHeight)
+        return FormSheet(title: "Instant film", sheetHeight: Self.sheetHeight, titleBarPadding: 10 + 2, formIsAboveAnotherSheet: true, bottomAlignTitle: true, adjustTopPadding: -2) {
             JustifiedText(
-                "Instant film mode collects exposures from multiple cameras into one shared log — one place for all your shots, regardless of which camera took them. Sprokbook tracks remaining shots on all your cameras so you know when to reload.",
-                font: .systemFont(ofSize: 17, weight: .medium),
+                Self.infoText,
+                font: Self.infoFont,
                 textColor: .white.withAlphaComponent(0.95),
-                lineSpacing: 24 - UIFont.systemFont(ofSize: 17, weight: .medium).lineHeight
+                lineSpacing: Self.infoLineSpacing
             )
-            .padding(.bottom, 44)
+            .padding(.bottom, 44 + 2)
             .padding(.leading, 8)
             .padding(.trailing, 6)
 
