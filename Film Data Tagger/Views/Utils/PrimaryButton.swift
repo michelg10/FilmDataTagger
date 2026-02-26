@@ -10,6 +10,7 @@ import SwiftUI
 struct PrimaryButton<Label: View>: View {
     var enabled: Bool = true
     var action: () -> Void
+    var isAboveAnotherSheet: Bool = false
     @ViewBuilder var label: Label
 
     var body: some View {
@@ -25,7 +26,7 @@ struct PrimaryButton<Label: View>: View {
             .fontWidth(.expanded)
         }.frame(height: 63)
         .disabled(!enabled)
-        .glassEffect(.regular.tint(.white.opacity(enabled ? 0.91 : 0.055)).interactive(enabled), in: Capsule(style: .continuous))
+        .glassEffect(.regular.tint(.white.opacity(enabled ? 0.91 : (isAboveAnotherSheet ? 0.07 : 0.055))).interactive(enabled), in: Capsule(style: .continuous))
         .contentShape(Capsule())
         .animation(.easeInOut(duration: 0.12), value: enabled)
     }

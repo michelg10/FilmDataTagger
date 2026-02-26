@@ -9,6 +9,7 @@ import SwiftUI
 
 struct FormTextFieldStyle: TextFieldStyle {
     @FocusState private var isFocused: Bool
+    var formIsAboveAnotherSheet: Bool = false
 
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
@@ -19,7 +20,7 @@ struct FormTextFieldStyle: TextFieldStyle {
             .frame(height: 44)
             .background(content: {
                 Capsule()
-                    .foregroundStyle(Color(hex: 0x2E2E2E))
+                    .foregroundStyle(formIsAboveAnotherSheet ? Color(hex: 0x323232) : Color(hex: 0x2E2E2E))
             })
             .contentShape(Rectangle())
             .onTapGesture {
@@ -114,6 +115,7 @@ struct NewRollSheet: View {
     var viewModel: FilmLogViewModel
     var camera: Camera
     var onRollCreated: (() -> Void)?
+    var formIsAboveAnotherSheet: Bool = false
     @Environment(\.dismiss) private var dismiss
     @State private var filmName: String = ""
     @State private var exposureCount: Int? = 36
@@ -143,23 +145,23 @@ struct NewRollSheet: View {
                 TextField(
                     "Roll name",
                     text: $filmName,
-                    prompt: Text(placeholder).foregroundStyle(Color.white.opacity(0.25))
+                    prompt: Text(placeholder).foregroundStyle(Color.white.opacity(formIsAboveAnotherSheet ? 0.3 : 0.25))
                 )
-                .textFieldStyle(FormTextFieldStyle())
+                .textFieldStyle(FormTextFieldStyle(formIsAboveAnotherSheet: formIsAboveAnotherSheet))
                 // separator
                 Rectangle()
                     .frame(height: 1)
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, 15)
-                    .foregroundStyle(Color.white.opacity(0.07))
+                    .foregroundStyle(Color.white.opacity(formIsAboveAnotherSheet ? 0.08 : 0.07))
                 HStack(spacing: 22) {
                     TextField(
                         "Exposures",
                         value: $exposureCount,
                         format: .number.grouping(.never),
-                        prompt: Text("36").foregroundStyle(Color.white.opacity(0.25))
+                        prompt: Text("36").foregroundStyle(Color.white.opacity(formIsAboveAnotherSheet ? 0.3 : 0.25))
                     ).keyboardType(.numberPad)
-                    .textFieldStyle(FormTextFieldStyle())
+                    .textFieldStyle(FormTextFieldStyle(formIsAboveAnotherSheet: formIsAboveAnotherSheet))
                     Text("exposures")
                         .font(.system(size: 17, weight: .semibold, design: .default))
                         .foregroundStyle(Color.white.opacity(0.55))
@@ -182,8 +184,8 @@ struct NewRollSheet: View {
                         .font: UIFont.systemFont(ofSize: 15, weight: .medium),
                         .kern: -0.45,
                     ],
-                    selectedTintColor: UIColor(Color(hex: 0x646464)),
-                    controlBackgroundColor: UIColor(Color(hex: 0x2E2E2E))
+                    selectedTintColor: UIColor(formIsAboveAnotherSheet ? Color(hex: 0x6D6D6D) : Color(hex: 0x646464)),
+                    controlBackgroundColor: UIColor(formIsAboveAnotherSheet ? Color(hex: 0x323232) : Color(hex: 0x2E2E2E))
                 )
             }.padding(.bottom, 44)
             PrimaryButton(enabled: rollIsValid, action: {
@@ -191,7 +193,7 @@ struct NewRollSheet: View {
                 viewModel.createRoll(camera: camera, filmStock: filmName, capacity: exposureCount ?? 36)
                 dismiss()
                 onRollCreated?()
-            }) {
+            }, isAboveAnotherSheet: formIsAboveAnotherSheet) {
                 Text("Add roll")
             }
             

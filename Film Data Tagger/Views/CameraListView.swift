@@ -250,7 +250,7 @@ struct CameraListView: View {
             if let selectedCamera = selectedCamera {
                 NewRollSheet(viewModel: viewModel, camera: selectedCamera, onRollCreated: {
                     dismiss()
-                })
+                }, formIsAboveAnotherSheet: true)
             } else {
                 Text("error: expected non-nil camera for NewRollSheet, got nil")
             }
