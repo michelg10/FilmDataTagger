@@ -247,9 +247,13 @@ struct CameraListView: View {
             }
         }
         .sheet(isPresented: $showNewRoll) {
-            NewRollSheet(viewModel: viewModel, camera: selectedCamera, onRollCreated: {
-                dismiss()
-            })
+            if let selectedCamera = selectedCamera {
+                NewRollSheet(viewModel: viewModel, camera: selectedCamera, onRollCreated: {
+                    dismiss()
+                })
+            } else {
+                Text("error: expected non-nil camera for NewRollSheet, got nil")
+            }
         }
         .onChange(of: path.count) {
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -284,7 +288,6 @@ struct CameraListView: View {
                         .font(.system(size: 26, weight: .semibold, design: .default))
                         .padding(.leading, 16)
                     Text(topBarState == .camera ? "New camera" : "New roll")
-//                        .contentTransition(.numericText())
                         .font(.system(size: 19, weight: .semibold, design: .default))
                         .fontWidth(.expanded)
                         .padding(.trailing, 25)
