@@ -19,7 +19,7 @@ struct FinishRollButton: View {
 
     var body: some View {
         Button {
-            playHaptic(.finishRoll)
+            playHaptic(.newRollOrCamera)
             action()
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 8) {

@@ -7,6 +7,60 @@
 
 import SwiftUI
 
+// MARK: - Shared Form Components
+
+struct FormSheet<Content: View>: View {
+    var title: String
+    var sheetHeight: CGFloat
+    var formIsAboveAnotherSheet: Bool = false
+    @ViewBuilder var content: Content
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Text(title)
+                    .font(.system(size: 22, weight: .bold, design: .default))
+                    .fontWidth(.expanded)
+                    .padding(.leading, 8)
+                    .foregroundStyle(Color.white.opacity(0.95))
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 20, weight: .semibold, design: .default))
+                        .foregroundStyle(Color.white.opacity(0.95))
+                        .frame(width: 44, height: 44)
+                }.glassEffect(.regular.tint(.white.opacity(0.06)).interactive(), in: Circle())
+            }.padding(.bottom, 21)
+
+            content
+
+            Spacer(minLength: 0)
+        }.padding(.horizontal, 15 + 8)
+        .padding(.top, 15 + 7)
+        .ignoresSafeArea(.all)
+        .presentationDetents([.height(CGFloat(sheetScaleCompensationFactor * sheetHeight - bottomSafeAreaInset))])
+        .presentationDragIndicator(.hidden)
+        .presentationBackgroundInteraction(.disabled)
+        .sheetContentClip(cornerRadius: 35)
+        .sheetScaleFix()
+    }
+}
+
+struct FormSeparator: View {
+    var formIsAboveAnotherSheet: Bool = false
+
+    var body: some View {
+        Rectangle()
+            .frame(height: 1)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 15)
+            .foregroundStyle(Color.white.opacity(formIsAboveAnotherSheet ? 0.08 : 0.07))
+    }
+}
+
 struct FormTextFieldStyle: TextFieldStyle {
     @FocusState private var isFocused: Bool
     var formIsAboveAnotherSheet: Bool = false
@@ -128,24 +182,7 @@ struct RollFormSheet: View {
     var body: some View {
         let rollIsValid = !filmName.isEmpty && (exposureCount ?? 0) > 0
         let extraExposures = editingRoll?.extraExposures ?? 0
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                Text(isEditing ? "Edit roll" : "New roll")
-                    .font(.system(size: 22, weight: .bold, design: .default))
-                    .fontWidth(.expanded)
-                    .padding(.leading, 8)
-                    .foregroundStyle(Color.white.opacity(0.95))
-                Spacer()
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 20, weight: .semibold, design: .default))
-                        .foregroundStyle(Color.white.opacity(0.95))
-                        .frame(width: 44, height: 44)
-                }.glassEffect(.regular.tint(.white.opacity(0.06)).interactive(), in: Circle())
-            }.padding(.bottom, 21)
-
+        FormSheet(title: isEditing ? "Edit roll" : "New roll", sheetHeight: 405, formIsAboveAnotherSheet: formIsAboveAnotherSheet) {
             VStack(spacing: 21) {
                 TextField(
                     "Roll name",
@@ -153,12 +190,7 @@ struct RollFormSheet: View {
                     prompt: Text(placeholder).foregroundStyle(Color.white.opacity(formIsAboveAnotherSheet ? 0.3 : 0.25))
                 )
                 .textFieldStyle(FormTextFieldStyle(formIsAboveAnotherSheet: formIsAboveAnotherSheet))
-                // separator
-                Rectangle()
-                    .frame(height: 1)
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 15)
-                    .foregroundStyle(Color.white.opacity(formIsAboveAnotherSheet ? 0.08 : 0.07))
+                FormSeparator(formIsAboveAnotherSheet: formIsAboveAnotherSheet)
                 HStack(spacing: 22) {
                     TextField(
                         "Exposures",
@@ -202,7 +234,7 @@ struct RollFormSheet: View {
             }.padding(.bottom, 44)
 
             PrimaryButton(enabled: rollIsValid, action: {
-                playHaptic(.finishRoll)
+                playHaptic(.newRollOrCamera)
                 if let editingRoll {
                     viewModel.editRoll(editingRoll, filmStock: filmName, capacity: exposureCount ?? 36)
                 } else {
@@ -213,16 +245,7 @@ struct RollFormSheet: View {
             }, isAboveAnotherSheet: formIsAboveAnotherSheet) {
                 Text(isEditing ? "Edit roll" : "Add roll")
             }
-            
-            Spacer(minLength: 0)
-        }.padding(.horizontal, 15 + 8)
-        .padding(.top, 15 + 7)
-        .ignoresSafeArea(.all)
-        .presentationDetents([.height(CGFloat(sheetScaleCompensationFactor * 405 - bottomSafeAreaInset))])
-        .presentationDragIndicator(.hidden)
-        .presentationBackgroundInteraction(.disabled)
-        .sheetContentClip(cornerRadius: 35)
-        .sheetScaleFix()
+        }
         .onAppear {
             if let editingRoll {
                 filmName = editingRoll.filmStock

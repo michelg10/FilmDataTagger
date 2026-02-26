@@ -172,6 +172,7 @@ struct CameraListView: View {
     @State private var path = NavigationPath()
     @State private var selectedCamera: Camera?
     @State private var showNewRoll = false
+    @State private var showNewCamera = false
 
     private var bottomButtonIcon: String {
         if topBarState == .camera {
@@ -255,6 +256,9 @@ struct CameraListView: View {
                 Text("error: expected non-nil camera for RollFormSheet, got nil")
             }
         }
+        .sheet(isPresented: $showNewCamera) {
+            NewCameraSheet(viewModel: viewModel)
+        }
         .onChange(of: path.count) {
             withAnimation(.easeInOut(duration: 0.2)) {
                 topBarState = path.isEmpty ? .camera : .roll
@@ -266,7 +270,7 @@ struct CameraListView: View {
                 leadingIconTapped: {
                     switch topBarState {
                     case .camera:
-                        break // TODO
+                        showNewCamera = true
                     case .roll:
                         path = NavigationPath()
                     }
@@ -277,8 +281,11 @@ struct CameraListView: View {
         }
         .overlay(alignment: .bottom) {
             Button {
-                if topBarState == .roll {
-                    playHaptic(.finishRoll)
+                if topBarState == .camera {
+                    playHaptic(.newRollOrCamera)
+                    showNewCamera = true
+                } else if topBarState == .roll {
+                    playHaptic(.newRollOrCamera)
                     showNewRoll = true
                 }
             } label: {

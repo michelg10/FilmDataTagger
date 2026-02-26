@@ -12,7 +12,7 @@ enum Haptic {
     case addPlaceholder
     case viewfinderToggle
     case sheetDetentChange
-    case finishRoll
+    case newRollOrCamera
     case cycleExtraExposures
 
     var intensity: Float {
@@ -21,7 +21,7 @@ enum Haptic {
         case .addPlaceholder:    return 0.53
         case .viewfinderToggle:  return 0.53
         case .sheetDetentChange: return 0.44
-        case .finishRoll:             return 0.77
+        case .newRollOrCamera:        return 0.77
         case .cycleExtraExposures:    return 0.30
         }
     }
@@ -32,7 +32,7 @@ enum Haptic {
         case .addPlaceholder:    return 0.15
         case .viewfinderToggle:  return 0.21
         case .sheetDetentChange: return 0.18
-        case .finishRoll:             return 0.31
+        case .newRollOrCamera:        return 0.31
         case .cycleExtraExposures:    return 0.75
         }
     }
