@@ -418,6 +418,14 @@ final class FilmLogViewModel {
         return camera
     }
 
+    func renameCamera(_ camera: Camera, to name: String) {
+        camera.name = name
+    }
+
+    func renameInstantFilmGroup(_ group: InstantFilmGroup, to name: String) {
+        group.name = name
+    }
+
     func deleteCamera(_ camera: Camera) {
         if openCamera?.id == camera.id {
             openRoll = nil

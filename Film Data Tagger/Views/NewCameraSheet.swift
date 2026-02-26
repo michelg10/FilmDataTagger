@@ -34,6 +34,7 @@ private func randomCameraPlaceholder(instantFilm: Bool) -> String {
 struct NewCameraSheet: View {
     // The NewCameraSheet is only ever presented above another sheet
     var viewModel: FilmLogViewModel
+    var editingEntry: (any CameraListEntry)? = nil
     var onCameraCreated: ((UUID) -> Void)? = nil
     let formIsAboveAnotherSheet = true
     @Environment(\.dismiss) private var dismiss
@@ -42,46 +43,50 @@ struct NewCameraSheet: View {
     @State private var placeholder: String = randomCameraPlaceholder(instantFilm: false)
     @State private var showInstantFilmInfo = false
 
+    private var isEditing: Bool { editingEntry != nil }
+
     var body: some View {
-        FormSheet(title: "New camera", sheetHeight: 366, titleBarPadding: 11, formIsAboveAnotherSheet: formIsAboveAnotherSheet) {
+        FormSheet(title: isEditing ? "Edit camera" : "New camera", sheetHeight: isEditing ? 255 : 366, titleBarPadding: 11, formIsAboveAnotherSheet: formIsAboveAnotherSheet) {
             VStack(spacing: 21) {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        Image(systemName: "questionmark.circle.fill")
-                        Text(" CAMERA TYPE")
-                    }.font(.system(size: 12, weight: .bold, design: .default))
-                    .fontWidth(.expanded)
-                    .foregroundStyle(Color.white.opacity(0.4))
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 8)
-                    .onTapGesture {
-                        showInstantFilmInfo = true
+                if !isEditing {
+                    VStack(alignment: .leading, spacing: 0) {
+                        HStack(alignment: .firstTextBaseline, spacing: 0) {
+                            Image(systemName: "questionmark.circle.fill")
+                            Text(" CAMERA TYPE")
+                        }.font(.system(size: 12, weight: .bold, design: .default))
+                        .fontWidth(.expanded)
+                        .foregroundStyle(Color.white.opacity(0.4))
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 8)
+                        .onTapGesture {
+                            showInstantFilmInfo = true
+                        }
+                        UIKitSegmentedControl(
+                            segments: ["Standard", "Instant Film"],
+                            selectedIndex: Binding(
+                                get: { isInstantFilm ? 1 : 0 },
+                                set: { index in
+                                    isInstantFilm = (index == 1)
+                                    placeholder = randomCameraPlaceholder(instantFilm: isInstantFilm)
+                                }
+                            ),
+                            height: 44,
+                            selectedTextAttributes: [
+                                .font: UIFont.systemFont(ofSize: 16, weight: .semibold),
+                                .foregroundColor: UIColor.white.withAlphaComponent(0.95),
+                            ],
+                            normalTextAttributes: [
+                                .font: UIFont.systemFont(ofSize: 16, weight: .medium),
+                                .foregroundColor: UIColor.white.withAlphaComponent(0.95),
+                            ],
+                            selectedTintColor: UIColor(formIsAboveAnotherSheet ? Color(hex: 0x6D6D6D) : Color(hex: 0x646464)),
+                            controlBackgroundColor: UIColor(formIsAboveAnotherSheet ? Color(hex: 0x323232) : Color(hex: 0x2E2E2E)),
+                            capsuleInset: 3
+                        )
+                        .shadow(color: .black.opacity(formIsAboveAnotherSheet ? 0.41 : 0), radius: 15.8)
                     }
-                    UIKitSegmentedControl(
-                        segments: ["Standard", "Instant Film"],
-                        selectedIndex: Binding(
-                            get: { isInstantFilm ? 1 : 0 },
-                            set: { index in
-                                isInstantFilm = (index == 1)
-                                placeholder = randomCameraPlaceholder(instantFilm: isInstantFilm)
-                            }
-                        ),
-                        height: 44,
-                        selectedTextAttributes: [
-                            .font: UIFont.systemFont(ofSize: 16, weight: .semibold),
-                            .foregroundColor: UIColor.white.withAlphaComponent(0.95),
-                        ],
-                        normalTextAttributes: [
-                            .font: UIFont.systemFont(ofSize: 16, weight: .medium),
-                            .foregroundColor: UIColor.white.withAlphaComponent(0.95),
-                        ],
-                        selectedTintColor: UIColor(formIsAboveAnotherSheet ? Color(hex: 0x6D6D6D) : Color(hex: 0x646464)),
-                        controlBackgroundColor: UIColor(formIsAboveAnotherSheet ? Color(hex: 0x323232) : Color(hex: 0x2E2E2E)),
-                        capsuleInset: 3
-                    )
-                    .shadow(color: .black.opacity(formIsAboveAnotherSheet ? 0.41 : 0), radius: 15.8)
+                    FormSeparator(formIsAboveAnotherSheet: formIsAboveAnotherSheet)
                 }
-                FormSeparator(formIsAboveAnotherSheet: formIsAboveAnotherSheet)
                 TextField(
                     "Camera name",
                     text: $cameraName,
@@ -92,20 +97,36 @@ struct NewCameraSheet: View {
 
             PrimaryButton(enabled: !cameraName.isEmpty, action: {
                 playHaptic(.newRollOrCamera)
-                let id: UUID
-                if isInstantFilm {
-                    id = viewModel.createInstantFilmGroup(name: cameraName).id
+                if let editingEntry {
+                    if let camera = editingEntry as? Camera {
+                        viewModel.renameCamera(camera, to: cameraName)
+                    } else if let group = editingEntry as? InstantFilmGroup {
+                        viewModel.renameInstantFilmGroup(group, to: cameraName)
+                    }
+                    dismiss()
                 } else {
-                    id = viewModel.createCamera(name: cameraName).id
+                    let id: UUID
+                    if isInstantFilm {
+                        id = viewModel.createInstantFilmGroup(name: cameraName).id
+                    } else {
+                        id = viewModel.createCamera(name: cameraName).id
+                    }
+                    dismiss()
+                    onCameraCreated?(id)
                 }
-                dismiss()
-                onCameraCreated?(id)
             }, isAboveAnotherSheet: formIsAboveAnotherSheet) {
-                Text("Add camera")
+                Text(isEditing ? "Edit camera" : "Add camera")
             }
         }
         .sheet(isPresented: $showInstantFilmInfo) {
             InstantFilmInfoSheet()
+        }
+        .onAppear {
+            if let editingEntry {
+                cameraName = editingEntry.displayName
+                placeholder = editingEntry.displayName
+                isInstantFilm = editingEntry.isInstantFilm
+            }
         }
     }
 }

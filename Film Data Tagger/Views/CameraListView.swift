@@ -132,7 +132,7 @@ struct CameraListRow: View {
                             Image(systemName: "film.stack")
                                 .font(.system(size: 15, weight: .semibold, design: .default))
                                 .foregroundStyle(Color.white.opacity(0.4))
-                            Text("\(entry.rollCount)")
+                            Text(entry.rollCount.formatted())
                                 .font(.system(size: 15, weight: .semibold, design: .default))
                                 .fontWidth(.expanded)
                                 .foregroundStyle(Color.white.opacity(0.8))
@@ -143,7 +143,7 @@ struct CameraListRow: View {
                         Image(systemName: "rectangle.stack.fill")
                             .font(.system(size: 15, weight: .semibold, design: .default))
                             .foregroundStyle(Color.white.opacity(0.4))
-                        Text("\(entry.totalExposureCount)")
+                        Text(entry.totalExposureCount.formatted())
                             .font(.system(size: 15, weight: .semibold, design: .default))
                             .fontWidth(.expanded)
                             .foregroundStyle(Color.white.opacity(0.8))
@@ -176,6 +176,10 @@ struct CameraListView: View {
     @State private var showNewRoll = false
     @State private var showNewCamera = false
     @State private var pendingCameraNavigation: UUID?
+    @State private var editingEntry: (any CameraListEntry)?
+    @State private var showEditCamera = false
+    @State private var entryToDelete: (any CameraListEntry)?
+    @State private var showDeleteAlert = false
 
     private var allEntries: [any CameraListEntry] {
         let entries: [any CameraListEntry] = cameras + instantFilmGroups
@@ -208,7 +212,21 @@ struct CameraListView: View {
                                     )
                                         .padding(.vertical, 18)
                                 }
-                                .transition(.asymmetric(insertion: .opacity, removal: .identity))
+                                .contextMenu {
+                                    Button {
+                                        editingEntry = entry
+                                        showEditCamera = true
+                                    } label: {
+                                        Label("Edit", systemImage: "pencil")
+                                    }
+                                    Button(role: .destructive) {
+                                        entryToDelete = entry
+                                        showDeleteAlert = true
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+                                .transition(.asymmetric(insertion: .opacity, removal: index == entries.count - 1 ? .opacity : .identity))
                                 if index < entries.count - 1 {
                                     Rectangle()
                                         .fill(Color.white.opacity(0.07))
@@ -275,6 +293,43 @@ struct CameraListView: View {
                 pendingCameraNavigation = id
             })
         }
+        .sheet(isPresented: $showEditCamera) {
+            if let editingEntry {
+                NewCameraSheet(viewModel: viewModel, editingEntry: editingEntry)
+            }
+        }
+        .alert(
+            "Delete \"\(entryToDelete?.displayName ?? "")\"?",
+            isPresented: $showDeleteAlert
+        ) {
+            Button("Delete", role: .destructive) {
+                if let entry = entryToDelete {
+                    withAnimation {
+                        if let camera = entry as? Camera {
+                            viewModel.deleteCamera(camera)
+                        } else if let group = entry as? InstantFilmGroup {
+                            viewModel.deleteInstantFilmGroup(group)
+                        }
+                    }
+                    entryToDelete = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                entryToDelete = nil
+            }
+        } message: {
+            if let entry = entryToDelete {
+                let rolls = entry.rollCount
+                let exposures = entry.totalExposureCount
+                if rolls == 0 && exposures == 0 {
+                    Text("This will permanently delete \"\(entry.displayName)\" from all your devices. Data saved to Photos or exported files won't be affected.")
+                } else if exposures == 0 {
+                    Text("This will permanently delete \"\(entry.displayName)\" and its \(rolls.formatted()) roll\(rolls == 1 ? "" : "s") from all your devices. Data saved to Photos or exported files won't be affected.")
+                } else {
+                    Text("This will permanently delete \"\(entry.displayName)\", its \(rolls.formatted()) roll\(rolls == 1 ? "" : "s"), and all \(exposures.formatted()) exposure\(exposures == 1 ? "" : "s") from all your devices. Data saved to Photos or exported files won't be affected.")
+                }
+            }
+        }
         .onChange(of: path.count) {
             withAnimation(.easeInOut(duration: 0.2)) {
                 topBarState = path.isEmpty ? .camera : .roll
@@ -320,6 +375,7 @@ struct CameraListView: View {
                 .contentShape(Rectangle())
             }
             .glassEffect(.regular.interactive(), in: Capsule())
+            .shadow(color: .black.opacity(0.25), radius: 16.4)
             .buttonStyle(.plain)
             .offset(y: -1)
         }

@@ -185,7 +185,7 @@ struct RollListView: View {
                                     }
                                 }
                             }.padding(.bottom, 20)
-                            .transition(.asymmetric(insertion: .opacity, removal: .opacity))
+                            .transition(.opacity)
                         }
 
                         if !pastRolls.isEmpty {
@@ -200,7 +200,8 @@ struct RollListView: View {
                                         .frame(height: 1)
                                         .padding(.horizontal, 8)
                                 }
-                                
+
+                                let isLast = index == pastRolls.count - 1
                                 Button {
                                     viewModel.switchToRoll(roll)
                                     onDismissSheet?()
@@ -210,7 +211,7 @@ struct RollListView: View {
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
-                                .transition(.asymmetric(insertion: .opacity, removal: .identity))
+                                .transition(.asymmetric(insertion: .opacity, removal: isLast ? .opacity : .identity))
                                 .contextMenu {
                                     Button {
                                         rollToEdit = roll
@@ -240,8 +241,10 @@ struct RollListView: View {
                     .padding(.bottom, 135)
                     .padding(.horizontal, 16)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .transition(.opacity)
             }
         }
+        .animation(.easeOut(duration: 0.25), value: rolls.isEmpty)
         .alert(
             "Delete \"\(rollToDelete?.filmStock ?? "")\"?",
             isPresented: Binding(
@@ -260,7 +263,7 @@ struct RollListView: View {
             }
         } message: {
             let count = (rollToDelete?.logItems ?? []).count
-            Text("This will permanently delete \"\(rollToDelete?.filmStock ?? "")\" and its \(count) logged exposure\(count == 1 ? "" : "s") from all your devices. Data already saved to Photos or exported files won't be affected.")
+            Text("This will permanently delete \"\(rollToDelete?.filmStock ?? "")\" and its \(count.formatted()) logged exposure\(count == 1 ? "" : "s") from all your devices. Data saved to Photos or exported files won't be affected.")
         }
         .navigationBarBackButtonHidden()
         .background(Color(hex: 0x151515))
@@ -281,7 +284,7 @@ struct RollListView: View {
                         .foregroundStyle(Color.white)
                     let exposureTextAndSeparator = Text(" exposure\(totalExposures == 1 ? "" : "s") •").foregroundStyle(Color.white.opacity(0.6))
                     let rollTextAndSeparator = Text(" roll\(rolls.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.6))
-                    Text("\(totalExposures)\(exposureTextAndSeparator) \(rolls.count)\(rollTextAndSeparator)")
+                    Text("\(totalExposures.formatted())\(exposureTextAndSeparator) \(rolls.count.formatted())\(rollTextAndSeparator)")
                         .foregroundStyle(Color.white)
                         .font(.system(size: 12, weight: .semibold, design: .default))
                         .fontWidth(.expanded)
