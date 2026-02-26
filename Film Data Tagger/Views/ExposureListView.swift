@@ -7,44 +7,136 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
+
+private let exposureItemHeight: CGFloat = 76
+
+private struct ExposureDropIndicatorLine: View {
+    var active: Bool
+
+    var body: some View {
+        Capsule()
+            .foregroundStyle(Color.white.opacity(0.27))
+            .frame(height: 2)
+            .padding(.horizontal, 8)
+            .opacity(active ? 1 : 0)
+            .allowsHitTesting(false)
+            .animation(.easeOut(duration: 0.12), value: active)
+    }
+}
+
+private struct ExposureRowDropDelegate: DropDelegate {
+    let index: Int
+    let logItems: [LogItem]
+    @Binding var draggingPlaceholderID: UUID?
+    @Binding var dropTargetIndex: Int?
+    let onMovePlaceholderBefore: ((LogItem, LogItem) -> Void)?
+    let onMovePlaceholderAfter: ((LogItem, LogItem) -> Void)?
+
+    func dropEntered(info: DropInfo) {
+        updateTarget(info: info)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        updateTarget(info: info)
+        return DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) {
+        let myIndices = [index, index + 1]
+        if let current = dropTargetIndex, myIndices.contains(current) {
+            dropTargetIndex = nil
+        }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        defer { dropTargetIndex = nil; draggingPlaceholderID = nil }
+        let targetIdx = info.location.y < exposureItemHeight / 2 ? index : index + 1
+        guard let draggingPlaceholderID,
+              let draggedItem = logItems.first(where: { $0.id == draggingPlaceholderID }),
+              draggedItem.isPlaceholder else {
+            return false
+        }
+
+        let targetItem = logItems[index]
+        if targetIdx == index {
+            onMovePlaceholderBefore?(draggedItem, targetItem)
+        } else {
+            onMovePlaceholderAfter?(draggedItem, targetItem)
+        }
+        return true
+    }
+
+    private func updateTarget(info: DropInfo) {
+        guard let draggingPlaceholderID, draggingPlaceholderID != logItems[index].id else {
+            return
+        }
+        let midY = exposureItemHeight / 2
+        let deadZone: CGFloat = 5
+        if info.location.y >= midY - deadZone && info.location.y <= midY + deadZone {
+            dropTargetIndex = nil
+        } else {
+            dropTargetIndex = info.location.y < midY ? index : index + 1
+        }
+    }
+}
+
+private struct ExposureEndDropDelegate: DropDelegate {
+    let endIndex: Int
+    let logItems: [LogItem]
+    @Binding var draggingPlaceholderID: UUID?
+    @Binding var dropTargetIndex: Int?
+    let onMovePlaceholderToEnd: ((LogItem) -> Void)?
+
+    private var isAlreadyLast: Bool {
+        guard let draggingPlaceholderID else { return false }
+        return logItems.last?.id == draggingPlaceholderID
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard draggingPlaceholderID != nil else { return }
+        dropTargetIndex = isAlreadyLast ? nil : endIndex
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        guard draggingPlaceholderID != nil else { return nil }
+        dropTargetIndex = isAlreadyLast ? nil : endIndex
+        return DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) {
+        if dropTargetIndex == endIndex { dropTargetIndex = nil }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        defer { dropTargetIndex = nil; draggingPlaceholderID = nil }
+        guard let draggingPlaceholderID,
+              let draggedItem = logItems.first(where: { $0.id == draggingPlaceholderID }),
+              draggedItem.isPlaceholder,
+              let onMovePlaceholderToEnd else {
+            return false
+        }
+        onMovePlaceholderToEnd(draggedItem)
+        return true
+    }
+}
 
 private struct ExposureRow: View {
     let item: LogItem
-    let logItems: [LogItem]
     var onDelete: ((LogItem) -> Void)?
-    var onMovePlaceholderBefore: ((LogItem, LogItem) -> Void)?
-    var onMovePlaceholderAfter: ((LogItem, LogItem) -> Void)?
     var onCycleExtraExposures: (() -> Void)?
 
     var body: some View {
         ExposureLogItemView(item: item, onCycleExtraExposures: onCycleExtraExposures)
             .id(item.id)
-            .padding(.vertical, 8) // 2 * 8pt = 16pt spacing between items; padding allows context menu hit testing
+            .transition(.asymmetric(insertion: .opacity, removal: .identity))
+            .frame(height: exposureItemHeight, alignment: .center)
             .contextMenu {
                 Button(role: .destructive) {
                     onDelete?(item)
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
-            }
-            .transition(.asymmetric(insertion: .opacity, removal: .identity))
-            .if(item.isPlaceholder) { view in
-                view.draggable(item.id.uuidString)
-            }
-            .dropDestination(for: String.self) { droppedItems, _ in
-                guard let droppedId = droppedItems.first,
-                      let droppedUUID = UUID(uuidString: droppedId),
-                      let droppedItem = logItems.first(where: { $0.id == droppedUUID }),
-                      droppedItem.isPlaceholder,
-                      droppedItem.id != item.id else { return false }
-                // Dragging down (item was before target) → place after target
-                // Dragging up (item was after target) → place before target
-                if droppedItem.createdAt < item.createdAt {
-                    onMovePlaceholderAfter?(droppedItem, item)
-                } else {
-                    onMovePlaceholderBefore?(droppedItem, item)
-                }
-                return true
             }
     }
 }
@@ -62,6 +154,8 @@ struct ExposureListView: View {
     var onMovePlaceholderToEnd: ((LogItem) -> Void)?
     var onCycleExtraExposures: (() -> Void)?
     var onTitleTapped: (() -> Void)?
+    @State private var draggingPlaceholderID: UUID?
+    @State private var dropTargetIndex: Int?
 
     var body: some View {
         NavigationStack {
@@ -83,38 +177,67 @@ struct ExposureListView: View {
                 } else {
                     ScrollViewReader { proxy in
                         ScrollView {
-                            LazyVStack(spacing: 0) {
-                                ForEach(logItems) { item in
-                                    ExposureRow(
-                                        item: item,
-                                        logItems: logItems,
-                                        onDelete: onDelete,
-                                        onMovePlaceholderBefore: onMovePlaceholderBefore,
-                                        onMovePlaceholderAfter: onMovePlaceholderAfter,
-                                        onCycleExtraExposures: onCycleExtraExposures
-                                    )
+                            VStack(spacing: 0) {
+                                LazyVStack(spacing: 0) {
+                                    ForEach(Array(logItems.enumerated()), id: \.element.id) { index, item in
+                                        ExposureRow(
+                                            item: item,
+                                            onDelete: onDelete,
+                                            onCycleExtraExposures: onCycleExtraExposures
+                                        )
+                                        .if(item.isPlaceholder) { view in
+                                            view.onDrag {
+                                                draggingPlaceholderID = item.id
+                                                return NSItemProvider(object: item.id.uuidString as NSString)
+                                            }
+                                        }
+                                        .overlay(alignment: .top) {
+                                            ExposureDropIndicatorLine(active: dropTargetIndex == index)
+                                                .offset(y: -1)
+                                                .allowsHitTesting(false)
+                                        }.contentShape(Rectangle())
+                                        .onDrop(
+                                            of: [UTType.plainText],
+                                            delegate: ExposureRowDropDelegate(
+                                                index: index,
+                                                logItems: logItems,
+                                                draggingPlaceholderID: $draggingPlaceholderID,
+                                                dropTargetIndex: $dropTargetIndex,
+                                                onMovePlaceholderBefore: onMovePlaceholderBefore,
+                                                onMovePlaceholderAfter: onMovePlaceholderAfter
+                                            )
+                                        )
+                                    }
                                 }
-                            }
-                            .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))
-                            .padding(.horizontal, 16)
-                            .offset(y: -21)
-                            
-                            // Overscroll / drop zone for moving placeholders to end of list
-                            Color.clear
-                                .frame(height: 396)
-                                .contentShape(Rectangle())
-                                .dropDestination(for: String.self) { droppedItems, _ in
-                                    guard let droppedId = droppedItems.first,
-                                          let droppedUUID = UUID(uuidString: droppedId),
-                                          let droppedItem = logItems.first(where: { $0.id == droppedUUID }),
-                                          droppedItem.isPlaceholder else { return false }
-                                    onMovePlaceholderToEnd?(droppedItem)
-                                    return true
-                                }
-                                .id("scrollAnchor")
+                                .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))
+                                .padding(.horizontal, 16)
+                                .offset(y: -21)
 
-                            Spacer()
-                                .frame(height: 40 - 8)
+                                // Overscroll / drop zone for moving placeholders to end of list
+                                Color.clear
+                                    .frame(height: 396)
+                                    .contentShape(Rectangle())
+                                    .overlay(alignment: .top) {
+                                        ExposureDropIndicatorLine(active: dropTargetIndex == logItems.count)
+                                            .padding(.horizontal, 16)
+                                            .offset(y: -1)
+                                    }
+                                    .onDrop(
+                                        of: [UTType.plainText],
+                                        delegate: ExposureEndDropDelegate(
+                                            endIndex: logItems.count,
+                                            logItems: logItems,
+                                            draggingPlaceholderID: $draggingPlaceholderID,
+                                            dropTargetIndex: $dropTargetIndex,
+                                            onMovePlaceholderToEnd: onMovePlaceholderToEnd
+                                        )
+                                    )
+                                    .offset(y: -21)
+                                    .id("scrollAnchor")
+                                
+                                Spacer()
+                                    .frame(height: 40 - 8)
+                            }
                         }
                         .onAppear {
                             if !logItems.isEmpty {
