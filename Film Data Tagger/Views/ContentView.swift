@@ -45,7 +45,6 @@ struct ContentView: View {
     @State private var showSheet = false
     @State private var showCameraList = false
     @State private var showNewRoll = false
-    @State private var isScrolling = false
 
 
     private var logItems: [LogItem] {
@@ -62,7 +61,6 @@ struct ContentView: View {
                         ?? (viewModel?.openCamera != nil ? "No roll selected" : ""),
                     hasRoll: viewModel?.openRoll != nil,
                     scrollContextID: viewModel?.openRoll?.id ?? viewModel?.openCamera?.id,
-                    isScrolling: $isScrolling,
                     onDelete: { item in
                         viewModel?.deleteItem(item)
                     },
@@ -88,7 +86,6 @@ struct ContentView: View {
                 if let viewModel {
                     CaptureSheet(
                         viewModel: viewModel,
-                        isScrolling: isScrolling,
                         frameCount: logItems.count + 1,
                         rollCapacity: viewModel.rollCapacity,
                         lastCaptureDate: logItems.last(where: { $0.hasRealCreatedAt })?.createdAt

@@ -147,7 +147,6 @@ struct ExposureListView: View {
     var filmStock: String = ""
     var hasRoll: Bool = true
     var scrollContextID: UUID? = nil
-    @Binding var isScrolling: Bool
     var onDelete: ((LogItem) -> Void)?
     var onMovePlaceholderBefore: ((LogItem, LogItem) -> Void)?
     var onMovePlaceholderAfter: ((LogItem, LogItem) -> Void)?
@@ -156,6 +155,10 @@ struct ExposureListView: View {
     var onTitleTapped: (() -> Void)?
     @State private var draggingPlaceholderID: UUID?
     @State private var dropTargetIndex: Int?
+
+    private func publishScrollActivity(_ isActive: Bool) {
+        ExposureListScrollActivity.setActive(isActive)
+    }
 
     var body: some View {
         NavigationStack {
@@ -252,7 +255,10 @@ struct ExposureListView: View {
                             }
                         }
                         .onScrollPhaseChange { _, newPhase in
-                            isScrolling = newPhase == .interacting
+                            publishScrollActivity(newPhase == .interacting)
+                        }
+                        .onDisappear {
+                            publishScrollActivity(false)
                         }
                     }
                 }
@@ -300,8 +306,7 @@ struct ExposureListView: View {
     return ExposureListView(
         logItems: items,
         cameraName: "Olympus XA",
-        filmStock: "Fuji Color 400",
-        isScrolling: .constant(false)
+        filmStock: "Fuji Color 400"
     )
     .modelContainer(container)
 }
@@ -310,8 +315,7 @@ struct ExposureListView: View {
     ExposureListView(
         logItems: [],
         cameraName: "Olympus XA",
-        filmStock: "Fuji Color 400",
-        isScrolling: .constant(false)
+        filmStock: "Fuji Color 400"
     )
     .modelContainer(for: [Camera.self, Roll.self, LogItem.self], inMemory: true)
 }

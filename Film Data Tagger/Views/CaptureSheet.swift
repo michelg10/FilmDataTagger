@@ -244,7 +244,6 @@ struct CaptureSheet: View {
     static let fullDetent: PresentationDetent = .height(fullDetentHeight)
 
     var viewModel: FilmLogViewModel
-    var isScrolling: Bool = false
     var frameCount: Int = 0
     var rollCapacity: Int
     var lastCaptureDate: Date?
@@ -288,7 +287,7 @@ struct CaptureSheet: View {
         .onChange(of: selectedDetent) {
             playHaptic(.sheetDetentChange)
         }
-        .background(SheetDragDisabler(isScrolling: isScrolling))
+        .background(SheetDragDisabler())
         .padding(.horizontal, 8)
         .ignoresSafeArea()
         .sheetContentClip(cornerRadius: 35)

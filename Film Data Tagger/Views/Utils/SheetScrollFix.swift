@@ -6,22 +6,62 @@
 import UIKit
 import SwiftUI
 
-struct SheetDragDisabler: UIViewControllerRepresentable {
-    var isScrolling: Bool
+extension Notification.Name {
+    static let exposureListScrollActivityDidChange = Notification.Name("ExposureListScrollActivityDidChange")
+}
 
+enum ExposureListScrollActivity {
+    static let userInfoKey = "isActive"
+    static var previousActive = false
+
+    static func setActive(_ isActive: Bool) {
+        guard previousActive != isActive else {
+            return
+        }
+        previousActive = isActive
+        NotificationCenter.default.post(
+            name: .exposureListScrollActivityDidChange,
+            object: nil,
+            userInfo: [userInfoKey: isActive]
+        )
+    }
+}
+
+struct SheetDragDisabler: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> SheetDragDisablerController {
         SheetDragDisablerController()
     }
 
-    func updateUIViewController(_ vc: SheetDragDisablerController, context: Context) {
-        vc.setSheetGesturesEnabled(!isScrolling)
-    }
+    func updateUIViewController(_ vc: SheetDragDisablerController, context: Context) {}
 }
 
 final class SheetDragDisablerController: UIViewController {
     private var sheetPanGestures: [UIGestureRecognizer] = []
     private var discovered = false
     private var retryCount = 0
+    private var isExposureListScrolling = false
+    private var scrollObserver: NSObjectProtocol?
+
+    deinit {
+        if let scrollObserver {
+            NotificationCenter.default.removeObserver(scrollObserver)
+        }
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        scrollObserver = NotificationCenter.default.addObserver(
+            forName: .exposureListScrollActivityDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self,
+                  let isActive = notification.userInfo?[ExposureListScrollActivity.userInfoKey] as? Bool
+            else { return }
+            isExposureListScrolling = isActive
+            setSheetGesturesEnabled(!isExposureListScrolling)
+        }
+    }
 
     override func loadView() {
         let v = UIView()
@@ -33,6 +73,7 @@ final class SheetDragDisablerController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         discoverGestures()
+        setSheetGesturesEnabled(!isExposureListScrolling)
     }
 
     func setSheetGesturesEnabled(_ enabled: Bool) {
@@ -87,6 +128,7 @@ final class SheetDragDisablerController: UIViewController {
         if !sheetPanGestures.isEmpty {
             discovered = true
         } else {
+            print("Couldn't find gesture. This shouldn't happen! Auto-retrying")
             retryCount += 1
             if retryCount < 10 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
