@@ -183,7 +183,7 @@ final class FilmLogViewModel {
     }
 
     private func createDefaultRoll() {
-        let camera = Camera(name: "Olympus XA")
+        let camera = Camera(name: "Olympus XA", listOrder: nextCameraListOrder())
         modelContext.insert(camera)
 
         let roll = Roll(filmStock: "Kodak Portra 400", camera: camera)
@@ -413,7 +413,7 @@ final class FilmLogViewModel {
 
     @discardableResult
     func createCamera(name: String) -> Camera {
-        let camera = Camera(name: name)
+        let camera = Camera(name: name, listOrder: nextCameraListOrder())
         modelContext.insert(camera)
         return camera
     }
@@ -435,7 +435,7 @@ final class FilmLogViewModel {
         modelContext.delete(camera)
     }
 
-    /// All cameras and instant film groups for the camera list, sorted by most recently used.
+    /// All cameras and instant film groups for the camera list, sorted by user-defined order.
     func allCameraListEntries() -> [any CameraListEntry] {
         let cameras: [Camera] = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
         let groups: [InstantFilmGroup] = (try? modelContext.fetch(FetchDescriptor<InstantFilmGroup>())) ?? []
@@ -443,8 +443,44 @@ final class FilmLogViewModel {
         let entries: [any CameraListEntry] = cameras + groups
 
         return entries.sorted { a, b in
-            // Sort by most recently created (stable default order)
-            a.id.uuidString < b.id.uuidString
+            if a.listOrder != b.listOrder {
+                return a.listOrder < b.listOrder
+            }
+            if a.createdAt != b.createdAt {
+                return a.createdAt < b.createdAt
+            }
+            return a.id.uuidString < b.id.uuidString
+        }
+    }
+
+    func reorderCameraListEntries(_ orderedIDs: [UUID]) {
+        let cameras: [Camera] = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
+        let groups: [InstantFilmGroup] = (try? modelContext.fetch(FetchDescriptor<InstantFilmGroup>())) ?? []
+        let cameraByID = Dictionary(uniqueKeysWithValues: cameras.map { ($0.id, $0) })
+        let groupByID = Dictionary(uniqueKeysWithValues: groups.map { ($0.id, $0) })
+
+        // Ensure IDs not present in orderedIDs stay in their current relative order.
+        let existingEntries: [any CameraListEntry] = cameras + groups
+        let existingSortedIDs = existingEntries
+            .sorted {
+                if $0.listOrder != $1.listOrder {
+                    return $0.listOrder < $1.listOrder
+                }
+                if $0.createdAt != $1.createdAt {
+                    return $0.createdAt < $1.createdAt
+                }
+                return $0.id.uuidString < $1.id.uuidString
+            }
+            .map(\.id)
+        let movedSet = Set(orderedIDs)
+        let finalOrder = orderedIDs + existingSortedIDs.filter { !movedSet.contains($0) }
+
+        for (index, id) in finalOrder.enumerated() {
+            if let camera = cameraByID[id] {
+                camera.listOrder = Double(index)
+            } else if let group = groupByID[id] {
+                group.listOrder = Double(index)
+            }
         }
     }
 
@@ -452,7 +488,7 @@ final class FilmLogViewModel {
 
     @discardableResult
     func createInstantFilmGroup(name: String) -> InstantFilmGroup {
-        let group = InstantFilmGroup(name: name)
+        let group = InstantFilmGroup(name: name, listOrder: nextCameraListOrder())
         modelContext.insert(group)
         return group
     }
@@ -508,6 +544,13 @@ final class FilmLogViewModel {
     func switchInstantFilmCamera(_ camera: InstantFilmCamera) {
         activeInstantFilmCamera = camera
         settings.activeInstantFilmCameraId = camera.id
+    }
+
+    private func nextCameraListOrder() -> Double {
+        let cameras: [Camera] = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
+        let groups: [InstantFilmGroup] = (try? modelContext.fetch(FetchDescriptor<InstantFilmGroup>())) ?? []
+        let maxOrder = (cameras.map(\.listOrder) + groups.map(\.listOrder)).max() ?? -1
+        return maxOrder + 1
     }
 
     /// Returns the active pack (roll) for a sub-camera, creating a new one if the current pack is full.

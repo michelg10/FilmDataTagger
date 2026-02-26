@@ -12,6 +12,8 @@ import Foundation
 @MainActor
 protocol CameraListEntry {
     var id: UUID { get }
+    var createdAt: Date { get }
+    var listOrder: Double { get set }
     var displayName: String { get }
     var isInstantFilm: Bool { get }
     var allRolls: [Roll] { get }

@@ -13,13 +13,16 @@ final class Camera {
     var id: UUID = UUID()
     var name: String = "SystemReserved:DataError"
     var createdAt: Date = Date.distantPast
+    /// User-defined ordering in the camera list.
+    var listOrder: Double = 0
 
     @Relationship(deleteRule: .cascade, inverse: \Roll.camera)
     var rolls: [Roll]?
 
-    init(name: String) {
+    init(name: String, listOrder: Double = 0) {
         self.id = UUID()
         self.name = name
         self.createdAt = Date()
+        self.listOrder = listOrder
     }
 }

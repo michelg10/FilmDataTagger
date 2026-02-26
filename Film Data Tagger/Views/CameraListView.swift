@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 enum TopBarState {
     case camera
@@ -165,6 +166,45 @@ struct CameraListRow: View {
     }
 }
 
+private struct CameraListReorderDropDelegate: DropDelegate {
+    let targetID: UUID?
+    let currentOrder: [UUID]
+    @Binding var draggingID: UUID?
+    let commit: ([UUID]) -> Void
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        defer { draggingID = nil }
+        guard let draggingID,
+              let fromIndex = currentOrder.firstIndex(of: draggingID) else {
+            return false
+        }
+
+        var reordered = currentOrder
+        reordered.remove(at: fromIndex)
+
+        if let targetID {
+            guard let targetIndexInCurrent = currentOrder.firstIndex(of: targetID),
+                  let targetIndexAfterRemoval = reordered.firstIndex(of: targetID) else {
+                return false
+            }
+            let insertionIndex = fromIndex < targetIndexInCurrent
+                ? targetIndexAfterRemoval + 1
+                : targetIndexAfterRemoval
+            reordered.insert(draggingID, at: insertionIndex)
+        } else {
+            reordered.append(draggingID)
+        }
+
+        guard reordered != currentOrder else { return false }
+        commit(reordered)
+        return true
+    }
+}
+
 struct CameraListView: View {
     var viewModel: FilmLogViewModel
     @Environment(\.dismiss) private var dismiss
@@ -180,11 +220,18 @@ struct CameraListView: View {
     @State private var showEditCamera = false
     @State private var entryToDelete: (any CameraListEntry)?
     @State private var showDeleteAlert = false
+    @State private var draggingEntryID: UUID?
 
     private var allEntries: [any CameraListEntry] {
         let entries: [any CameraListEntry] = cameras + instantFilmGroups
         return entries.sorted { a, b in
-            a.id.uuidString < b.id.uuidString
+            if a.listOrder != b.listOrder {
+                return a.listOrder < b.listOrder
+            }
+            if a.createdAt != b.createdAt {
+                return a.createdAt < b.createdAt
+            }
+            return a.id.uuidString < b.id.uuidString
         }
     }
 
@@ -200,6 +247,7 @@ struct CameraListView: View {
         NavigationStack(path: $path) {
             Group {
                 let entries = allEntries
+                let orderedIDs = entries.map(\.id)
                 if !entries.isEmpty {
                     ScrollView {
                         VStack(spacing: 0) {
@@ -226,6 +274,19 @@ struct CameraListView: View {
                                         Label("Delete", systemImage: "trash")
                                     }
                                 }
+                                .onDrag {
+                                    draggingEntryID = entry.id
+                                    return NSItemProvider(object: entry.id.uuidString as NSString)
+                                }
+                                .onDrop(
+                                    of: [UTType.plainText],
+                                    delegate: CameraListReorderDropDelegate(
+                                        targetID: entry.id,
+                                        currentOrder: orderedIDs,
+                                        draggingID: $draggingEntryID,
+                                        commit: { viewModel.reorderCameraListEntries($0) }
+                                    )
+                                )
                                 .transition(.asymmetric(insertion: .opacity, removal: index == entries.count - 1 ? .opacity : .identity))
                                 if index < entries.count - 1 {
                                     Rectangle()
@@ -234,9 +295,21 @@ struct CameraListView: View {
                                         .padding(.leading, 68)
                                 }
                             }
+
+                            Color.clear // overscroll and drop zone
+                                .frame(height: 217 - 18 - bottomSafeAreaInset)
+                                .contentShape(Rectangle())
+                                .onDrop(
+                                    of: [UTType.plainText],
+                                    delegate: CameraListReorderDropDelegate(
+                                        targetID: nil,
+                                        currentOrder: orderedIDs,
+                                        draggingID: $draggingEntryID,
+                                        commit: { viewModel.reorderCameraListEntries($0) }
+                                    )
+                                )
                         }.animation(.easeOut(duration: 0.25), value: entries.map(\.id))
                         .padding(.top, 6)
-                        .padding(.bottom, 217 - 18 - bottomSafeAreaInset) // overscroll
                     }
                 } else {
                     Text("no cameras\nadded")
