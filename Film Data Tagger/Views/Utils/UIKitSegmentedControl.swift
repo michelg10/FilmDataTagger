@@ -31,7 +31,7 @@ struct UIKitSegmentedControl: View {
         .padding(.top, topInset)
         .padding(.horizontal, sideInset)
         .padding(.bottom, bottomInset)
-        .background(Color.red)
+        .background(Color(controlBackgroundColor))
         .clipShape(Capsule())
         .frame(height: height)
     }
