@@ -16,6 +16,10 @@ struct UIKitSegmentedControl: View {
 
     var body: some View {
         let extraPadding = max(capsuleInset - 2, 0)
+        let topInset = extraPadding
+        let sideInset = extraPadding
+        let bottomInset = extraPadding + 1
+        let innerHeight = max(height - topInset - bottomInset, 0)
         InnerSegmentedControl(
             segments: segments,
             selectedIndex: $selectedIndex,
@@ -23,9 +27,11 @@ struct UIKitSegmentedControl: View {
             normalTextAttributes: normalTextAttributes,
             selectedTintColor: selectedTintColor
         )
-        .frame(height: height - 2 * extraPadding)
-        .padding(extraPadding)
-        .background(Color(controlBackgroundColor))
+        .frame(height: innerHeight)
+        .padding(.top, topInset)
+        .padding(.horizontal, sideInset)
+        .padding(.bottom, bottomInset)
+        .background(Color.red)
         .clipShape(Capsule())
         .frame(height: height)
     }

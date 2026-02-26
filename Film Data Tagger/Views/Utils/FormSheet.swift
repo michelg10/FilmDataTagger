@@ -10,6 +10,7 @@ import SwiftUI
 struct FormSheet<Content: View>: View {
     var title: String
     var sheetHeight: CGFloat
+    var titleBarPadding: CGFloat = 21
     var formIsAboveAnotherSheet: Bool = false
     @ViewBuilder var content: Content
     @Environment(\.dismiss) private var dismiss
@@ -31,7 +32,7 @@ struct FormSheet<Content: View>: View {
                         .foregroundStyle(Color.white.opacity(0.95))
                         .frame(width: 44, height: 44)
                 }.glassEffect(.regular.tint(.white.opacity(formIsAboveAnotherSheet ? 0.07 : 0.06)).interactive(), in: Circle())
-            }.padding(.bottom, 21)
+            }.padding(.bottom, titleBarPadding)
 
             content
 

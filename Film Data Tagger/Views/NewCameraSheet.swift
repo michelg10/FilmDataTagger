@@ -42,16 +42,21 @@ struct NewCameraSheet: View {
     @State private var placeholder: String = randomCameraPlaceholder(instantFilm: false)
 
     var body: some View {
-        FormSheet(title: "New camera", sheetHeight: 366, formIsAboveAnotherSheet: formIsAboveAnotherSheet) {
+        FormSheet(title: "New camera", sheetHeight: 366, titleBarPadding: 11, formIsAboveAnotherSheet: formIsAboveAnotherSheet) {
             VStack(spacing: 21) {
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 0) {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         Image(systemName: "questionmark.circle.fill")
                         Text(" CAMERA TYPE")
                     }.font(.system(size: 12, weight: .bold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white.opacity(0.4))
-                    .padding(.leading, 8)
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 8)
+                    .onTapGesture {
+                        print("hi")
+                        // TODO: show Instant Film explanation
+                    }
                     UIKitSegmentedControl(
                         segments: ["Standard", "Instant Film"],
                         selectedIndex: Binding(
