@@ -22,6 +22,7 @@ struct FormTextFieldStyle: TextFieldStyle {
                 Capsule()
                     .foregroundStyle(formIsAboveAnotherSheet ? Color(hex: 0x323232) : Color(hex: 0x2E2E2E))
             })
+            .shadow(color: .black.opacity(formIsAboveAnotherSheet ? 0.12 : 0), radius: 15.5)
             .contentShape(Rectangle())
             .onTapGesture {
                 isFocused = true
@@ -187,6 +188,7 @@ struct NewRollSheet: View {
                     selectedTintColor: UIColor(formIsAboveAnotherSheet ? Color(hex: 0x6D6D6D) : Color(hex: 0x646464)),
                     controlBackgroundColor: UIColor(formIsAboveAnotherSheet ? Color(hex: 0x323232) : Color(hex: 0x2E2E2E))
                 )
+                .shadow(color: .black.opacity(formIsAboveAnotherSheet ? 0.12 : 0), radius: 15.5)
             }.padding(.bottom, 44)
             PrimaryButton(enabled: rollIsValid, action: {
                 playHaptic(.finishRoll)

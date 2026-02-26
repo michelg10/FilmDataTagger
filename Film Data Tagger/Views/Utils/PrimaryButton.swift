@@ -27,6 +27,7 @@ struct PrimaryButton<Label: View>: View {
         }.frame(height: 63)
         .disabled(!enabled)
         .glassEffect(.regular.tint(.white.opacity(enabled ? 0.91 : (isAboveAnotherSheet ? 0.07 : 0.055))).interactive(enabled), in: Capsule(style: .continuous))
+        .shadow(color: .black.opacity(isAboveAnotherSheet && enabled ? 0.12 : 0), radius: 15.5)
         .contentShape(Capsule())
         .animation(.easeInOut(duration: 0.12), value: enabled)
     }
