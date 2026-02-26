@@ -40,6 +40,7 @@ struct NewCameraSheet: View {
     @State private var cameraName: String = ""
     @State private var isInstantFilm: Bool = false
     @State private var placeholder: String = randomCameraPlaceholder(instantFilm: false)
+    @State private var showInstantFilmInfo = false
 
     var body: some View {
         FormSheet(title: "New camera", sheetHeight: 366, titleBarPadding: 11, formIsAboveAnotherSheet: formIsAboveAnotherSheet) {
@@ -54,8 +55,7 @@ struct NewCameraSheet: View {
                     .padding(.vertical, 10)
                     .padding(.horizontal, 8)
                     .onTapGesture {
-                        print("hi")
-                        // TODO: show Instant Film explanation
+                        showInstantFilmInfo = true
                     }
                     UIKitSegmentedControl(
                         segments: ["Standard", "Instant Film"],
@@ -102,6 +102,33 @@ struct NewCameraSheet: View {
                 onCameraCreated?(id)
             }, isAboveAnotherSheet: formIsAboveAnotherSheet) {
                 Text("Add camera")
+            }
+        }
+        .sheet(isPresented: $showInstantFilmInfo) {
+            InstantFilmInfoSheet()
+        }
+    }
+}
+
+struct InstantFilmInfoSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        FormSheet(title: "Instant film", sheetHeight: 346, titleBarPadding: 10, formIsAboveAnotherSheet: true, bottomAlignTitle: true) {
+            JustifiedText(
+                "Instant film mode collects exposures from multiple cameras into one shared log — one place for all your shots, regardless of which camera took them. Sprokbook tracks remaining shots on all your cameras so you know when to reload.",
+                font: .systemFont(ofSize: 17, weight: .medium),
+                textColor: .white.withAlphaComponent(0.95),
+                lineSpacing: 24 - UIFont.systemFont(ofSize: 17, weight: .medium).lineHeight
+            )
+            .padding(.bottom, 44)
+            .padding(.leading, 8)
+            .padding(.trailing, 6)
+
+            PrimaryButton(action: {
+                dismiss()
+            }, isAboveAnotherSheet: true) {
+                Text("Got it")
             }
         }
     }

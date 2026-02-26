@@ -12,12 +12,13 @@ struct FormSheet<Content: View>: View {
     var sheetHeight: CGFloat
     var titleBarPadding: CGFloat = 21
     var formIsAboveAnotherSheet: Bool = false
+    var bottomAlignTitle: Bool = false
     @ViewBuilder var content: Content
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 0) {
+            HStack(alignment: bottomAlignTitle ? .bottom : .center,spacing: 0) {
                 Text(title)
                     .font(.system(size: 22, weight: .bold, design: .default))
                     .fontWidth(.expanded)
