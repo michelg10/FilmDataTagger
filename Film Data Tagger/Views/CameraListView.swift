@@ -248,11 +248,11 @@ struct CameraListView: View {
         }
         .sheet(isPresented: $showNewRoll) {
             if let selectedCamera = selectedCamera {
-                NewRollSheet(viewModel: viewModel, camera: selectedCamera, onRollCreated: {
+                RollFormSheet(viewModel: viewModel, camera: selectedCamera, onRollCreated: {
                     dismiss()
                 }, formIsAboveAnotherSheet: true)
             } else {
-                Text("error: expected non-nil camera for NewRollSheet, got nil")
+                Text("error: expected non-nil camera for RollFormSheet, got nil")
             }
         }
         .onChange(of: path.count) {

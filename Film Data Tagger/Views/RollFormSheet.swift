@@ -1,5 +1,5 @@
 //
-//  NewRollSheet.swift
+//  RollFormSheet.swift
 //  Film Data Tagger
 //
 //  Created by Michel Guo on 2/22/26.
@@ -112,7 +112,7 @@ private let filmStockPlaceholders = [
     "Sprokbook 800"
 ]
 
-struct NewRollSheet: View {
+struct RollFormSheet: View {
     var viewModel: FilmLogViewModel
     var camera: Camera
     var editingRoll: Roll? = nil

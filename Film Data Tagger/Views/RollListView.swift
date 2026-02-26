@@ -265,7 +265,7 @@ struct RollListView: View {
         .navigationBarBackButtonHidden()
         .background(Color(hex: 0x151515))
         .sheet(item: $rollToEdit) { roll in
-            NewRollSheet(
+            RollFormSheet(
                 viewModel: viewModel,
                 camera: camera,
                 editingRoll: roll,
