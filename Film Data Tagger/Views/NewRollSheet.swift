@@ -112,6 +112,7 @@ private let filmStockPlaceholders = [
 
 struct NewRollSheet: View {
     var viewModel: FilmLogViewModel
+    var camera: Camera
     var onRollCreated: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var filmName: String = ""
@@ -187,7 +188,6 @@ struct NewRollSheet: View {
             }.padding(.bottom, 44)
             PrimaryButton(enabled: rollIsValid, action: {
                 playHaptic(.finishRoll)
-                guard let camera = viewModel.openCamera else { return }
                 viewModel.createRoll(camera: camera, filmStock: filmName, capacity: exposureCount ?? 36)
                 dismiss()
                 onRollCreated?()

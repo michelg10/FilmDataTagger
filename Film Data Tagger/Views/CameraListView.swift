@@ -247,7 +247,7 @@ struct CameraListView: View {
             }
         }
         .sheet(isPresented: $showNewRoll) {
-            NewRollSheet(viewModel: viewModel, onRollCreated: {
+            NewRollSheet(viewModel: viewModel, camera: selectedCamera, onRollCreated: {
                 dismiss()
             })
         }

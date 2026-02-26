@@ -96,7 +96,9 @@ struct ContentView: View {
                     .sheet(isPresented: $showCameraList) {
                         CameraListView(viewModel: viewModel)
                     }.sheet(isPresented: $showNewRoll) {
-                        NewRollSheet(viewModel: viewModel)
+                        if let camera = viewModel.openCamera {
+                            NewRollSheet(viewModel: viewModel, camera: camera)
+                        }
                     }
                 }
             }
