@@ -154,21 +154,7 @@ struct RollListView: View {
             if !rolls.isEmpty {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        HStack(alignment: .firstTextBaseline, spacing: 0) {
-                            Text("\(totalExposures)")
-                            Text(" exposure\(totalExposures == 1 ? "" : "s") •")
-                                .opacity(0.6)
-                            Text(" \(rolls.count)")
-                            Text(" roll\(rolls.count == 1 ? "" : "s")")
-                                .opacity(0.6)
-                        }.foregroundStyle(Color.white)
-                        .font(.system(size: 15, weight: .heavy, design: .default))
-                        .fontWidth(.expanded)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.bottom, 30)
-                        
                         // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
-                        
                         if let activeRoll {
                             VStack(alignment: .leading, spacing: 0) {
                                 Text("Active roll")
@@ -232,7 +218,7 @@ struct RollListView: View {
                     }.animation(.easeOut(duration: 0.25), value: activeRoll?.id)
                     .animation(.easeOut(duration: 0.25), value: pastRolls.map(\.id))
                     .padding(.horizontal, 16)
-                    .offset(y: -46)
+                    .offset(y: -32)
                     .padding(.bottom, 217 - 20 - bottomSafeAreaInset - 46) // overscroll
                 }
             } else {
@@ -240,7 +226,7 @@ struct RollListView: View {
                     .font(.system(size: 25, weight: .bold, design: .default))
                     .fontWidth(.expanded)
                     .opacity(0.4)
-                    .padding(.bottom, 141)
+                    .padding(.bottom, 135)
                     .padding(.horizontal, 16)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
@@ -269,16 +255,19 @@ struct RollListView: View {
         .background(Color(hex: 0x151515))
         .toolbar {
             ToolbarItem(placement: .principal) {
-                HStack(spacing: 0) {
-                    Spacer(minLength: 0)
+                VStack(alignment: .leading, spacing: 4) {
                     Text(camera.name)
                         .font(.system(size: 17, weight: .bold, design: .default))
                         .fontWidth(.expanded)
                         .foregroundStyle(Color.white)
-                    Spacer(minLength: 0)
-                }
-                .frame(width: UIScreen.main.bounds.width - 32)
-                .padding(.top, 0)
+                    let exposureTextAndSeparator = Text(" exposure\(totalExposures == 1 ? "" : "s") •").foregroundStyle(Color.white.opacity(0.6))
+                    let rollTextAndSeparator = Text(" roll\(rolls.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.6))
+                    Text("\(totalExposures)\(exposureTextAndSeparator) \(rolls.count)\(rollTextAndSeparator)")
+                        .foregroundStyle(Color.white)
+                        .font(.system(size: 12, weight: .semibold, design: .default))
+                        .fontWidth(.expanded)
+                }.padding(.top, 4)
+                .frame(width: UIScreen.main.bounds.width - 2 * 72, alignment: .leading)
             }
         }
     }
