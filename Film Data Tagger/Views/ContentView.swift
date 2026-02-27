@@ -11,26 +11,34 @@ import SwiftData
 struct FinishRollButton: View {
     var icon: String = "checkmark.arrow.trianglehead.counterclockwise"
     var text: String = "Finish roll"
+    var isNearBottom: Bool
     var action: () -> Void
-    var shadow1Opacity: Double = 0.36
-    var shadow1Radius: Double = 24.8
-    var shadow2Opacity: Double = 0.5
-    var shadow2Radius: Double = 6.9
+    let shadow1Opacity: Double = 0.36
+    let shadow1Radius: Double = 24.8
+    let shadow2Opacity: Double = 0.5
+    let shadow2Radius: Double = 6.9
 
     var body: some View {
         Button {
-            playHaptic(.newRollOrCamera)
             action()
         } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 17, weight: .semibold, design: .default))
-                    .padding(.leading, 14)
-                Text(text)
-                    .padding(.trailing, 21)
-                    .font(.system(size: 17, weight: .semibold, design: .default))
-            }.foregroundStyle(Color.white.opacity(0.95))
-            .fontWidth(.expanded)
+            if isNearBottom {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: icon)
+                        .font(.system(size: 17, weight: .semibold, design: .default))
+                        .padding(.leading, 14)
+                    Text(text)
+                        .padding(.trailing, 21)
+                        .font(.system(size: 17, weight: .semibold, design: .default))
+                        .transition(.identity)
+                }.foregroundStyle(Color.white.opacity(0.95))
+                    .fontWidth(.expanded)
+            } else {
+                Image(systemName: "arrow.down")
+                    .font(.system(size: 20, weight: .bold, design: .default))
+                    .foregroundStyle(Color.white.opacity(0.95))
+                    .frame(width: 48)
+            }
         }.frame(height: 48)
         .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
         .shadow(color: .black.opacity(shadow1Opacity), radius: shadow1Radius)
@@ -45,6 +53,8 @@ struct ContentView: View {
     @State private var showSheet = false
     @State private var showCameraList = false
     @State private var showNewRoll = false
+    @State private var isNearBottom = true
+    @State private var scrollToBottom: (() -> Void)?
 
 
     private var logItems: [LogItem] {
@@ -78,7 +88,9 @@ struct ContentView: View {
                     },
                     onTitleTapped: {
                         showCameraList = true
-                    }
+                    },
+                    onNearBottomChanged: { isNearBottom = $0 },
+                    onScrollToBottomRegistered: { scrollToBottom = $0 }
                 )
             }.ignoresSafeArea(.all)
             .background(Color.black)
@@ -104,12 +116,19 @@ struct ContentView: View {
                 (sheetHeight: CaptureSheet.fullScaledHeight, compensation: 4),
             ]) {
                 if viewModel?.openRoll != nil {
-                    FinishRollButton(action: {
-                        showNewRoll = true
+                    FinishRollButton(isNearBottom: isNearBottom, action: {
+                        if isNearBottom {
+                            showNewRoll = true
+                            playHaptic(.newRollOrCamera)
+                        } else {
+                            scrollToBottom?()
+                        }
                     })
+                    .animation(.easeInOut(duration: 0.25), value: isNearBottom)
                 } else if viewModel?.openCamera != nil {
-                    FinishRollButton(icon: "plus", text: "New roll", action: {
+                    FinishRollButton(icon: "plus", text: "New roll", isNearBottom: false, action: {
                         showNewRoll = true
+                        playHaptic(.newRollOrCamera)
                     })
                 } else {
                     EmptyView()

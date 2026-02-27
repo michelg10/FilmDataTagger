@@ -153,6 +153,8 @@ struct ExposureListView: View {
     var onMovePlaceholderToEnd: ((LogItem) -> Void)?
     var onCycleExtraExposures: (() -> Void)?
     var onTitleTapped: (() -> Void)?
+    var onNearBottomChanged: ((Bool) -> Void)?
+    var onScrollToBottomRegistered: ((@escaping () -> Void) -> Void)?
     @State private var draggingPlaceholderID: UUID?
     @State private var dropTargetIndex: Int?
 
@@ -246,12 +248,26 @@ struct ExposureListView: View {
                             if !logItems.isEmpty {
                                 proxy.scrollTo("scrollAnchor", anchor: .bottom)
                             }
+                            onScrollToBottomRegistered?({
+                                withAnimation {
+                                    proxy.scrollTo("scrollAnchor", anchor: .bottom)
+                                }
+                            })
                         }
                         .onChange(of: logItems.count) { oldCount, newCount in
                             if newCount > oldCount {
                                 withAnimation {
                                     proxy.scrollTo("scrollAnchor", anchor: .bottom)
                                 }
+                            }
+                        }
+                        .onScrollGeometryChange(for: Bool.self) { geo in
+                            let maxOffset = geo.contentSize.height - geo.containerSize.height + geo.contentInsets.bottom
+                            let currentOffset = geo.contentOffset.y + geo.contentInsets.top
+                            return currentOffset >= maxOffset - 500
+                        } action: { prevIsNearBottom, isNearBottom in
+                            if prevIsNearBottom != isNearBottom {
+                                onNearBottomChanged?(isNearBottom)
                             }
                         }
                         .onScrollPhaseChange { _, newPhase in
