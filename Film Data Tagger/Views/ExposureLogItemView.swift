@@ -8,10 +8,24 @@
 import SwiftUI
 import SwiftData
 
+/// Extracts a city name from a time zone identifier (e.g., "America/Los_Angeles" → "Los Angeles")
+private func cityName(from timeZoneIdentifier: String) -> String {
+    let components = timeZoneIdentifier.split(separator: "/")
+    let last = components.last.map(String.init) ?? timeZoneIdentifier
+    return last.replacingOccurrences(of: "_", with: " ")
+}
+
 /// Bridges a LogItem model to LogItemView
 struct ExposureLogItemView: View {
     let item: LogItem
     var onCycleExtraExposures: (() -> Void)?
+    @State private var showingLocalTime = false
+
+    /// Whether the item was captured in a different time zone than the user's current one
+    private var hasDifferentTimeZone: Bool {
+        guard let tzId = item.timeZoneIdentifier else { return false }
+        return tzId != TimeZone.current.identifier
+    }
 
     var body: some View {
         LogItemView(
@@ -31,12 +45,39 @@ struct ExposureLogItemView: View {
 
         // Time
         if item.hasRealCreatedAt {
-            items.append(.init(
-                id: "time",
-                icon: Image(systemName: "clock.fill"),
-                mainText: Text(item.createdAt, format: .dateTime.hour().minute()),
-                secondaryText: Text(item.createdAt, format: .dateTime.month().day().year())
-            ))
+            if hasDifferentTimeZone {
+                let displayTZ: TimeZone
+                let tzLabel: String
+                if showingLocalTime {
+                    displayTZ = .current
+                    tzLabel = "Local"
+                } else {
+                    displayTZ = TimeZone(identifier: item.timeZoneIdentifier!) ?? .current
+                    tzLabel = cityName(from: item.timeZoneIdentifier!)
+                }
+                var timeFormat = Date.FormatStyle.dateTime.hour().minute()
+                timeFormat.timeZone = displayTZ
+                var dateFormat = Date.FormatStyle.dateTime.month().day().year()
+                dateFormat.timeZone = displayTZ
+
+                let timeString = item.createdAt.formatted(timeFormat)
+                let dateString = item.createdAt.formatted(dateFormat)
+
+                items.append(.init(
+                    id: "time",
+                    icon: Image(systemName: "clock.fill"),
+                    mainText: Text(timeString),
+                    secondaryText: Text("\(dateString) · \(tzLabel)"),
+                    onTap: { showingLocalTime.toggle() }
+                ))
+            } else {
+                items.append(.init(
+                    id: "time",
+                    icon: Image(systemName: "clock.fill"),
+                    mainText: Text(item.createdAt, format: .dateTime.hour().minute()),
+                    secondaryText: Text(item.createdAt, format: .dateTime.month().day().year())
+                ))
+            }
         } else {
             items.append(.init(
                 id: "time",

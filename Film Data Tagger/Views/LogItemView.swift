@@ -13,6 +13,7 @@ struct LogItemView: View {
         var icon: Image
         var mainText: Text
         let secondaryText: Text?
+        var onTap: (() -> Void)? = nil
     }
     
     /// Exposure number to display, must be <100
@@ -82,6 +83,10 @@ struct LogItemView: View {
                                     .opacity(0.5)
                             }
                         }.font(.system(size: 12, weight: .bold))
+                    }
+                    .if(infoItem.onTap != nil) { view in
+                        view.contentShape(Rectangle())
+                            .onTapGesture { infoItem.onTap?() }
                     }
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)

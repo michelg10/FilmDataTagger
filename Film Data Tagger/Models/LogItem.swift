@@ -36,6 +36,9 @@ final class LogItem {
     /// Human-readable place name from reverse geocoding (e.g., "Dockweiler State Beach")
     var placeName: String?
 
+    /// The time zone identifier at the time of capture (e.g., "America/Los_Angeles")
+    var timeZoneIdentifier: String?
+
     /// When true, this item is a placeholder with no captured metadata
     var isPlaceholder: Bool = false
 
@@ -46,6 +49,7 @@ final class LogItem {
         self.id = UUID()
         self.roll = roll
         self.createdAt = Date()
+        self.timeZoneIdentifier = TimeZone.current.identifier
         self.isPlaceholder = false
     }
 
