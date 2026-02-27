@@ -99,15 +99,20 @@ private struct SheetFloatingBridge<F: View>: UIViewRepresentable {
 
         func startObservingPosition(of presentedView: UIView) {
             guard positionObservation == nil else { return }
+            applyCompensation(for: presentedView.layer)
             positionObservation = presentedView.layer.observe(\.position, options: [.new]) { [weak self] layer, _ in
-                guard let self, !self.compensationPoints.isEmpty else { return }
-                let sheetHeight = layer.frame.height
-                guard sheetHeight > 0 else { return }
-                let compensation = self.interpolateCompensation(for: sheetHeight)
-                guard compensation != self.lastCompensation else { return }
-                self.lastCompensation = compensation
-                self.bottomConstraint?.constant = -self.offset + compensation
+                self?.applyCompensation(for: layer)
             }
+        }
+
+        private func applyCompensation(for layer: CALayer) {
+            guard !sortedCompensationPoints.isEmpty else { return }
+            let sheetHeight = layer.frame.height
+            guard sheetHeight > 0 else { return }
+            let compensation = interpolateCompensation(for: sheetHeight)
+            guard compensation != lastCompensation else { return }
+            lastCompensation = compensation
+            bottomConstraint?.constant = -offset + compensation
         }
 
         private func interpolateCompensation(for sheetHeight: CGFloat) -> CGFloat {
