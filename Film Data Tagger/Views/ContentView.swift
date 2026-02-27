@@ -32,7 +32,7 @@ struct FinishRollButton: View {
                         .font(.system(size: 17, weight: .semibold, design: .default))
                         .transition(.identity)
                 }.foregroundStyle(Color.white.opacity(0.95))
-                    .fontWidth(.expanded)
+                .fontWidth(.expanded)
             } else {
                 Image(systemName: "arrow.down")
                     .font(.system(size: 20, weight: .bold, design: .default))
@@ -53,8 +53,14 @@ struct ContentView: View {
     @State private var showSheet = false
     @State private var showCameraList = false
     @State private var showNewRoll = false
-    @State private var isNearBottom = true
+    @State private var isNearBottomVar = 0 // 0: initial state. 1: is not near bottom. 2: is near bottom
     @State private var scrollToBottom: (() -> Void)?
+    private var isNearBottom: Bool {
+        get {
+            return isNearBottomVar != 1
+        }
+    }
+    
 
 
     private var logItems: [LogItem] {
@@ -89,7 +95,17 @@ struct ContentView: View {
                     onTitleTapped: {
                         showCameraList = true
                     },
-                    onNearBottomChanged: { isNearBottom = $0 },
+                    onNearBottomChanged: {
+                        if $0 {
+                            isNearBottomVar = 2
+                        } else {
+                            // is not near bottom. we guard against a strange bug where, upon app launch, the view says it's not near the bottom and then suddenly says yes. we don't want the animation to trigger from this fake "not near bottom", so we do this.
+                            guard isNearBottomVar != 0 else {
+                                return
+                            }
+                            isNearBottomVar = 1
+                        }
+                    },
                     onScrollToBottomRegistered: { scrollToBottom = $0 }
                 )
             }.ignoresSafeArea(.all)
@@ -124,7 +140,7 @@ struct ContentView: View {
                             scrollToBottom?()
                         }
                     })
-                    .animation(.easeInOut(duration: 0.25), value: isNearBottom)
+                    .animation(.easeInOut(duration: 0.25), value: isNearBottomVar)
                 } else if viewModel?.openCamera != nil {
                     FinishRollButton(icon: "plus", text: "New roll", isNearBottom: false, action: {
                         showNewRoll = true
