@@ -99,7 +99,10 @@ struct ContentView: View {
                     }
                 }
             }
-            .sheetFloatingView(offset: 20, height: 48) {
+            .sheetFloatingView(offset: 20, height: 48, compensationPoints: [
+                (sheetHeight: CaptureSheet.compactScaledHeight, compensation: -2),
+                (sheetHeight: CaptureSheet.fullScaledHeight, compensation: 4),
+            ]) {
                 if viewModel?.openRoll != nil {
                     FinishRollButton(action: {
                         showNewRoll = true

@@ -10,9 +10,6 @@ import SwiftData
 import AVFoundation
 import CoreLocation
 
-private let referencePhotoSize = (143.0 / 347.0) * (UIScreen.main.bounds.width - 2 * (15 + 8))
-private let fullDetentHeight = (110 + 25 + referencePhotoSize) * sheetScaleCompensationFactor - bottomSafeAreaInset
-
 // MARK: - Helpers
 
 private func formatElapsed(from date: Date?, now: Date) -> String? {
@@ -74,6 +71,7 @@ private struct FullInfoRow<Icon: View>: View {
 private struct CaptureSheetFullContent: View {
     var viewModel: FilmLogViewModel
     var lastCaptureDate: Date?
+    var referencePhotoSize: CGFloat
 
     var body: some View {
         HStack(spacing: 18) {
@@ -240,8 +238,12 @@ private struct CaptureButton: View {
 // MARK: - CaptureSheet
 
 struct CaptureSheet: View {
-    static let compactDetent: PresentationDetent = .height(CGFloat(sheetScaleCompensationFactor * 147 - bottomSafeAreaInset))
-    static let fullDetent: PresentationDetent = .height(fullDetentHeight)
+    private static let referencePhotoSize = (143.0 / 347.0) * (UIScreen.main.bounds.width - 2 * (15 + 8))
+    static let compactScaledHeight: CGFloat = 147 * sheetScaleCompensationFactor
+    static let fullScaledHeight: CGFloat = (110 + 25 + referencePhotoSize) * sheetScaleCompensationFactor
+    
+    static let compactDetent: PresentationDetent = .height(CGFloat(compactScaledHeight - bottomSafeAreaInset))
+    static let fullDetent: PresentationDetent = .height(fullScaledHeight - bottomSafeAreaInset)
 
     var viewModel: FilmLogViewModel
     var frameCount: Int = 0
@@ -257,7 +259,8 @@ struct CaptureSheet: View {
 
             CaptureSheetFullContent(
                 viewModel: viewModel,
-                lastCaptureDate: lastCaptureDate
+                lastCaptureDate: lastCaptureDate,
+                referencePhotoSize: Self.referencePhotoSize
             )
             .frame(maxHeight: isCompact ? 0 : nil)
             .opacity(isCompact ? 0 : 1)
