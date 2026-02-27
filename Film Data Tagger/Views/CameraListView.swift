@@ -166,18 +166,106 @@ struct CameraListRow: View {
     }
 }
 
-private struct CameraListReorderDropDelegate: DropDelegate {
-    let targetID: UUID?
+private let cameraRowHeight: CGFloat = 111
+
+private struct CameraDropIndicatorLine: View {
+    var active: Bool
+
+    var body: some View {
+        Capsule()
+            .foregroundStyle(Color.white.opacity(0.33))
+            .frame(height: 2)
+            .padding(.horizontal, 8)
+            .opacity(active ? 1 : 0)
+            .allowsHitTesting(false)
+            .animation(.easeOut(duration: 0.12), value: active)
+    }
+}
+
+private struct CameraRowDropDelegate: DropDelegate {
+    let index: Int
     let currentOrder: [UUID]
     @Binding var draggingID: UUID?
+    @Binding var dropTargetIndex: Int?
     let commit: ([UUID]) -> Void
 
+    func dropEntered(info: DropInfo) {
+        updateTarget(info: info)
+    }
+
     func dropUpdated(info: DropInfo) -> DropProposal? {
-        DropProposal(operation: .move)
+        updateTarget(info: info)
+        return DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) {
+        let myIndices = [index, index + 1]
+        if let current = dropTargetIndex, myIndices.contains(current) {
+            dropTargetIndex = nil
+        }
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        defer { draggingID = nil }
+        defer { dropTargetIndex = nil; draggingID = nil }
+        guard let draggingID,
+              let dropTargetIndex,
+              let fromIndex = currentOrder.firstIndex(of: draggingID) else {
+            return false
+        }
+
+        var reordered = currentOrder
+        reordered.remove(at: fromIndex)
+        let insertAt = dropTargetIndex > fromIndex ? dropTargetIndex - 1 : dropTargetIndex
+        reordered.insert(draggingID, at: min(insertAt, reordered.count))
+
+        guard reordered != currentOrder else { return false }
+        commit(reordered)
+        return true
+    }
+
+    private func updateTarget(info: DropInfo) {
+        guard let draggingID,
+              let fromIndex = currentOrder.firstIndex(of: draggingID) else { return }
+        let midY = cameraRowHeight / 2
+        let deadZone: CGFloat = 12
+        if info.location.y >= midY - deadZone && info.location.y <= midY + deadZone {
+            dropTargetIndex = nil
+        } else {
+            let proposed = info.location.y < midY ? index : index + 1
+            dropTargetIndex = (proposed == fromIndex || proposed == fromIndex + 1) ? nil : proposed
+        }
+    }
+}
+
+private struct CameraEndDropDelegate: DropDelegate {
+    let endIndex: Int
+    let currentOrder: [UUID]
+    @Binding var draggingID: UUID?
+    @Binding var dropTargetIndex: Int?
+    let commit: ([UUID]) -> Void
+
+    private var isAlreadyLast: Bool {
+        guard let draggingID else { return false }
+        return currentOrder.last == draggingID
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard draggingID != nil else { return }
+        dropTargetIndex = isAlreadyLast ? nil : endIndex
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        guard draggingID != nil else { return nil }
+        dropTargetIndex = isAlreadyLast ? nil : endIndex
+        return DropProposal(operation: .move)
+    }
+
+    func dropExited(info: DropInfo) {
+        if dropTargetIndex == endIndex { dropTargetIndex = nil }
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        defer { dropTargetIndex = nil; draggingID = nil }
         guard let draggingID,
               let fromIndex = currentOrder.firstIndex(of: draggingID) else {
             return false
@@ -185,19 +273,7 @@ private struct CameraListReorderDropDelegate: DropDelegate {
 
         var reordered = currentOrder
         reordered.remove(at: fromIndex)
-
-        if let targetID {
-            guard let targetIndexInCurrent = currentOrder.firstIndex(of: targetID),
-                  let targetIndexAfterRemoval = reordered.firstIndex(of: targetID) else {
-                return false
-            }
-            let insertionIndex = fromIndex < targetIndexInCurrent
-                ? targetIndexAfterRemoval + 1
-                : targetIndexAfterRemoval
-            reordered.insert(draggingID, at: insertionIndex)
-        } else {
-            reordered.append(draggingID)
-        }
+        reordered.append(draggingID)
 
         guard reordered != currentOrder else { return false }
         commit(reordered)
@@ -221,6 +297,7 @@ struct CameraListView: View {
     @State private var entryToDelete: (any CameraListEntry)?
     @State private var showDeleteAlert = false
     @State private var draggingEntryID: UUID?
+    @State private var dropTargetIndex: Int?
 
     private var allEntries: [any CameraListEntry] {
         let entries: [any CameraListEntry] = cameras + instantFilmGroups
@@ -260,6 +337,10 @@ struct CameraListView: View {
                                     )
                                         .padding(.vertical, 18)
                                 }
+                                .overlay(alignment: .top) {
+                                    CameraDropIndicatorLine(active: dropTargetIndex == index)
+                                        .offset(y: -1)
+                                }
                                 .contextMenu {
                                     Button {
                                         editingEntry = entry
@@ -280,10 +361,11 @@ struct CameraListView: View {
                                 }
                                 .onDrop(
                                     of: [UTType.plainText],
-                                    delegate: CameraListReorderDropDelegate(
-                                        targetID: entry.id,
+                                    delegate: CameraRowDropDelegate(
+                                        index: index,
                                         currentOrder: orderedIDs,
                                         draggingID: $draggingEntryID,
+                                        dropTargetIndex: $dropTargetIndex,
                                         commit: { viewModel.reorderCameraListEntries($0) }
                                     )
                                 )
@@ -296,15 +378,20 @@ struct CameraListView: View {
                                 }
                             }
 
-                            Color.clear // overscroll and drop zone
+                            Color.clear
                                 .frame(height: 217 - 18 - bottomSafeAreaInset)
                                 .contentShape(Rectangle())
+                                .overlay(alignment: .top) {
+                                    CameraDropIndicatorLine(active: dropTargetIndex == entries.count)
+                                        .offset(y: -1)
+                                }
                                 .onDrop(
                                     of: [UTType.plainText],
-                                    delegate: CameraListReorderDropDelegate(
-                                        targetID: nil,
+                                    delegate: CameraEndDropDelegate(
+                                        endIndex: entries.count,
                                         currentOrder: orderedIDs,
                                         draggingID: $draggingEntryID,
+                                        dropTargetIndex: $dropTargetIndex,
                                         commit: { viewModel.reorderCameraListEntries($0) }
                                     )
                                 )
