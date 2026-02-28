@@ -51,10 +51,10 @@ private struct ExposureMarker: Hashable {}
 
 struct ContentView: View {
     var viewModel: FilmLogViewModel
-//    @Query private var cameras: [Camera]
-//    @Query private var instantFilmGroups: [InstantFilmGroup]
+    @Query private var cameras: [Camera]
+    @Query private var instantFilmGroups: [InstantFilmGroup]
 //
-//    @State private var path = NavigationPath()
+    @State private var path = NavigationPath()
 //    @State private var showSheet = false
 //    @State private var showNewRoll = false
 //    @State private var isOnExposureList = false
@@ -70,16 +70,6 @@ struct ContentView: View {
 //    }
 
     var body: some View {
-        NavigationStack {
-            CameraListView(
-                viewModel: viewModel,
-                onNavigateToCamera: { id in
-
-                }
-            )
-        }.preferredColorScheme(.dark)
-        
-        /*
         Group {
             NavigationStack(path: $path) {
                 CameraListView(
@@ -98,17 +88,11 @@ struct ContentView: View {
                                 }
                             )
                         } else if let group = instantFilmGroups.first(where: { $0.id == id }) {
-                            exposureListScreen(viewModel: viewModel)
-                                .onAppear {
-                                    viewModel.switchToInstantFilmGroup(group)
-                                    isOnExposureList = true
-                                }
-                                .onDisappear {
-                                    isOnExposureList = false
-                                    isNearBottomVar = 0
-                                }
+                            // TODO
+                            EmptyView()
                         }
                     }
+                /*
                     .navigationDestination(for: ExposureMarker.self) { _ in
                         exposureListScreen(viewModel: viewModel)
                             .onAppear {
@@ -119,7 +103,9 @@ struct ContentView: View {
                                 isNearBottomVar = 0
                             }
                     }
+                 */
                 }
+            /*
                 .sheet(isPresented: $showSheet) {
                     CaptureSheet(
                         viewModel: viewModel,
@@ -171,12 +157,14 @@ struct ContentView: View {
                         withTransaction(t) { showSheet = false }
                     }
                 }
+             */
         }
+        /*
         .onAppear {
             restoreNavigationPath(viewModel)
         }
-        .preferredColorScheme(.dark)
          */
+        .preferredColorScheme(.dark)
     }
     
     /*
