@@ -41,9 +41,9 @@ struct LogItemView: View {
                     .frame(width: 38, alignment: .center)
                     .frame(maxHeight: .infinity)
                     .opacity(0.85)
-                    .if(onFrameNumberTapped != nil) { view in
-                        view.contentShape(Rectangle())
-                            .onTapGesture { onFrameNumberTapped?() }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        onFrameNumberTapped?()
                     }
             }
             
@@ -83,10 +83,9 @@ struct LogItemView: View {
                                     .opacity(0.5)
                             }
                         }.font(.system(size: 12, weight: .bold))
-                    }
-                    .if(infoItem.onTap != nil) { view in
-                        view.contentShape(Rectangle())
-                            .onTapGesture { infoItem.onTap?() }
+                    }.contentShape(Rectangle())
+                    .onTapGesture {
+                        infoItem.onTap?()
                     }
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)

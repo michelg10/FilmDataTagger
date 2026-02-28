@@ -285,7 +285,7 @@ struct RollListView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 20, weight: .semibold, design: .default))
+                            .font(.system(size: 16, weight: .bold, design: .default))
                             .foregroundStyle(Color.white.opacity(0.95))
                             .frame(width: 44, height: 44)
                     }.frame(width: 44, height: 44)
