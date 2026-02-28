@@ -180,66 +180,64 @@ struct ExposureListView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 0) {
-                            LazyVStack(spacing: 0) {
-                                ForEach(Array(logItems.enumerated()), id: \.element.id) { index, item in
-                                    ExposureRow(
-                                        item: item,
-                                        onDelete: onDelete,
-                                        onCycleExtraExposures: onCycleExtraExposures
-                                    ).transition(.asymmetric(insertion: .opacity, removal: .identity))
-                                    .contentShape(Rectangle())
-                                    .id(item.id)
-                                    .if(item.isPlaceholder) { view in
-                                        view.onDrag {
-                                            draggingPlaceholderID = item.id
-                                            return NSItemProvider(object: item.id.uuidString as NSString)
-                                        }
-                                    }
-                                    .overlay(alignment: .top) {
-                                        ExposureDropIndicatorLine(active: dropTargetIndex == index)
-                                            .offset(y: -1)
-                                            .allowsHitTesting(false)
-                                    }.onDrop(
-                                        of: [UTType.plainText],
-                                        delegate: ExposureRowDropDelegate(
-                                            index: index,
-                                            logItems: logItems,
-                                            draggingPlaceholderID: $draggingPlaceholderID,
-                                            dropTargetIndex: $dropTargetIndex,
-                                            onMovePlaceholderBefore: onMovePlaceholderBefore,
-                                            onMovePlaceholderAfter: onMovePlaceholderAfter
-                                        )
-                                    )
-                                }
-                            }
-                            .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))
-                            .padding(.horizontal, 16)
-
-                            // Overscroll / drop zone for moving placeholders to end of list
-                            Color.clear
-                                .frame(height: 396)
+                            ForEach(Array(logItems.enumerated()), id: \.element.id) { index, item in
+                                ExposureRow(
+                                    item: item,
+                                    onDelete: onDelete,
+                                    onCycleExtraExposures: onCycleExtraExposures
+                                ).transition(.asymmetric(insertion: .opacity, removal: .identity))
                                 .contentShape(Rectangle())
-                                .overlay(alignment: .top) {
-                                    ExposureDropIndicatorLine(active: dropTargetIndex == logItems.count)
-                                        .padding(.horizontal, 16)
-                                        .offset(y: -1)
+                                .id(item.id)
+                                .if(item.isPlaceholder) { view in
+                                    view.onDrag {
+                                        draggingPlaceholderID = item.id
+                                        return NSItemProvider(object: item.id.uuidString as NSString)
+                                    }
                                 }
-                                .onDrop(
+                                .overlay(alignment: .top) {
+                                    ExposureDropIndicatorLine(active: dropTargetIndex == index)
+                                        .offset(y: -1)
+                                        .allowsHitTesting(false)
+                                }.onDrop(
                                     of: [UTType.plainText],
-                                    delegate: ExposureEndDropDelegate(
-                                        endIndex: logItems.count,
+                                    delegate: ExposureRowDropDelegate(
+                                        index: index,
                                         logItems: logItems,
                                         draggingPlaceholderID: $draggingPlaceholderID,
                                         dropTargetIndex: $dropTargetIndex,
-                                        onMovePlaceholderToEnd: onMovePlaceholderToEnd
+                                        onMovePlaceholderBefore: onMovePlaceholderBefore,
+                                        onMovePlaceholderAfter: onMovePlaceholderAfter
                                     )
                                 )
-                                .offset(y: -21)
-                                .id("scrollAnchor")
+                            }
+                        }
+                        .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))
+                        .padding(.horizontal, 16)
+                        .padding(.top, 6)
+
+                        // Overscroll / drop zone for moving placeholders to end of list
+                        Color.clear
+                            .frame(height: 396)
+                            .contentShape(Rectangle())
+                            .overlay(alignment: .top) {
+                                ExposureDropIndicatorLine(active: dropTargetIndex == logItems.count)
+                                    .padding(.horizontal, 16)
+                                    .offset(y: -1)
+                            }
+                            .onDrop(
+                                of: [UTType.plainText],
+                                delegate: ExposureEndDropDelegate(
+                                    endIndex: logItems.count,
+                                    logItems: logItems,
+                                    draggingPlaceholderID: $draggingPlaceholderID,
+                                    dropTargetIndex: $dropTargetIndex,
+                                    onMovePlaceholderToEnd: onMovePlaceholderToEnd
+                                )
+                            )
+                            .id("scrollAnchor")
                             
-                            Spacer()
-                                .frame(height: 40 - 8)
-                        }.padding(.top, 6)
+                        Color.clear
+                            .frame(height: 40 - 8)
                     }
                     .onAppear {
                         if !logItems.isEmpty {
