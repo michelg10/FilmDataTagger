@@ -63,29 +63,43 @@ struct ExposureScreen: View {
     private var logItems: [LogItem] { viewModel.logItems }
 
     var body: some View {
-        ExposureListView(
-            logItems: logItems,
-            cameraName: viewModel.openCamera?.name ?? "No camera selected",
-            filmStock: viewModel.openRoll?.filmStock
+        ZStack(alignment: .bottom) {
+            ExposureListView(
+                logItems: logItems,
+                cameraName: viewModel.openCamera?.name ?? "No camera selected",
+                filmStock: viewModel.openRoll?.filmStock
                 ?? (viewModel.openCamera != nil ? "No roll selected" : ""),
-            hasRoll: viewModel.openRoll != nil,
-            scrollContextID: viewModel.openRoll?.id ?? viewModel.openCamera?.id,
-            onDelete: { viewModel.deleteItem($0) },
-            onMovePlaceholderBefore: { viewModel.movePlaceholder($0, before: $1) },
-            onMovePlaceholderAfter: { viewModel.movePlaceholder($0, after: $1) },
-            onMovePlaceholderToEnd: { viewModel.movePlaceholderToEnd($0) },
-            onCycleExtraExposures: { viewModel.cycleExtraExposures() },
-            onNearBottomChanged: {
-                if $0 {
-                    isNearBottomVar = 2
-                } else {
-                    guard isNearBottomVar != 0 else { return }
-                    isNearBottomVar = 1
-                }
-            },
-            onScrollToBottomRegistered: { scrollToBottom = $0 }
-        )
-        // TODO: custom bottom panel for CaptureSheet (replaces .sheet)
+                hasRoll: viewModel.openRoll != nil,
+                scrollContextID: viewModel.openRoll?.id ?? viewModel.openCamera?.id,
+                onDelete: { viewModel.deleteItem($0) },
+                onMovePlaceholderBefore: { viewModel.movePlaceholder($0, before: $1) },
+                onMovePlaceholderAfter: { viewModel.movePlaceholder($0, after: $1) },
+                onMovePlaceholderToEnd: { viewModel.movePlaceholderToEnd($0) },
+                onCycleExtraExposures: { viewModel.cycleExtraExposures() },
+                onNearBottomChanged: {
+                    if $0 {
+                        isNearBottomVar = 2
+                    } else {
+                        guard isNearBottomVar != 0 else { return }
+                        isNearBottomVar = 1
+                    }
+                },
+                onScrollToBottomRegistered: { scrollToBottom = $0 }
+            )
+            let screenRadius = UIScreen.main.value(forKey: "_displayCornerRadius") as? CGFloat ?? 50
+            let captureSheetRectangle = UnevenRoundedRectangle(
+                topLeadingRadius: 35, bottomLeadingRadius: screenRadius - 8, bottomTrailingRadius: screenRadius - 8, topTrailingRadius: 35, style: .continuous)
+            
+            CaptureSheet(
+                viewModel: viewModel,
+                frameCount: 50,
+                rollCapacity: 50,
+                lastCaptureDate: nil
+            )
+            .clipShape(captureSheetRectangle)
+            .glassEffect(.regular.interactive(), in: captureSheetRectangle)
+            .padding([.bottom, .leading, .trailing], 8)
+        }.ignoresSafeArea()
     }
 }
 
@@ -151,6 +165,7 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onAppear { restoreNavigationPath(viewModel) }
     }
 
     private var floatingButtons: some View {
@@ -214,13 +229,17 @@ struct ContentView: View {
 
     private func restoreNavigationPath(_ vm: FilmLogViewModel) {
         guard path.isEmpty else { return }
-        if let group = vm.activeInstantFilmGroup {
-            path.append(group.id)
-        } else if let roll = vm.openRoll, let camera = roll.camera {
-            path.append(camera.id)
-            path.append(ExposureMarker())
-        } else if let camera = vm.openCamera {
-            path.append(camera.id)
+        var t = Transaction()
+        t.disablesAnimations = true
+        withTransaction(t) {
+            if let group = vm.activeInstantFilmGroup {
+                path.append(group.id)
+            } else if let roll = vm.openRoll, let camera = roll.camera {
+                path.append(camera.id)
+                path.append(ExposureMarker())
+            } else if let camera = vm.openCamera {
+                path.append(camera.id)
+            }
         }
     }
 
