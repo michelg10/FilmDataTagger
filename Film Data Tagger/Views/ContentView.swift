@@ -46,128 +46,193 @@ struct FinishRollButton: View {
     }
 }
 
+/// Navigation marker for pushing to the exposure list screen.
+private struct ExposureMarker: Hashable {}
+
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-
-    @State private var viewModel: FilmLogViewModel?
-    @State private var showSheet = false
-    @State private var showCameraList = false
-    @State private var showNewRoll = false
-    @State private var isNearBottomVar = 0 // 0: initial state. 1: is not near bottom. 2: is near bottom
-    @State private var scrollToBottom: (() -> Void)?
-    private var isNearBottom: Bool {
-        get {
-            return isNearBottomVar != 1
-        }
-    }
-    
-
-
-    private var logItems: [LogItem] {
-        viewModel?.logItems ?? []
-    }
+    var viewModel: FilmLogViewModel
+//    @Query private var cameras: [Camera]
+//    @Query private var instantFilmGroups: [InstantFilmGroup]
+//
+//    @State private var path = NavigationPath()
+//    @State private var showSheet = false
+//    @State private var showNewRoll = false
+//    @State private var isOnExposureList = false
+//    @State private var isNearBottomVar = 0 // 0: initial state. 1: is not near bottom. 2: is near bottom
+//    @State private var scrollToBottom: (() -> Void)?
+//
+//    private var isNearBottom: Bool {
+//        isNearBottomVar != 1
+//    }
+//
+//    private var logItems: [LogItem] {
+//        viewModel.logItems
+//    }
 
     var body: some View {
+        NavigationStack {
+            CameraListView(
+                viewModel: viewModel,
+                onNavigateToCamera: { id in
+
+                }
+            )
+        }.preferredColorScheme(.dark)
+        
+        /*
         Group {
-            ZStack {
-                ExposureListView(
-                    logItems: logItems,
-                    cameraName: viewModel?.openCamera?.name ?? "No camera selected",
-                    filmStock: viewModel?.openRoll?.filmStock
-                        ?? (viewModel?.openCamera != nil ? "No roll selected" : ""),
-                    hasRoll: viewModel?.openRoll != nil,
-                    scrollContextID: viewModel?.openRoll?.id ?? viewModel?.openCamera?.id,
-                    onDelete: { item in
-                        viewModel?.deleteItem(item)
-                    },
-                    onMovePlaceholderBefore: { item, target in
-                        viewModel?.movePlaceholder(item, before: target)
-                    },
-                    onMovePlaceholderAfter: { item, target in
-                        viewModel?.movePlaceholder(item, after: target)
-                    },
-                    onMovePlaceholderToEnd: { item in
-                        viewModel?.movePlaceholderToEnd(item)
-                    },
-                    onCycleExtraExposures: {
-                        viewModel?.cycleExtraExposures()
-                    },
-                    onTitleTapped: {
-                        showCameraList = true
-                    },
-                    onNearBottomChanged: {
-                        if $0 {
-                            isNearBottomVar = 2
-                        } else {
-                            // is not near bottom. we guard against a strange bug where, upon app launch, the view says it's not near the bottom and then suddenly says yes. we don't want the animation to trigger from this fake "not near bottom", so we do this.
-                            guard isNearBottomVar != 0 else {
-                                return
-                            }
-                            isNearBottomVar = 1
+            NavigationStack(path: $path) {
+                CameraListView(
+                        viewModel: viewModel,
+                        onNavigateToCamera: { id in
+                            path.append(id)
                         }
-                    },
-                    onScrollToBottomRegistered: { scrollToBottom = $0 }
-                )
-            }.ignoresSafeArea(.all)
-            .background(Color.black)
-            .sheet(isPresented: $showSheet) {
-                if let viewModel {
+                    )
+                    .navigationDestination(for: UUID.self) { id in
+                        if let camera = cameras.first(where: { $0.id == id }) {
+                            RollListView(
+                                camera: camera,
+                                viewModel: viewModel,
+                                onRollSelected: { _ in
+                                    path.append(ExposureMarker())
+                                }
+                            )
+                        } else if let group = instantFilmGroups.first(where: { $0.id == id }) {
+                            exposureListScreen(viewModel: viewModel)
+                                .onAppear {
+                                    viewModel.switchToInstantFilmGroup(group)
+                                    isOnExposureList = true
+                                }
+                                .onDisappear {
+                                    isOnExposureList = false
+                                    isNearBottomVar = 0
+                                }
+                        }
+                    }
+                    .navigationDestination(for: ExposureMarker.self) { _ in
+                        exposureListScreen(viewModel: viewModel)
+                            .onAppear {
+                                isOnExposureList = true
+                            }
+                            .onDisappear {
+                                isOnExposureList = false
+                                isNearBottomVar = 0
+                            }
+                    }
+                }
+                .sheet(isPresented: $showSheet) {
                     CaptureSheet(
                         viewModel: viewModel,
                         frameCount: logItems.count + 1,
                         rollCapacity: viewModel.rollCapacity,
                         lastCaptureDate: logItems.last(where: { $0.hasRealCreatedAt })?.createdAt
                     )
-                    .sheet(isPresented: $showCameraList) {
-                        CameraListView(viewModel: viewModel)
-                    }.sheet(isPresented: $showNewRoll) {
+                    .sheet(isPresented: $showNewRoll) {
                         if let camera = viewModel.openCamera {
                             RollFormSheet(viewModel: viewModel, camera: camera)
                         }
                     }
                 }
-            }
-            .sheetFloatingView(offset: 20, height: 48, compensationPoints: [
-                (sheetHeight: CaptureSheet.compactScaledHeight, compensation: -2),
-                (sheetHeight: CaptureSheet.fullScaledHeight, compensation: 4),
-            ]) {
-                if viewModel?.openRoll != nil {
-                    FinishRollButton(isNearBottom: isNearBottom, action: {
-                        if isNearBottom {
-                            showNewRoll = true
-                            playHaptic(.newRollOrCamera)
+                .sheetFloatingView(offset: 20, height: 48, compensationPoints: [
+                    (sheetHeight: CaptureSheet.compactScaledHeight, compensation: -2),
+                    (sheetHeight: CaptureSheet.fullScaledHeight, compensation: 4),
+                ]) {
+                    if showSheet {
+                        if viewModel.openRoll != nil {
+                            FinishRollButton(isNearBottom: isNearBottom, action: {
+                                if isNearBottom {
+                                    showNewRoll = true
+                                    playHaptic(.newRollOrCamera)
+                                } else {
+                                    scrollToBottom?()
+                                }
+                            })
+                            .animation(.easeInOut(duration: 0.25), value: isNearBottomVar)
+                        } else if viewModel.openCamera != nil {
+                            FinishRollButton(icon: "plus", text: "New roll", isNearBottom: false, action: {
+                                showNewRoll = true
+                                playHaptic(.newRollOrCamera)
+                            })
                         } else {
-                            scrollToBottom?()
+                            EmptyView()
                         }
-                    })
-                    .animation(.easeInOut(duration: 0.25), value: isNearBottomVar)
-                } else if viewModel?.openCamera != nil {
-                    FinishRollButton(icon: "plus", text: "New roll", isNearBottom: false, action: {
-                        showNewRoll = true
-                        playHaptic(.newRollOrCamera)
-                    })
-                } else {
-                    EmptyView()
-                }
-            }
-            .onAppear {
-                if viewModel == nil {
-                    viewModel = FilmLogViewModel(modelContext: modelContext)
-                    viewModel?.setup()
-                }
-                if !showSheet {
-                    var transaction = Transaction()
-                    transaction.disablesAnimations = true
-                    withTransaction(transaction) {
-                        showSheet = true
+                    } else {
+                        EmptyView()
                     }
                 }
-            }
+                .onChange(of: isOnExposureList) { _, showing in
+                    if showing && !showSheet {
+                        var t = Transaction()
+                        t.disablesAnimations = true
+                        withTransaction(t) { showSheet = true }
+                    } else if !showing && showSheet {
+                        var t = Transaction()
+                        t.disablesAnimations = true
+                        withTransaction(t) { showSheet = false }
+                    }
+                }
+        }
+        .onAppear {
+            restoreNavigationPath(viewModel)
+        }
+        .preferredColorScheme(.dark)
+         */
+    }
+    
+    /*
+    private func restoreNavigationPath(_ vm: FilmLogViewModel) {
+        guard path.isEmpty else { return }
+        if let group = vm.activeInstantFilmGroup {
+            path.append(group.id)
+        } else if let roll = vm.openRoll, let camera = roll.camera {
+            path.append(camera.id)
+            path.append(ExposureMarker())
+        } else if let camera = vm.openCamera {
+            path.append(camera.id)
         }
     }
+
+    @ViewBuilder
+    private func exposureListScreen(viewModel: FilmLogViewModel) -> some View {
+        ExposureListView(
+            logItems: logItems,
+            cameraName: viewModel.openCamera?.name ?? "No camera selected",
+            filmStock: viewModel.openRoll?.filmStock
+                ?? (viewModel.openCamera != nil ? "No roll selected" : ""),
+            hasRoll: viewModel.openRoll != nil,
+            scrollContextID: viewModel.openRoll?.id ?? viewModel.openCamera?.id,
+            onDelete: { item in
+                viewModel.deleteItem(item)
+            },
+            onMovePlaceholderBefore: { item, target in
+                viewModel.movePlaceholder(item, before: target)
+            },
+            onMovePlaceholderAfter: { item, target in
+                viewModel.movePlaceholder(item, after: target)
+            },
+            onMovePlaceholderToEnd: { item in
+                viewModel.movePlaceholderToEnd(item)
+            },
+            onCycleExtraExposures: {
+                viewModel.cycleExtraExposures()
+            },
+            onNearBottomChanged: {
+                if $0 {
+                    isNearBottomVar = 2
+                } else {
+                    guard isNearBottomVar != 0 else { return }
+                    isNearBottomVar = 1
+                }
+            },
+            onScrollToBottomRegistered: { scrollToBottom = $0 }
+        )
+    }
+     */
 }
 
 #Preview {
-    ContentView()
-        .modelContainer(PreviewSampleData.makeContainer())
+    let container = PreviewSampleData.makeContainer()
+    let viewModel = FilmLogViewModel(modelContext: container.mainContext)
+    ContentView(viewModel: viewModel)
+        .modelContainer(container)
 }

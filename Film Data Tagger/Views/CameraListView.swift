@@ -65,23 +65,23 @@ struct CameraRollProgress: View {
         ZStack {
             if isInstantFilm {
                 Circle()
-                    .stroke(Color.init(hex: isSelected ? 0xD4D4D4 : 0x323232), lineWidth: 6)
+                    .stroke(Color.white.opacity(isSelected ? 0.85 : 0.15), lineWidth: 6)
                     .frame(width: 53, height: 53)
                 
                 Circle()
-                    .stroke(Color.init(hex: isSelected ? 0x757575 : 0x2A2A2A), lineWidth: 2)
+                    .stroke(Color.white.opacity(isSelected ? 0.5 : 0.1), lineWidth: 2)
                     .frame(width: 21, height: 21)
                 
                 Circle()
-                    .stroke(Color.init(hex: isSelected ? 0x757575 : 0x2A2A2A), lineWidth: 1.5)
+                    .stroke(Color.white.opacity(isSelected ? 0.5 : 0.1), lineWidth: 1.5)
                     .frame(width: 7, height: 7)
             } else {
                 RingView(
                     diameter: 53,
                     strokeWidth: 6,
                     progress: exposureProgress ?? 0,
-                    fillColor: isSelected ? .init(hex: 0xFFFFFF) : .init(hex: 0x747474),
-                    trackColor: isSelected ? .init(hex: 0x3E3E3E) : .init(hex: 0x2B2B2B),
+                    fillColor: Color.init(hex: isSelected ? 0xFFFFFF : 0x8A8A8A),
+                    trackColor: Color.white.opacity(isSelected ? 0.13 : 0.08),
                     overflowShadowColor: .black.opacity(0.75),
                     overflowShadowRadius: 2.9
                 )
@@ -89,11 +89,11 @@ struct CameraRollProgress: View {
                     Text(exposureCount > 99 ? "99+" : String(exposureCount))
                         .font(.system(size: 14, weight: .bold, design: .default))
                         .fontWidth(.expanded)
-                        .foregroundStyle(Color.white.opacity(isSelected ? 1.0 : 0.55))
+                        .foregroundStyle(Color.white.opacity(isSelected ? 1.0 : 0.5))
                 } else {
                     Image(systemName: "xmark")
                         .font(.system(size: 18, weight: .bold, design: .default))
-                        .foregroundStyle(Color.init(hex: 0x868686))
+                        .foregroundStyle(Color.white.opacity(0.5))
                 }
             }
         }.frame(width: 59, height: 59)
@@ -119,8 +119,8 @@ struct CameraListRow: View {
                     .foregroundStyle(Color.white)
                     .padding(.bottom, 6)
                     .lineLimit(1)
-                if let filmStockLabel = entry.filmStockLabel {
-                    Text(filmStockLabel)
+                if !entry.isInstantFilm {
+                    Text(entry.filmStockLabel ?? "No roll loaded")
                         .font(.system(size: 15, weight: .semibold, design: .default))
                         .fontWidth(.expanded)
                         .foregroundStyle(Color.white)
@@ -136,7 +136,7 @@ struct CameraListRow: View {
                             Text(entry.rollCount.formatted())
                                 .font(.system(size: 15, weight: .semibold, design: .default))
                                 .fontWidth(.expanded)
-                                .foregroundStyle(Color.white.opacity(0.8))
+                                .foregroundStyle(Color.white.opacity(0.7))
                         }
                     }
 
@@ -147,7 +147,7 @@ struct CameraListRow: View {
                         Text(entry.totalExposureCount.formatted())
                             .font(.system(size: 15, weight: .semibold, design: .default))
                             .fontWidth(.expanded)
-                            .foregroundStyle(Color.white.opacity(0.8))
+                            .foregroundStyle(Color.white.opacity(0.7))
                     }
                 }.frame(height: 18)
                 .padding(.top, 8)
@@ -173,7 +173,7 @@ private struct CameraDropIndicatorLine: View {
 
     var body: some View {
         Capsule()
-            .foregroundStyle(Color.white.opacity(0.33))
+            .foregroundStyle(Color.white.opacity(0.6))
             .frame(height: 2)
             .padding(.horizontal, 8)
             .opacity(active ? 1 : 0)
@@ -283,13 +283,9 @@ private struct CameraEndDropDelegate: DropDelegate {
 
 struct CameraListView: View {
     var viewModel: FilmLogViewModel
-    @Environment(\.dismiss) private var dismiss
+    var onNavigateToCamera: ((UUID) -> Void)?
     @Query private var cameras: [Camera]
     @Query private var instantFilmGroups: [InstantFilmGroup]
-    @State private var topBarState: TopBarState = .camera
-    @State private var path = NavigationPath()
-    @State private var selectedCamera: Camera?
-    @State private var showNewRoll = false
     @State private var showNewCamera = false
     @State private var pendingCameraNavigation: UUID?
     @State private var editingEntry: (any CameraListEntry)?
@@ -312,141 +308,144 @@ struct CameraListView: View {
         }
     }
 
-    private var bottomButtonIcon: String {
-        if topBarState == .camera {
-            return "plus"
-        }
-        let hasActiveRoll = selectedCamera?.rolls?.contains(where: { $0.isActive }) ?? false
-        return hasActiveRoll ? "checkmark.arrow.trianglehead.counterclockwise" : "plus"
+    @State private var titleVisible = true
+
+    private var titleOverlay: some View {
+        Text("Sprokbook")
+            .font(.system(size: 34, weight: .bold, design: .default))
+            .fontWidth(.expanded)
+            .foregroundStyle(Color.white)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .opacity(titleVisible ? 1 : 0)
+            .animation(.easeOut(duration: 0.3), value: titleVisible)
+            .allowsHitTesting(false)
+    }
+
+    private var statusBarGradient: some View {
+        LinearGradient(
+            stops: [
+                .init(color: .black.opacity(0.6), location: 0.5),
+                .init(color: .black.opacity(0), location: 1.0),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .frame(height: topSafeAreaInset)
+        .ignoresSafeArea(edges: .top)
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func cameraScrollContent(entries: [any CameraListEntry], orderedIDs: [UUID]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                NavigationLink(value: entry.id) {
+                    CameraListRow(
+                        entry: entry,
+                        isSelected: entry.id == viewModel.openRoll?.camera?.id
+                            || entry.id == viewModel.activeInstantFilmGroup?.id
+                    )
+                        .padding(.vertical, 18)
+                }
+                .overlay(alignment: .top) {
+                    CameraDropIndicatorLine(active: dropTargetIndex == index)
+                        .offset(y: -0.5)
+                }
+                .contextMenu {
+                    Button {
+                        editingEntry = entry
+                        showEditCamera = true
+                    } label: {
+                        Label("Edit", systemImage: "pencil")
+                    }
+                    Button(role: .destructive) {
+                        entryToDelete = entry
+                        showDeleteAlert = true
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+                .onDrag {
+                    draggingEntryID = entry.id
+                    return NSItemProvider(object: entry.id.uuidString as NSString)
+                }
+                .onDrop(
+                    of: [UTType.plainText],
+                    delegate: CameraRowDropDelegate(
+                        index: index,
+                        currentOrder: orderedIDs,
+                        draggingID: $draggingEntryID,
+                        dropTargetIndex: $dropTargetIndex,
+                        commit: { viewModel.reorderCameraListEntries($0) }
+                    )
+                )
+                .transition(.asymmetric(insertion: .opacity, removal: index == entries.count - 1 ? .opacity : .identity))
+                if index < entries.count - 1 {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.13))
+                        .frame(height: 1)
+                        .padding(.leading, 68)
+                }
+            }
+
+            Color.clear
+                .frame(height: 217 - 18 - bottomSafeAreaInset)
+                .contentShape(Rectangle())
+                .overlay(alignment: .top) {
+                    CameraDropIndicatorLine(active: dropTargetIndex == entries.count)
+                        .offset(y: -1)
+                }
+                .onDrop(
+                    of: [UTType.plainText],
+                    delegate: CameraEndDropDelegate(
+                        endIndex: entries.count,
+                        currentOrder: orderedIDs,
+                        draggingID: $draggingEntryID,
+                        dropTargetIndex: $dropTargetIndex,
+                        commit: { viewModel.reorderCameraListEntries($0) }
+                    )
+                )
+        }.animation(.easeOut(duration: 0.25), value: entries.map(\.id))
+        .padding(.horizontal, 16)
     }
 
     var body: some View {
-        NavigationStack(path: $path) {
-            Group {
-                let entries = allEntries
-                let orderedIDs = entries.map(\.id)
-                if !entries.isEmpty {
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-                                NavigationLink(value: entry.id) {
-                                    CameraListRow(
-                                        entry: entry,
-                                        isSelected: entry.id == viewModel.openRoll?.camera?.id
-                                            || entry.id == viewModel.activeInstantFilmGroup?.id
-                                    )
-                                        .padding(.vertical, 18)
-                                }
-                                .overlay(alignment: .top) {
-                                    CameraDropIndicatorLine(active: dropTargetIndex == index)
-                                        .offset(y: -1)
-                                }
-                                .contextMenu {
-                                    Button {
-                                        editingEntry = entry
-                                        showEditCamera = true
-                                    } label: {
-                                        Label("Edit", systemImage: "pencil")
-                                    }
-                                    Button(role: .destructive) {
-                                        entryToDelete = entry
-                                        showDeleteAlert = true
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                }
-                                .onDrag {
-                                    draggingEntryID = entry.id
-                                    return NSItemProvider(object: entry.id.uuidString as NSString)
-                                }
-                                .onDrop(
-                                    of: [UTType.plainText],
-                                    delegate: CameraRowDropDelegate(
-                                        index: index,
-                                        currentOrder: orderedIDs,
-                                        draggingID: $draggingEntryID,
-                                        dropTargetIndex: $dropTargetIndex,
-                                        commit: { viewModel.reorderCameraListEntries($0) }
-                                    )
-                                )
-                                .transition(.asymmetric(insertion: .opacity, removal: index == entries.count - 1 ? .opacity : .identity))
-                                if index < entries.count - 1 {
-                                    Rectangle()
-                                        .fill(Color.white.opacity(0.07))
-                                        .frame(height: 1)
-                                        .padding(.leading, 68)
-                                }
-                            }
-
-                            Color.clear
-                                .frame(height: 217 - 18 - bottomSafeAreaInset)
-                                .contentShape(Rectangle())
-                                .overlay(alignment: .top) {
-                                    CameraDropIndicatorLine(active: dropTargetIndex == entries.count)
-                                        .offset(y: -1)
-                                }
-                                .onDrop(
-                                    of: [UTType.plainText],
-                                    delegate: CameraEndDropDelegate(
-                                        endIndex: entries.count,
-                                        currentOrder: orderedIDs,
-                                        draggingID: $draggingEntryID,
-                                        dropTargetIndex: $dropTargetIndex,
-                                        commit: { viewModel.reorderCameraListEntries($0) }
-                                    )
-                                )
-                        }.animation(.easeOut(duration: 0.25), value: entries.map(\.id))
-                        .padding(.top, 6)
-                    }
-                } else {
-                    Text("no cameras\nadded")
-                        .multilineTextAlignment(.center)
-                        .lineHeight(.exact(points: 32))
-                        .font(.system(size: 25, weight: .bold, design: .default))
-                        .fontWidth(.expanded)
-                        .opacity(0.4)
-                        .padding(.bottom, 117)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        Group {
+            let entries = allEntries
+            let orderedIDs = entries.map(\.id)
+            if !entries.isEmpty {
+                ScrollView {
+                    cameraScrollContent(entries: entries, orderedIDs: orderedIDs)
                 }
-            }
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: 0x151515))
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("Cameras")
-                        .font(.system(size: 34, weight: .bold, design: .default))
-                        .fontWidth(.expanded)
-                        .frame(width: UIScreen.main.bounds.width - 32, alignment: .leading)
-                        .frame(height: 40)
-                        .padding(.bottom, 30 - 15)
-                        .padding(.top, 139)
+                .scrollClipDisabled()
+                .padding(.top, 68)
+                .onScrollGeometryChange(for: Bool.self) { geo in
+                    geo.contentOffset.y + geo.contentInsets.top <= 0
+                } action: { _, atTop in
+                    titleVisible = atTop
                 }
-            }
-            .navigationDestination(for: UUID.self) { id in
-                if let camera = cameras.first(where: { $0.id == id }) {
-                    RollListView(
-                        camera: camera,
-                        viewModel: viewModel,
-                        onDismissSheet: { dismiss() }
-                    )
-                    .onAppear { selectedCamera = camera }
-                }
-            }
-        }
-        .sheet(isPresented: $showNewRoll) {
-            if let selectedCamera = selectedCamera {
-                RollFormSheet(viewModel: viewModel, camera: selectedCamera, onRollCreated: {
-                    dismiss()
-                }, formIsAboveAnotherSheet: true)
             } else {
-                Text("error: expected non-nil camera for RollFormSheet, got nil")
+                // TODO: replace this for onboarding
+                Text("no cameras\nadded")
+                    .multilineTextAlignment(.center)
+                    .lineHeight(.exact(points: 32))
+                    .font(.system(size: 25, weight: .bold, design: .default))
+                    .fontWidth(.expanded)
+                    .opacity(0.4)
+                    .padding(.bottom, 117)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) { titleOverlay }
+        .overlay(alignment: .top) { statusBarGradient }
+        .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showNewCamera, onDismiss: {
             if let id = pendingCameraNavigation {
                 pendingCameraNavigation = nil
-                path.append(id)
+                onNavigateToCamera?(id)
             }
         }) {
             NewCameraSheet(viewModel: viewModel, onCameraCreated: { id in
@@ -490,43 +489,17 @@ struct CameraListView: View {
                 }
             }
         }
-        .onChange(of: path.count) {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                topBarState = path.isEmpty ? .camera : .roll
-            }
-        }
-        .overlay(alignment: .top) {
-            SheetTopBar(
-                state: topBarState,
-                leadingIconTapped: {
-                    switch topBarState {
-                    case .camera:
-                        // TODO
-                        print("TODO: show settings pane")
-                    case .roll:
-                        path = NavigationPath()
-                    }
-                }, trailingIconTapped: {
-                    dismiss()
-                }
-            )
-        }
         .overlay(alignment: .bottom) {
+            // TODO: update this
             Button {
-                if topBarState == .camera {
-                    playHaptic(.newRollOrCamera)
-                    showNewCamera = true
-                } else if topBarState == .roll {
-                    playHaptic(.newRollOrCamera)
-                    showNewRoll = true
-                }
+                playHaptic(.newRollOrCamera)
+                showNewCamera = true
             } label: {
                 HStack(spacing: 10) {
-                    Image(systemName: bottomButtonIcon)
-                        .contentTransition(.opacity)
+                    Image(systemName: "plus")
                         .font(.system(size: 26, weight: .semibold, design: .default))
                         .padding(.leading, 16)
-                    Text(topBarState == .camera ? "New camera" : "New roll")
+                    Text("New camera")
                         .font(.system(size: 19, weight: .semibold, design: .default))
                         .fontWidth(.expanded)
                         .padding(.trailing, 25)
@@ -557,10 +530,9 @@ struct CameraListView: View {
         return vm
     }()
 
-    Color.black.ignoresSafeArea()
-        .sheet(isPresented: .constant(true)) {
-            CameraListView(viewModel: viewModel)
-        }
-        .modelContainer(container)
-        .preferredColorScheme(.dark)
+    NavigationStack {
+        CameraListView(viewModel: viewModel)
+    }
+    .modelContainer(container)
+    .preferredColorScheme(.dark)
 }

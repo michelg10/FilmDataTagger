@@ -31,9 +31,17 @@ struct Film_Data_TaggerApp: App {
         }
     }()
 
+    @State private var viewModel: FilmLogViewModel
+
+    init() {
+        let vm = FilmLogViewModel(modelContext: sharedModelContainer.mainContext)
+        vm.setup()
+        _viewModel = State(initialValue: vm)
+    }
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(viewModel: viewModel)
         }
         .modelContainer(sharedModelContainer)
     }
