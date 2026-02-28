@@ -283,11 +283,8 @@ private struct CameraEndDropDelegate: DropDelegate {
 
 struct CameraListView: View {
     var viewModel: FilmLogViewModel
-    var onNavigateToCamera: ((UUID) -> Void)?
     @Query private var cameras: [Camera]
     @Query private var instantFilmGroups: [InstantFilmGroup]
-    @State private var showNewCamera = false
-    @State private var pendingCameraNavigation: UUID?
     @State private var editingEntry: (any CameraListEntry)?
     @State private var showEditCamera = false
     @State private var entryToDelete: (any CameraListEntry)?
@@ -442,16 +439,6 @@ struct CameraListView: View {
         .overlay(alignment: .top) { titleOverlay }
         .overlay(alignment: .top) { statusBarGradient }
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showNewCamera, onDismiss: {
-            if let id = pendingCameraNavigation {
-                pendingCameraNavigation = nil
-                onNavigateToCamera?(id)
-            }
-        }) {
-            NewCameraSheet(viewModel: viewModel, onCameraCreated: { id in
-                pendingCameraNavigation = id
-            })
-        }
         .sheet(isPresented: $showEditCamera) {
             if let editingEntry {
                 NewCameraSheet(viewModel: viewModel, editingEntry: editingEntry)
@@ -488,29 +475,6 @@ struct CameraListView: View {
                     Text("This will permanently delete \"\(entry.displayName)\", its \(rolls.formatted()) roll\(rolls == 1 ? "" : "s"), and all \(exposures.formatted()) exposure\(exposures == 1 ? "" : "s") from all your devices. Data saved to Photos or exported files won't be affected.")
                 }
             }
-        }
-        .overlay(alignment: .bottom) {
-            // TODO: update this
-            Button {
-                playHaptic(.newRollOrCamera)
-                showNewCamera = true
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 26, weight: .semibold, design: .default))
-                        .padding(.leading, 16)
-                    Text("New camera")
-                        .font(.system(size: 19, weight: .semibold, design: .default))
-                        .fontWidth(.expanded)
-                        .padding(.trailing, 25)
-                }.foregroundStyle(Color.white.opacity(0.95))
-                .frame(height: 61)
-                .contentShape(Rectangle())
-            }
-            .glassEffect(.regular.interactive(), in: Capsule())
-            .shadow(color: .black.opacity(0.25), radius: 16.4)
-            .buttonStyle(.plain)
-            .offset(y: -1)
         }
     }
 }
