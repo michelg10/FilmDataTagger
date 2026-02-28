@@ -51,7 +51,7 @@ struct NewCameraSheet: View {
     var viewModel: FilmLogViewModel
     var editingEntry: (any CameraListEntry)? = nil
     var onCameraCreated: ((UUID) -> Void)? = nil
-    let formIsAboveAnotherSheet = true
+    let formIsAboveAnotherSheet = false
     @Environment(\.dismiss) private var dismiss
     @State private var cameraName: String = ""
     @State private var isInstantFilm: Bool = false

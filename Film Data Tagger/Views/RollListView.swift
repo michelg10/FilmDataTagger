@@ -125,7 +125,9 @@ struct RollListRow: View {
 struct RollListView: View {
     var camera: Camera
     var viewModel: FilmLogViewModel
-    var onDismissSheet: (() -> Void)?
+    var onRollSelected: ((Roll) -> Void)?
+
+    @Environment(\.dismiss) private var dismiss
 
     private var rolls: [Roll] {
         camera.rolls ?? []
@@ -159,13 +161,14 @@ struct RollListView: View {
                         if let activeRoll {
                             VStack(alignment: .leading, spacing: 0) {
                                 Text("Active roll")
-                                    .font(.system(size: 15, weight: .bold, design: .default))
+                                    .font(.system(size: 17, weight: .semibold, design: .default))
                                     .fontWidth(.expanded)
                                     .opacity(0.6)
+                                    .padding(.bottom, 2)
 
                                 Button {
                                     viewModel.switchToRoll(activeRoll)
-                                    onDismissSheet?()
+                                    onRollSelected?(activeRoll)
                                 } label: {
                                     RollListRow(roll: activeRoll, maxCapacity: maxCapacity)
                                         .padding(.vertical, 20)
@@ -190,21 +193,22 @@ struct RollListView: View {
 
                         if !pastRolls.isEmpty {
                             Text("Past rolls")
-                                .font(.system(size: 15, weight: .bold, design: .default))
+                                .font(.system(size: 17, weight: .semibold, design: .default))
                                 .fontWidth(.expanded)
                                 .opacity(0.6)
+                                .padding(.bottom, 2)
 
                             ForEach(Array(pastRolls.enumerated()), id: \.element.id) { index, roll in
                                 if index > 0 {
-                                    Color.white.opacity(0.07)
+                                    Color.white.opacity(0.13)
                                         .frame(height: 1)
                                         .padding(.horizontal, 8)
                                 }
-
+                                
                                 let isLast = index == pastRolls.count - 1
                                 Button {
                                     viewModel.switchToRoll(roll)
-                                    onDismissSheet?()
+                                    onRollSelected?(roll)
                                 } label: {
                                     RollListRow(roll: roll, maxCapacity: maxCapacity)
                                         .padding(.vertical, 20)
@@ -230,10 +234,11 @@ struct RollListView: View {
                     }.animation(.easeOut(duration: 0.25), value: activeRoll?.id)
                     .animation(.easeOut(duration: 0.25), value: pastRolls.map(\.id))
                     .padding(.horizontal, 16)
-                    .offset(y: -32)
+                    .padding(.top, 16)
                     .padding(.bottom, 217 - 20 - bottomSafeAreaInset - 46) // overscroll
                 }
             } else {
+                // TODO: update this for onboarding
                 Text("no rolls logged")
                     .font(.system(size: 25, weight: .bold, design: .default))
                     .fontWidth(.expanded)
@@ -266,30 +271,38 @@ struct RollListView: View {
             Text("This will permanently delete \"\(rollToDelete?.filmStock ?? "")\" and its \(count.formatted()) logged exposure\(count == 1 ? "" : "s") from all your devices. Data saved to Photos or exported files won't be affected.")
         }
         .navigationBarBackButtonHidden()
-        .background(Color(hex: 0x151515))
         .sheet(item: $rollToEdit) { roll in
             RollFormSheet(
                 viewModel: viewModel,
                 camera: camera,
-                editingRoll: roll,
-                formIsAboveAnotherSheet: true
+                editingRoll: roll
             )
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(camera.name)
-                        .font(.system(size: 17, weight: .bold, design: .default))
-                        .fontWidth(.expanded)
-                        .foregroundStyle(Color.white)
-                    let exposureTextAndSeparator = Text(" exposure\(totalExposures == 1 ? "" : "s") •").foregroundStyle(Color.white.opacity(0.6))
-                    let rollTextAndSeparator = Text(" roll\(rolls.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.6))
-                    Text("\(totalExposures.formatted())\(exposureTextAndSeparator) \(rolls.count.formatted())\(rollTextAndSeparator)")
-                        .foregroundStyle(Color.white)
-                        .font(.system(size: 12, weight: .semibold, design: .default))
-                        .fontWidth(.expanded)
-                }.padding(.top, 4)
-                .frame(width: UIScreen.main.bounds.width - 2 * 72, alignment: .leading)
+                HStack(spacing: 12) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 20, weight: .semibold, design: .default))
+                            .foregroundStyle(Color.white.opacity(0.95))
+                            .frame(width: 44, height: 44)
+                    }.frame(width: 44, height: 44)
+                    .glassEffect(.regular.interactive(), in: Circle())
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(camera.name)
+                            .font(.system(size: 18, weight: .bold, design: .default))
+                            .fontWidth(.expanded)
+                            .foregroundStyle(Color.white)
+                        let exposureTextAndSeparator = Text(" exposure\(totalExposures == 1 ? "" : "s") •").foregroundStyle(Color.white.opacity(0.6))
+                        let rollTextAndSeparator = Text(" roll\(rolls.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.6))
+                        Text("\(totalExposures.formatted())\(exposureTextAndSeparator) \(rolls.count.formatted())\(rollTextAndSeparator)")
+                            .foregroundStyle(Color.white)
+                            .font(.system(size: 13, weight: .semibold, design: .default))
+                            .fontWidth(.expanded)
+                    }.padding(.top, 2)
+                }.frame(width: UIScreen.main.bounds.width - 32, height: 44, alignment: .leading)
             }
         }
     }
