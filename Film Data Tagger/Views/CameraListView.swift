@@ -316,7 +316,7 @@ struct CameraListView: View {
             .padding(.horizontal, 16)
             .padding(.top, 16)
             .opacity(titleVisible ? 1 : 0)
-            .animation(.easeOut(duration: 0.3), value: titleVisible)
+            .animation(.easeOut(duration: 0.25), value: titleVisible)
             .allowsHitTesting(false)
     }
 
