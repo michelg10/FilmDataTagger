@@ -213,7 +213,7 @@ struct ExposureListView: View {
                         }
                         .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))
                         .padding(.horizontal, 16)
-                        .padding(.top, 6)
+                        .padding(.top, 119)
 
                         // Overscroll / drop zone for moving placeholders to end of list
                         Color.clear
