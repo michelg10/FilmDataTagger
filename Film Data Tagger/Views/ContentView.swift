@@ -92,9 +92,9 @@ struct ExposureScreen: View {
             
             CaptureSheet(
                 viewModel: viewModel,
-                frameCount: 50,
-                rollCapacity: 50,
-                lastCaptureDate: nil
+                frameCount: logItems.count,
+                rollCapacity: viewModel.openRoll?.totalCapacity ?? 0,
+                lastCaptureDate: logItems.last?.createdAt
             )
             .clipShape(captureSheetRectangle)
             .glassEffect(.regular.interactive(), in: captureSheetRectangle)

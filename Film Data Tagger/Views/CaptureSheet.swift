@@ -239,23 +239,31 @@ private struct CaptureButton: View {
 
 struct CaptureSheet: View {
     private static let referencePhotoSize = (143.0 / 347.0) * (UIScreen.main.bounds.width - 2 * (15 + 8))
-    static let compactScaledHeight: CGFloat = 147 * sheetScaleCompensationFactor
-    static let fullScaledHeight: CGFloat = (110 + 25 + referencePhotoSize) * sheetScaleCompensationFactor
-    
-    static let compactDetent: PresentationDetent = .height(CGFloat(compactScaledHeight - bottomSafeAreaInset))
-    static let fullDetent: PresentationDetent = .height(fullScaledHeight - bottomSafeAreaInset)
+    private static let handleAreaHeight: CGFloat = 15
+    static let compactHeight: CGFloat = 147 + handleAreaHeight
+    static let fullHeight: CGFloat = (110 + 25 + referencePhotoSize) + handleAreaHeight
 
     var viewModel: FilmLogViewModel
     var frameCount: Int = 0
     var rollCapacity: Int
     var lastCaptureDate: Date?
 
-    @State private var selectedDetent: PresentationDetent = fullDetent
+    @State private var isCompact = false
 
     var body: some View {
-        let isCompact = selectedDetent == CaptureSheet.compactDetent
         VStack(spacing: 0) {
-            Spacer(minLength: 0)
+            // Drag indicator
+            Capsule()
+                .fill(Color.white.opacity(0.45))
+                .frame(width: 34, height: 5)
+                .padding(.top, 5)
+                .padding(.bottom, 5)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    playHaptic(.sheetDetentChange)
+                    isCompact.toggle()
+                }
 
             CaptureSheetFullContent(
                 viewModel: viewModel,
@@ -263,6 +271,7 @@ struct CaptureSheet: View {
                 referencePhotoSize: Self.referencePhotoSize
             )
             .frame(maxHeight: isCompact ? 0 : nil)
+            .clipped()
             .opacity(isCompact ? 0 : 1)
 
             CaptureSheetCompactContent(
@@ -273,6 +282,7 @@ struct CaptureSheet: View {
                 lastCaptureDate: lastCaptureDate
             )
             .frame(maxHeight: isCompact ? nil : 0)
+            .clipped()
             .opacity(isCompact ? 1 : 0)
 
             CaptureButton(
@@ -285,32 +295,24 @@ struct CaptureSheet: View {
                     viewModel.logPlaceholder()
                 }
             )
-
-        }.animation(.easeOut(duration: 0.15), value: selectedDetent)
-        .onChange(of: selectedDetent) {
-            playHaptic(.sheetDetentChange)
         }
-        .background(SheetDragDisabler())
-        .padding(.horizontal, 8)
-        .ignoresSafeArea()
-        .sheetContentClip(cornerRadius: 35)
-        .presentationDetents([CaptureSheet.compactDetent, CaptureSheet.fullDetent], selection: $selectedDetent)
-        .presentationDragIndicator(.visible)
-        .interactiveDismissDisabled()
-        .presentationBackgroundInteraction(.enabled)
-        .sheetScaleFix()
+        /*
+         previously:
+         .animation(.easeOut(duration: 0.15), value: selectedDetent)
+         .onChange(of: selectedDetent) {
+            playHaptic(.sheetDetentChange)
+         }
+         */
     }
 }
 
 #Preview {
-    Color.black
-        .ignoresSafeArea()
-        .sheet(isPresented: .constant(true)) {
-            CaptureSheet(
-                viewModel: FilmLogViewModel(
-                    modelContext: try! ModelContainer(for: LogItem.self, Roll.self, Camera.self).mainContext
-                )
-                , rollCapacity: 36
-            )
-        }
+    let vm = FilmLogViewModel(
+        modelContext: try! ModelContainer(for: LogItem.self, Roll.self, Camera.self).mainContext
+    )
+    ZStack(alignment: .bottom) {
+        Color.black.ignoresSafeArea()
+        CaptureSheet(viewModel: vm, rollCapacity: 36)
+            .padding([.bottom, .leading, .trailing], 8)
+    }
 }
