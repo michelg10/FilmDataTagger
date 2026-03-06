@@ -9,43 +9,6 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 
-enum TopBarState {
-    case camera
-    case roll
-}
-
-struct SheetTopBar: View {
-    var state: TopBarState
-    var leadingIconTapped: () -> Void
-    var trailingIconTapped: () -> Void
-
-    var body: some View {
-        HStack(spacing: 0) {
-            Button {
-                leadingIconTapped()
-            } label: {
-                Image(systemName: state == .camera ? "gearshape.fill" : "chevron.left")
-                    .contentTransition(.symbolEffect(.replace, options: .speed(2.0)))
-                    .font(.system(size: 20, weight: .semibold, design: .default))
-                    .foregroundStyle(Color.white.opacity(0.95))
-                    .frame(width: 44, height: 44)
-            }.glassEffect(.regular.interactive(), in: Circle())
-
-            Spacer()
-
-            Button {
-                trailingIconTapped()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 20, weight: .semibold, design: .default))
-                    .foregroundStyle(Color.white.opacity(0.95))
-                    .frame(width: 44, height: 44)
-            }.glassEffect(.regular.interactive(), in: Circle())
-        }.padding(.horizontal, 16)
-        .offset(y: 16)
-    }
-}
-
 struct CameraRollProgress: View {
     var isSelected: Bool
     var isInstantFilm: Bool

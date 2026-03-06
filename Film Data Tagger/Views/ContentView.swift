@@ -64,7 +64,7 @@ private struct FinishRollOverlay: View {
     var scrollState: ExposureScrollState
     var hasRoll: Bool
     var hasItems: Bool
-    @Binding var showFinishRoll: Bool
+    @Binding var showNewRoll: Bool
 
     var body: some View {
         if hasRoll && hasItems {
@@ -73,7 +73,7 @@ private struct FinishRollOverlay: View {
                 action: {
                     if scrollState.isNearBottom {
                         playHaptic(.newRollOrCamera)
-                        showFinishRoll = true
+                        showNewRoll = true
                     } else {
                         scrollState.scrollToBottom?()
                     }
@@ -87,7 +87,7 @@ private struct FinishRollOverlay: View {
 struct ExposureScreen: View {
     var viewModel: FilmLogViewModel
 
-    @State private var showFinishRoll = false
+    @State private var showNewRoll = false
     @State private var scrollState = ExposureScrollState()
 
     private var logItems: [LogItem] { viewModel.logItems }
@@ -133,7 +133,7 @@ struct ExposureScreen: View {
                     scrollState: scrollState,
                     hasRoll: viewModel.openRoll != nil,
                     hasItems: !logItems.isEmpty,
-                    showFinishRoll: $showFinishRoll
+                    showNewRoll: $showNewRoll
                 )
                 .frame(maxWidth: .infinity)
                 .offset(y: -48 - 20) // button height + spacing
@@ -141,7 +141,7 @@ struct ExposureScreen: View {
             .padding([.bottom, .leading, .trailing], 8)
             .animation(.easeInOut(duration: 0.25), value: logItems.isEmpty)
         }.ignoresSafeArea()
-        .sheet(isPresented: $showFinishRoll) {
+        .sheet(isPresented: $showNewRoll) {
             if let camera = viewModel.openCamera {
                 RollFormSheet(viewModel: viewModel, camera: camera)
             }
