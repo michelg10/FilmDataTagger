@@ -13,36 +13,37 @@ struct FinishRollButton: View {
     var text: String = "Finish roll"
     var isNearBottom: Bool
     var action: () -> Void
-    let shadow1Opacity: Double = 0.36
-    let shadow1Radius: Double = 24.8
-    let shadow2Opacity: Double = 0.5
-    let shadow2Radius: Double = 6.9
 
     var body: some View {
-        Button {
-            action()
-        } label: {
-            if isNearBottom {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Image(systemName: icon)
-                        .font(.system(size: 17, weight: .semibold, design: .default))
-                        .padding(.leading, 14)
-                    Text(text)
-                        .padding(.trailing, 21)
-                        .font(.system(size: 17, weight: .semibold, design: .default))
-                        .transition(.identity)
-                }.foregroundStyle(Color.white.opacity(0.95))
-                .fontWidth(.expanded)
-            } else {
-                Image(systemName: "arrow.down")
-                    .font(.system(size: 20, weight: .bold, design: .default))
-                    .foregroundStyle(Color.white.opacity(0.95))
-                    .frame(width: 48)
-            }
-        }.frame(height: 48)
-        .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
-        .shadow(color: .black.opacity(shadow1Opacity), radius: shadow1Radius)
-        .shadow(color: .black.opacity(shadow2Opacity), radius: shadow2Radius)
+        ZStack {
+            Button(action: action) {
+                Color.clear.frame(width: 48, height: 48)
+                    .padding(.horizontal, isNearBottom ? ((158 - 48) / 2) : 0)
+                    .animation(.easeInOut(duration: 0.25), value: isNearBottom)
+                    .shadow(color: .black.opacity(0.36), radius: 24.8)
+                    .shadow(color: .black.opacity(0.5), radius: 6.9)
+                    .overlay {
+                        if isNearBottom {
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Image(systemName: icon)
+                                    .font(.system(size: 17, weight: .semibold, design: .default))
+                                Text(text)
+                                    .lineLimit(1)
+                                    .padding(.trailing, 7)
+                                    .font(.system(size: 17, weight: .semibold, design: .default))
+                            }.transition(.opacity)
+                            .foregroundStyle(Color.white.opacity(0.95))
+                            .fontWidth(.expanded)
+                        } else {
+                            Image(systemName: "arrow.down")
+                                .font(.system(size: 20, weight: .bold, design: .default))
+                                .foregroundStyle(Color.white.opacity(0.95))
+                                .transition(.opacity)
+                        }
+                    }
+            }.glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
+        }.frame(maxWidth: .infinity)
+        .animation(.easeInOut(duration: 0.25), value: isNearBottom)
     }
 }
 
@@ -51,15 +52,44 @@ private struct ExposureMarker: Hashable {}
 
 // MARK: - Exposure Screen
 
+@Observable
+private class ExposureScrollState {
+    var nearBottomRaw = 0 // 0: initial, 1: not near bottom, 2: near bottom
+    var scrollToBottom: (() -> Void)?
+    var isNearBottom: Bool { nearBottomRaw != 1 }
+}
+
+/// Isolated view so that scroll-state changes only re-render this, not ExposureListView.
+private struct FinishRollOverlay: View {
+    var scrollState: ExposureScrollState
+    var hasRoll: Bool
+    var hasItems: Bool
+    @Binding var showFinishRoll: Bool
+
+    var body: some View {
+        if hasRoll && hasItems {
+            FinishRollButton(
+                isNearBottom: scrollState.isNearBottom,
+                action: {
+                    if scrollState.isNearBottom {
+                        playHaptic(.newRollOrCamera)
+                        showFinishRoll = true
+                    } else {
+                        scrollState.scrollToBottom?()
+                    }
+                }
+            )
+            .transition(.blurReplace.combined(with: .scale(0.9)))
+        }
+    }
+}
+
 struct ExposureScreen: View {
     var viewModel: FilmLogViewModel
 
-    @State private var showSheet = true
     @State private var showFinishRoll = false
-    @State private var isNearBottomVar = 0 // 0: initial. 1: not near bottom. 2: near bottom.
-    @State private var scrollToBottom: (() -> Void)?
+    @State private var scrollState = ExposureScrollState()
 
-    private var isNearBottom: Bool { isNearBottomVar != 1 }
     private var logItems: [LogItem] { viewModel.logItems }
 
     var body: some View {
@@ -78,18 +108,18 @@ struct ExposureScreen: View {
                 onCycleExtraExposures: { viewModel.cycleExtraExposures() },
                 onNearBottomChanged: {
                     if $0 {
-                        isNearBottomVar = 2
+                        scrollState.nearBottomRaw = 2
                     } else {
-                        guard isNearBottomVar != 0 else { return }
-                        isNearBottomVar = 1
+                        guard scrollState.nearBottomRaw != 0 else { return }
+                        scrollState.nearBottomRaw = 1
                     }
                 },
-                onScrollToBottomRegistered: { scrollToBottom = $0 }
+                onScrollToBottomRegistered: { scrollState.scrollToBottom = $0 }
             )
             let screenRadius = UIScreen.main.value(forKey: "_displayCornerRadius") as? CGFloat ?? 50
             let captureSheetRectangle = UnevenRoundedRectangle(
                 topLeadingRadius: 35, bottomLeadingRadius: screenRadius - 8, bottomTrailingRadius: screenRadius - 8, topTrailingRadius: 35, style: .continuous)
-            
+
             CaptureSheet(
                 viewModel: viewModel,
                 frameCount: logItems.count,
@@ -98,8 +128,24 @@ struct ExposureScreen: View {
             )
             .clipShape(captureSheetRectangle)
             .glassEffect(.regular.interactive(), in: captureSheetRectangle)
+            .overlay(alignment: .top) {
+                FinishRollOverlay(
+                    scrollState: scrollState,
+                    hasRoll: viewModel.openRoll != nil,
+                    hasItems: !logItems.isEmpty,
+                    showFinishRoll: $showFinishRoll
+                )
+                .frame(maxWidth: .infinity)
+                .offset(y: -48 - 20) // button height + spacing
+            }
             .padding([.bottom, .leading, .trailing], 8)
+            .animation(.easeInOut(duration: 0.25), value: logItems.isEmpty)
         }.ignoresSafeArea()
+        .sheet(isPresented: $showFinishRoll) {
+            if let camera = viewModel.openCamera {
+                RollFormSheet(viewModel: viewModel, camera: camera)
+            }
+        }
     }
 }
 
