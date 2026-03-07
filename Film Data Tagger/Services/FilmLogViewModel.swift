@@ -20,8 +20,7 @@ final class FilmLogViewModel {
     let locationService = LocationService()
 
     var referencePhotosEnabled: Bool {
-        get { settings.referencePhotosEnabled }
-        set { settings.referencePhotosEnabled = newValue }
+        didSet { settings.referencePhotosEnabled = referencePhotosEnabled }
     }
 
     /// The currently open (viewed) roll. May or may not be the active roll for its camera.
@@ -55,6 +54,7 @@ final class FilmLogViewModel {
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
+        self.referencePhotosEnabled = AppSettings.shared.referencePhotosEnabled
     }
 
     nonisolated(unsafe) private var remoteChangeObserver: Any?

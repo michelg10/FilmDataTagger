@@ -171,6 +171,7 @@ private struct CaptureSheetCompactContent: View {
     var permissionDenied: Bool
     var currentPlaceName: String?
     var lastCaptureDate: Date?
+    var onEyeTapped: (() -> Void)?
 
     private var showEyeSlash: Bool {
         !referencePhotosEnabled || cameraUnavailable || permissionDenied
@@ -179,11 +180,18 @@ private struct CaptureSheetCompactContent: View {
     var body: some View {
         HStack(spacing: 0) {
             Image(systemName: showEyeSlash ? "eye.slash.fill" : "eye.fill")
+                .contentTransition(.symbolEffect(.replace, options: .speed(1.5)))
                 .font(.system(size: 16, weight: .semibold, design: .default))
                 .foregroundStyle(Color.white)
                 .frame(width: 25, height: 19)
                 .opacity(0.8)
-                .padding(.trailing, 15)
+                .padding(.horizontal, 15)
+                .padding(.vertical, 4)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    playHaptic(.viewfinderToggle)
+                    onEyeTapped?()
+                }
             if lastCaptureDate != nil {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     CompactInfoRow(
@@ -192,14 +200,16 @@ private struct CaptureSheetCompactContent: View {
                         text: formatElapsed(from: lastCaptureDate, now: context.date) ?? ""
                     )
                 }.padding(.trailing, 13)
+                .padding(.vertical, 4)
             }
             CompactInfoRow(
                 icon: Image(systemName: "location.fill")
                     .font(.system(size: 15, weight: .semibold, design: .default)),
                 text: currentPlaceName ?? "Locating..."
-            )
-        }.padding(.horizontal, 27)
-        .padding(.bottom, 15)
+            ).padding(.trailing, 15)
+            .padding(.vertical, 4)
+        }.padding(.horizontal, 27 - 15)
+        .padding(.bottom, 11)
     }
 }
 
@@ -334,8 +344,19 @@ struct CaptureSheet: View {
                         cameraUnavailable: viewModel.cameraManager.cameraUnavailable,
                         permissionDenied: viewModel.cameraManager.permissionDenied,
                         currentPlaceName: viewModel.currentPlaceName,
-                        lastCaptureDate: lastCaptureDate
-                    ).padding(.top, 4)
+                        lastCaptureDate: lastCaptureDate,
+                        onEyeTapped: {
+                            if viewModel.cameraManager.cameraUnavailable {
+                                // No camera hardware
+                            } else if viewModel.cameraManager.permissionDenied {
+                                if let url = URL(string: UIApplication.openSettingsURLString) {
+                                    UIApplication.shared.open(url)
+                                }
+                            } else {
+                                viewModel.toggleReferencePhotos()
+                            }
+                        }
+                    )
                     .opacity(showsFullContent ? 0 : 1)
                     .offset(y: showsFullContent ? 10 : 0)
                     .allowsHitTesting(!showsFullContent)
