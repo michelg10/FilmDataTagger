@@ -278,7 +278,7 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.25), value: isOnRollList)
     }
 
-    // MARK: - Deep link restoration (TODO: call on appear)
+    // MARK: - Deep link restoration
 
     private func restoreNavigationPath(_ vm: FilmLogViewModel) {
         guard path.isEmpty else { return }

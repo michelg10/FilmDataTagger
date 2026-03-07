@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+let SUPPORT_INSTANT_FILM = false
+
 private let standardCameraPlaceholders = [
     "Olymbook XC",
     "Sprokon DA2n",
@@ -111,7 +113,7 @@ struct NewCameraSheet: View {
                 .textFieldStyle(FormTextFieldStyle(formIsAboveAnotherSheet: formIsAboveAnotherSheet))
             }.padding(.bottom, 44)
 
-            PrimaryButton(enabled: !cameraName.isEmpty, action: {
+            PrimaryButton(enabled: !cameraName.isEmpty && (SUPPORT_INSTANT_FILM || !isInstantFilm), action: {
                 playHaptic(.newRollOrCamera)
                 if let editingEntry {
                     if let camera = editingEntry as? Camera {
@@ -131,7 +133,11 @@ struct NewCameraSheet: View {
                     onCameraCreated?(id)
                 }
             }, isAboveAnotherSheet: formIsAboveAnotherSheet) {
-                Text(isEditing ? "Edit \(noun)" : "Add \(noun)")
+                if !SUPPORT_INSTANT_FILM && isInstantFilm && !isEditing {
+                    Text("Coming soon")
+                } else {
+                    Text(isEditing ? "Edit \(noun)" : "Add \(noun)")
+                }
             }
         }
         .sheet(isPresented: $showInstantFilmInfo) {

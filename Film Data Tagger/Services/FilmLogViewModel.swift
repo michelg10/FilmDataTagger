@@ -8,8 +8,8 @@
 import Foundation
 import SwiftUI
 import SwiftData
-import CoreData
 import CoreLocation
+internal import CoreData
 
 @Observable
 @MainActor
@@ -42,9 +42,6 @@ final class FilmLogViewModel {
     var openCamera: Camera? {
         didSet { settings.openCameraId = openCamera?.id }
     }
-
-    /// Total roll capacity (including extra pre-first-frame exposures).
-    var rollCapacity: Int { openRoll?.totalCapacity ?? 36 }
 
     // MARK: - Instant film state
 
@@ -337,10 +334,6 @@ final class FilmLogViewModel {
             referencePhotosEnabled = false
             cameraManager.stop()
         }
-    }
-
-    var canLogExposure: Bool {
-        openRoll != nil || (activeInstantFilmGroup != nil && activeInstantFilmCamera != nil)
     }
 
     // MARK: - Roll Management

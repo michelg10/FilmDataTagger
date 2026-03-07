@@ -86,6 +86,5 @@ struct RingView: View {
             RingView(diameter: 53, strokeWidth: 6, progress: 1.25,
                      fillColor: .white, trackColor: .white.opacity(0.2))
         }.scaleEffect(5)
-//        RingView(diameter: 250, strokeWidth: 50, progress: 0.97, fillColor: .white, trackColor: .white.opacity(0.2))
     }
 }
