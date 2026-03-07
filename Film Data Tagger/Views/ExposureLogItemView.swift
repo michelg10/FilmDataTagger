@@ -37,92 +37,52 @@ struct ExposureLogItemView: View {
             previewImage: item.photoData
                 .flatMap { UIImage(data: $0) }
                 .map { Image(uiImage: $0) },
-            infoItems: infoItems
+            timeText: timeText,
+            timeSecondaryText: timeSecondaryText,
+            onTimeTapped: hasDifferentTimeZone ? { showingLocalTime.toggle() } : nil,
+            locationText: locationText,
         )
     }
 
-    private var infoItems: [LogItemView.LogItemInfoItem] {
-        var items: [LogItemView.LogItemInfoItem] = []
+    // MARK: - Computed text
 
-        // Time
-        if item.hasRealCreatedAt {
-            if hasDifferentTimeZone {
-                let displayTZ: TimeZone
-                let tzLabel: String
-                if showingLocalTime {
-                    displayTZ = .current
-                    tzLabel = "Local"
-                } else {
-                    displayTZ = TimeZone(identifier: item.timeZoneIdentifier!) ?? .current
-                    tzLabel = cityName(from: item.timeZoneIdentifier!)
-                }
-                var timeFormat = Date.FormatStyle.dateTime.hour().minute()
-                timeFormat.timeZone = displayTZ
-                var dateFormat = Date.FormatStyle.dateTime.month().day().year()
-                dateFormat.timeZone = displayTZ
-
-                let timeString = item.createdAt.formatted(timeFormat)
-                let dateString = item.createdAt.formatted(dateFormat)
-
-                items.append(.init(
-                    id: "time",
-                    icon: Image(systemName: "clock.fill"),
-                    mainText: Text(timeString),
-                    secondaryText: Text("\(dateString) · \(tzLabel)"),
-                    onTap: { showingLocalTime.toggle() }
-                ))
-            } else {
-                items.append(.init(
-                    id: "time",
-                    icon: Image(systemName: "clock.fill"),
-                    mainText: Text(item.createdAt, format: .dateTime.hour().minute()),
-                    secondaryText: Text(item.createdAt, format: .dateTime.month().day().year())
-                ))
-            }
-        } else {
-            items.append(.init(
-                id: "time",
-                icon: Image(systemName: "clock.fill"),
-                mainText: Text("Unknown"),
-                secondaryText: nil
-            ))
+    private var timeText: Text {
+        guard item.hasRealCreatedAt else { return Text("Unknown") }
+        if hasDifferentTimeZone {
+            let tz = displayTimeZone
+            var fmt = Date.FormatStyle.dateTime.hour().minute()
+            fmt.timeZone = tz
+            return Text(item.createdAt.formatted(fmt))
         }
+        return Text(item.createdAt, format: .dateTime.hour().minute())
+    }
 
-        // Location
+    private var timeSecondaryText: Text? {
+        guard item.hasRealCreatedAt else { return nil }
+        if hasDifferentTimeZone {
+            let tz = displayTimeZone
+            let tzLabel = showingLocalTime ? "Local" : cityName(from: item.timeZoneIdentifier!)
+            var fmt = Date.FormatStyle.dateTime.month().day().year()
+            fmt.timeZone = tz
+            return Text("\(item.createdAt.formatted(fmt)) · \(tzLabel)")
+        }
+        return Text(item.createdAt, format: .dateTime.month().day().year())
+    }
+
+    private var locationText: Text {
         if let placeName = item.placeName {
-            items.append(.init(
-                id: "location",
-                icon: Image(systemName: "location.fill"),
-                mainText: Text(placeName),
-                secondaryText: nil
-            ))
+            return Text(placeName)
         } else if item.hasLocation, let lat = item.latitude, let lon = item.longitude {
-            items.append(.init(
-                id: "location",
-                icon: Image(systemName: "location.fill"),
-                mainText: Text(String(format: "%.5f, %.5f", lat, lon)),
-                secondaryText: nil
-            ))
-        } else {
-            items.append(.init(
-                id: "location",
-                icon: Image(systemName: "location.fill"),
-                mainText: Text("Unknown"),
-                secondaryText: nil
-            ))
+            return Text(String(format: "%.5f, %.5f", lat, lon))
         }
+        return Text("Unknown")
+    }
 
-        // Notes
-        if let notes = item.notes, !notes.isEmpty {
-            items.append(.init(
-                id: "notes",
-                icon: Image(systemName: "note.text"),
-                mainText: Text(notes),
-                secondaryText: nil
-            ))
+    private var displayTimeZone: TimeZone {
+        if showingLocalTime {
+            return .current
         }
-
-        return items
+        return TimeZone(identifier: item.timeZoneIdentifier!) ?? .current
     }
 }
 

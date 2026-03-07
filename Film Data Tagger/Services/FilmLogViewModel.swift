@@ -8,16 +8,16 @@
 import Foundation
 import SwiftUI
 import SwiftData
-import CoreLocation
 internal import CoreData
+import CoreLocation
 
 @Observable
 @MainActor
 final class FilmLogViewModel {
     private let modelContext: ModelContext
-    private let locationManager = LocationManager()
     private let settings = AppSettings.shared
     let cameraManager = CameraManager()
+    let locationService = LocationService()
 
     var referencePhotosEnabled: Bool {
         get { settings.referencePhotosEnabled }
@@ -49,20 +49,17 @@ final class FilmLogViewModel {
     var activeInstantFilmCamera: InstantFilmCamera?
     var isInstantFilmMode: Bool { activeInstantFilmGroup != nil }
 
-    // MARK: - Live location state
-    var currentPlaceName: String?
-    var currentLocation: CLLocation? { locationManager.currentLocation }
-    private var lastGeocodedLocation: CLLocation?
-    nonisolated private var geocodeTask: Task<Void, Never>?
+    // MARK: - Location (proxied from LocationService)
+    var currentPlaceName: String? { locationService.currentPlaceName }
+    var currentLocation: CLLocation? { locationService.currentLocation }
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
 
-    nonisolated private var remoteChangeObserver: Any?
+    nonisolated(unsafe) private var remoteChangeObserver: Any?
 
     deinit {
-        geocodeTask?.cancel()
         if let observer = remoteChangeObserver {
             NotificationCenter.default.removeObserver(observer)
         }
@@ -71,7 +68,7 @@ final class FilmLogViewModel {
     // MARK: - Setup
 
     func setup() {
-        locationManager.requestPermission()
+        locationService.setup()
         if referencePhotosEnabled {
             Task {
                 let granted = await cameraManager.requestPermission()
@@ -83,9 +80,12 @@ final class FilmLogViewModel {
             }
         }
         loadOrCreateActiveRoll()
-        geocodeRecentUngeocodedItems()
+        let cutoffDate = min(
+            Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
+            settings.lastAppLaunchDate ?? Date.distantPast
+        )
+        locationService.geocodeRecentItems(modelContext: modelContext, since: cutoffDate)
         recordAppLaunch()
-        startLiveGeocoding()
         observeRemoteChanges()
     }
 
@@ -173,29 +173,6 @@ final class FilmLogViewModel {
         }
     }
 
-    // MARK: - Live Geocoding
-
-    private func startLiveGeocoding() {
-        geocodeTask = Task {
-            // Show "Unknown" after 15s if we still have no location
-            Task {
-                try? await Task.sleep(for: .seconds(15))
-                if currentPlaceName == nil {
-                    currentPlaceName = "Unknown"
-                }
-            }
-
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(3))
-                guard let location = locationManager.currentLocation else { continue }
-                // Only re-geocode if moved >50m from last geocoded spot
-                if let last = lastGeocodedLocation, location.distance(from: last) < 50 { continue }
-                lastGeocodedLocation = location
-                currentPlaceName = await Geocoder.placeName(for: location)
-            }
-        }
-    }
-
     // MARK: - Logging
 
     func logExposure() async {
@@ -210,14 +187,14 @@ final class FilmLogViewModel {
         }
 
         let item = LogItem(roll: roll)
-        let location = locationManager.currentLocation
+        let location = locationService.currentLocation
 
         if let location = location {
             item.setLocation(location)
         }
 
         // Use the pre-computed place name for instant display
-        item.placeName = currentPlaceName
+        item.placeName = locationService.currentPlaceName
 
         // Capture reference photo before inserting so the item appears complete
         if referencePhotosEnabled {
@@ -569,38 +546,6 @@ final class FilmLogViewModel {
         let total = totalFrameCount(for: camera)
         guard camera.packCapacity > 0 else { return total }
         return (total % camera.packCapacity)
-    }
-
-    // MARK: - Geocoding
-
-    private func geocodeRecentUngeocodedItems() {
-        Task {
-            // Geocode items since the earlier of: last 7 days OR last app launch
-            let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date()
-            let cutoffDate = min(sevenDaysAgo, settings.lastAppLaunchDate ?? Date.distantPast)
-
-            let descriptor = FetchDescriptor<LogItem>()
-
-            do {
-                let allItems = try modelContext.fetch(descriptor)
-                let itemsToGeocode = allItems.filter { item in
-                    item.placeName == nil &&
-                    item.latitude != nil &&
-                    item.longitude != nil &&
-                    item.createdAt >= cutoffDate
-                }
-
-                for item in itemsToGeocode {
-                    guard let lat = item.latitude, let lon = item.longitude else { continue }
-                    let location = CLLocation(latitude: lat, longitude: lon)
-                    item.placeName = await Geocoder.placeName(for: location)
-                    // Small delay to avoid rate limiting
-                    try? await Task.sleep(for: .milliseconds(100))
-                }
-            } catch {
-                print("Failed to fetch items for geocoding: \(error)")
-            }
-        }
     }
 
 }

@@ -216,9 +216,11 @@ private struct CaptureButton: View {
             onCapture()
         }) {
             if hasRoll {
-                Text("\(frameCount) / \(rollCapacity) •")
-                    .opacity(0.46)
-                Text(" Capture")
+                HStack(spacing: 0) {
+                    Text("\(frameCount) / \(rollCapacity) •")
+                        .opacity(0.46)   
+                    Text(" Capture")
+                }
             } else {
                 Text("Capture")
             }

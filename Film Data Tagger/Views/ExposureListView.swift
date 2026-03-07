@@ -163,7 +163,7 @@ struct ExposureListView: View {
 
     @ViewBuilder
     private func exposureScrollContent() -> some View {
-        VStack(spacing: 0) {
+        LazyVStack(spacing: 0) {
             ForEach(Array(logItems.enumerated()), id: \.element.id) { index, item in
                 let isPreFrame = index < extraExposures
                 let frameNumber: Int? = isPreFrame ? nil : index - extraExposures + 1
@@ -173,7 +173,8 @@ struct ExposureListView: View {
                     isPreFrame: isPreFrame,
                     onDelete: onDelete,
                     onCycleExtraExposures: onCycleExtraExposures
-                ).transition(.asymmetric(insertion: .opacity, removal: .identity))
+                )
+                .transition(.asymmetric(insertion: .opacity, removal: .identity))
                 .contentShape(Rectangle())
                 .id(item.id)
                 .if(item.isPlaceholder) { view in
@@ -196,7 +197,7 @@ struct ExposureListView: View {
                         onMovePlaceholderBefore: onMovePlaceholderBefore,
                         onMovePlaceholderAfter: onMovePlaceholderAfter
                     )
-                )
+                ).frame(height: exposureItemHeight)
             }
         }
         .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))

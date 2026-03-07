@@ -8,20 +8,15 @@
 import SwiftUI
 
 struct LogItemView: View {
-    struct LogItemInfoItem: Identifiable {
-        var id: String
-        var icon: Image
-        var mainText: Text
-        let secondaryText: Text?
-        var onTap: (() -> Void)? = nil
-    }
-    
     /// Exposure number to display, must be <100
     var exposureNumber: Int?
     var isPreFrame: Bool = false
     var onFrameNumberTapped: (() -> Void)?
     var previewImage: Image?
-    var infoItems: [LogItemInfoItem]
+    var timeText: Text
+    var timeSecondaryText: Text?
+    var onTimeTapped: (() -> Void)?
+    var locationText: Text
 
     var body: some View {
         HStack(spacing: 12) {
@@ -66,32 +61,36 @@ struct LogItemView: View {
             }
             .frame(width: 60, height: 60)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            
+
             VStack(alignment: .leading, spacing: 5) {
-                ForEach(infoItems) { infoItem in
-                    HStack(spacing: 0) {
-                        infoItem.icon
-                            .font(.system(size: 11, weight: .medium))
-                            .frame(width: 17, height: 14, alignment: .center)
-                            .opacity(0.6)
-                            .padding(.trailing, 5)
-                        Group {
-                            infoItem.mainText
-                                .opacity(0.9)
-                            if let secondaryText = infoItem.secondaryText {
-                                Text(" ")
-                                secondaryText
-                                    .opacity(0.5)
-                            }
-                        }.font(.system(size: 12, weight: .bold))
-                    }.contentShape(Rectangle())
-                    .onTapGesture {
-                        infoItem.onTap?()
-                    }
-                }
+                infoRow(icon: "clock.fill", main: timeText, secondary: timeSecondaryText)
+                    .contentShape(Rectangle())
+                    .onTapGesture { onTimeTapped?() }
+
+                infoRow(icon: "location.fill", main: locationText)
             }.frame(maxWidth: .infinity, alignment: .leading)
         }.foregroundStyle(Color.white)
         .frame(height: 60, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func infoRow(icon: String, main: Text, secondary: Text? = nil) -> some View {
+        HStack(spacing: 0) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .medium))
+                .frame(width: 17, height: 14, alignment: .center)
+                .opacity(0.6)
+                .padding(.trailing, 5)
+            Group {
+                main
+                    .opacity(0.9)
+                if let secondary {
+                    Text(" ")
+                    secondary
+                        .opacity(0.5)
+                }
+            }.font(.system(size: 12, weight: .bold))
+        }
     }
 }
 
@@ -103,26 +102,23 @@ struct LogItemView: View {
             LogItemView(
                 exposureNumber: 1,
                 previewImage: .init("test-image"),
-                infoItems: [
-                    .init(id: "time", icon: .init(systemName: "clock.fill"), mainText: Text("3:45 P.M."), secondaryText: Text("1/5/2023")),
-                    .init(id: "location", icon: .init(systemName: "location.fill"), mainText: Text("The University of Hong Kong"), secondaryText: nil),
-                ]
+                timeText: Text("3:45 P.M."),
+                timeSecondaryText: Text("1/5/2023"),
+                locationText: Text("The University of Hong Kong")
             )
             LogItemView(
                 exposureNumber: 2,
                 previewImage: .init("test-image"),
-                infoItems: [
-                    .init(id: "time", icon: .init(systemName: "clock.fill"), mainText: Text("9:15 A.M."), secondaryText: Text("1/12/2023")),
-                    .init(id: "location", icon: .init(systemName: "location.fill"), mainText: Text("Central Park, New York"), secondaryText: nil),
-                ]
+                timeText: Text("9:15 A.M."),
+                timeSecondaryText: Text("1/12/2023"),
+                locationText: Text("Central Park, New York")
             )
             LogItemView(
                 exposureNumber: 3,
                 previewImage: .init("test-image"),
-                infoItems: [
-                    .init(id: "time", icon: .init(systemName: "clock.fill"), mainText: Text("11:30 P.M."), secondaryText: Text("2/14/2023")),
-                    .init(id: "location", icon: .init(systemName: "location.fill"), mainText: Text("Shibuya Crossing, Tokyo"), secondaryText: nil),
-                ]
+                timeText: Text("11:30 P.M."),
+                timeSecondaryText: Text("2/14/2023"),
+                locationText: Text("Shibuya Crossing, Tokyo")
             )
         }.padding(.horizontal, 16)
     }
