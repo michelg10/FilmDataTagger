@@ -63,21 +63,6 @@ private func compactTimeString(from date: Date) -> String {
     return "\(days / 365)yr"
 }
 
-func relativeTimeString(from date: Date) -> String {
-    let seconds = Int(Date().timeIntervalSince(date))
-    if seconds < 60 { return "used just now" }
-    let minutes = seconds / 60
-    if minutes < 60 { return "used \(minutes)m ago" }
-    let hours = minutes / 60
-    if hours < 24 { return "used \(hours)h ago" }
-    let days = hours / 24
-    if days < 30 { return "used \(days)d ago" }
-    let months = days / 30
-    if months < 12 { return "used \(months)mo ago" }
-    let years = days / 365
-    return "used \(years)y ago"
-}
-
 // MARK: - Camera conformance
 
 extension Camera: CameraListEntry {
@@ -88,41 +73,6 @@ extension Camera: CameraListEntry {
 
     var filmStockLabel: String? {
         activeRoll?.filmStock ?? (allRolls.isEmpty ? nil : "no roll loaded")
-    }
-}
-
-// MARK: - Roll display helpers
-
-private func formatLoadedDate(_ date: Date) -> String {
-    let formatter = DateFormatter()
-    formatter.dateFormat = "MMMM d"
-    let dayStr = formatter.string(from: date)
-    let day = Calendar.current.component(.day, from: date)
-    let suffix: String
-    switch day {
-    case 1, 21, 31: suffix = "st"
-    case 2, 22: suffix = "nd"
-    case 3, 23: suffix = "rd"
-    default: suffix = "th"
-    }
-    formatter.dateFormat = "h:mma"
-    formatter.amSymbol = "am"
-    formatter.pmSymbol = "pm"
-    let timeStr = formatter.string(from: date)
-    return "\(dayStr)\(suffix), \(timeStr)"
-}
-
-extension Roll {
-    var activeItemCount: Int {
-        (logItems ?? []).count
-    }
-
-    var rollSummary: String {
-        var desc = "\(activeItemCount) / \(totalCapacity) exposure\(totalCapacity == 1 ? "" : "s") • Loaded \(formatLoadedDate(createdAt))"
-        if !isActive, let lastDate = lastExposureDate {
-            desc += " • \(relativeTimeString(from: lastDate))"
-        }
-        return desc
     }
 }
 
