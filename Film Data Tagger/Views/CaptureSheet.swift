@@ -231,7 +231,7 @@ private struct CaptureButton: View {
             }
         }
         .padding(.horizontal, 15)
-        .padding(.bottom, 34)
+        .padding(.bottom, 26)
     }
 }
 
@@ -240,50 +240,111 @@ private struct CaptureButton: View {
 struct CaptureSheet: View {
     private static let referencePhotoSize = (143.0 / 347.0) * (UIScreen.main.bounds.width - 2 * (15 + 8))
     private static let handleAreaHeight: CGFloat = 15
-    static let compactHeight: CGFloat = 147 + handleAreaHeight
-    static let fullHeight: CGFloat = (110 + 25 + referencePhotoSize) + handleAreaHeight
+    static let compactHeight: CGFloat = 147
+    static let fullHeight: CGFloat = 110 + 25 + referencePhotoSize
+    private static let detentAnimation = Animation.interpolatingSpring(stiffness: 360, damping: 36)
+
+    private enum Detent {
+        case compact
+        case full
+
+        var height: CGFloat {
+            switch self {
+            case .compact: CaptureSheet.compactHeight
+            case .full: CaptureSheet.fullHeight
+            }
+        }
+    }
 
     var viewModel: FilmLogViewModel
     var frameCount: Int = 0
     var rollCapacity: Int
     var lastCaptureDate: Date?
 
-    @State private var isCompact = false
+    private static let captureButtonHeight: CGFloat = 63 + 26
+
+    @State private var selectedDetent: Detent = .full
+    @State private var dragStartHeight: CGFloat?
+    @State private var dragHeight: CGFloat?
+
+    private static var detentMidpoint: CGFloat {
+        (compactHeight + fullHeight) / 2
+    }
+
+    private var currentHeight: CGFloat {
+        dragHeight ?? selectedDetent.height
+    }
+
+    private var dragRegionHeight: CGFloat {
+        max(Self.handleAreaHeight, currentHeight - Self.captureButtonHeight)
+    }
+
+    private var showsFullContent: Bool {
+        currentHeight >= Self.detentMidpoint
+    }
+
+    private var sheetDragGesture: some Gesture {
+        DragGesture(minimumDistance: 4, coordinateSpace: .global)
+            .onChanged { value in
+                let startHeight = dragStartHeight ?? currentHeight
+                if dragStartHeight == nil {
+                    dragStartHeight = startHeight
+                }
+
+                let proposedHeight = startHeight - value.translation.height
+                dragHeight = rubberBandedHeight(for: proposedHeight)
+            }
+            .onEnded { value in
+                let startHeight = dragStartHeight ?? currentHeight
+                let projectedHeight = clampedHeight(startHeight - value.predictedEndTranslation.height)
+                let targetDetent = nearestDetent(for: projectedHeight)
+                settle(on: targetDetent)
+            }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Drag indicator
-            Capsule()
-                .fill(Color.white.opacity(0.45))
-                .frame(width: 34, height: 5)
-                .padding(.top, 5)
-                .padding(.bottom, 5)
-                .frame(maxWidth: .infinity)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    playHaptic(.sheetDetentChange)
-                    isCompact.toggle()
+            VStack(spacing: 0) {
+                Capsule()
+                    .fill(Color.white.opacity(0.45))
+                    .frame(width: 34, height: 5)
+                    .padding(.top, 5)
+                    .padding(.bottom, 5)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        settle(on: selectedDetent == .compact ? .full : .compact)
+                    }
+
+                ZStack(alignment: .top) {
+                    CaptureSheetFullContent(
+                        viewModel: viewModel,
+                        lastCaptureDate: lastCaptureDate,
+                        referencePhotoSize: Self.referencePhotoSize
+                    ).padding(.top, 10)
+                    .opacity(showsFullContent ? 1 : 0)
+                    .offset(y: showsFullContent ? 0 : -10)
+                    .allowsHitTesting(showsFullContent)
+
+                    CaptureSheetCompactContent(
+                        referencePhotosEnabled: viewModel.referencePhotosEnabled,
+                        cameraUnavailable: viewModel.cameraManager.cameraUnavailable,
+                        permissionDenied: viewModel.cameraManager.permissionDenied,
+                        currentPlaceName: viewModel.currentPlaceName,
+                        lastCaptureDate: lastCaptureDate
+                    ).padding(.top, 4)
+                    .opacity(showsFullContent ? 0 : 1)
+                    .offset(y: showsFullContent ? 10 : 0)
+                    .allowsHitTesting(!showsFullContent)
                 }
-
-            CaptureSheetFullContent(
-                viewModel: viewModel,
-                lastCaptureDate: lastCaptureDate,
-                referencePhotoSize: Self.referencePhotoSize
-            )
-            .frame(maxHeight: isCompact ? 0 : nil)
-            .clipped()
-            .opacity(isCompact ? 0 : 1)
-
-            CaptureSheetCompactContent(
-                referencePhotosEnabled: viewModel.referencePhotosEnabled,
-                cameraUnavailable: viewModel.cameraManager.cameraUnavailable,
-                permissionDenied: viewModel.cameraManager.permissionDenied,
-                currentPlaceName: viewModel.currentPlaceName,
-                lastCaptureDate: lastCaptureDate
-            )
-            .frame(maxHeight: isCompact ? nil : 0)
-            .clipped()
-            .opacity(isCompact ? 1 : 0)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .clipped()
+                .animation(.easeInOut(duration: 0.18), value: showsFullContent)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: dragRegionHeight, alignment: .top)
+            .contentShape(Rectangle())
+            .simultaneousGesture(sheetDragGesture)
 
             CaptureButton(
                 hasRoll: viewModel.openRoll != nil,
@@ -296,13 +357,51 @@ struct CaptureSheet: View {
                 }
             )
         }
-        /*
-         previously:
-         .animation(.easeOut(duration: 0.15), value: selectedDetent)
-         .onChange(of: selectedDetent) {
+        .frame(maxWidth: .infinity)
+        .frame(height: currentHeight, alignment: .top)
+        .clipped()
+    }
+
+    private func settle(on detent: Detent) {
+        let detentDidChange = detent != selectedDetent
+        dragStartHeight = nil
+
+        withAnimation(Self.detentAnimation) {
+            selectedDetent = detent
+            dragHeight = nil
+        }
+
+        if detentDidChange {
             playHaptic(.sheetDetentChange)
-         }
-         */
+        }
+    }
+
+    private func nearestDetent(for height: CGFloat) -> Detent {
+        abs(height - Self.compactHeight) < abs(height - Self.fullHeight) ? .compact : .full
+    }
+
+    private func clampedHeight(_ height: CGFloat) -> CGFloat {
+        min(max(height, Self.compactHeight), Self.fullHeight)
+    }
+
+    private func rubberBandedHeight(for proposedHeight: CGFloat) -> CGFloat {
+        if proposedHeight < Self.compactHeight {
+            return Self.compactHeight - rubberBandDistance(Self.compactHeight - proposedHeight)
+        }
+
+        if proposedHeight > Self.fullHeight {
+            return Self.fullHeight + rubberBandDistance(proposedHeight - Self.fullHeight)
+        }
+
+        return proposedHeight
+    }
+
+    private func rubberBandDistance(_ offset: CGFloat) -> CGFloat {
+        let detentRange = max(Self.fullHeight - Self.compactHeight, 1)
+        let coefficient: CGFloat = 0.55
+        let progress = (offset * coefficient / detentRange) + 1
+
+        return (1 - (1 / progress)) * detentRange
     }
 }
 
