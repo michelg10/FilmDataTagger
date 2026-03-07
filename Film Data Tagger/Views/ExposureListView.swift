@@ -123,11 +123,13 @@ private struct ExposureEndDropDelegate: DropDelegate {
 
 private struct ExposureRow: View {
     let item: LogItem
+    var exposureNumber: Int?
+    var isPreFrame: Bool = false
     var onDelete: ((LogItem) -> Void)?
     var onCycleExtraExposures: (() -> Void)?
 
     var body: some View {
-        ExposureLogItemView(item: item, onCycleExtraExposures: onCycleExtraExposures)
+        ExposureLogItemView(item: item, exposureNumber: exposureNumber, isPreFrame: isPreFrame, onCycleExtraExposures: onCycleExtraExposures)
             .frame(height: exposureItemHeight, alignment: .center)
             .contextMenu {
                 Button(role: .destructive) {
@@ -144,6 +146,7 @@ struct ExposureListView: View {
     var cameraName: String = ""
     var filmStock: String = ""
     var hasRoll: Bool = true
+    var extraExposures: Int = 0
     var scrollContextID: UUID? = nil
     var onDelete: ((LogItem) -> Void)?
     var onMovePlaceholderBefore: ((LogItem, LogItem) -> Void)?
@@ -162,8 +165,12 @@ struct ExposureListView: View {
     private func exposureScrollContent() -> some View {
         VStack(spacing: 0) {
             ForEach(Array(logItems.enumerated()), id: \.element.id) { index, item in
+                let isPreFrame = index < extraExposures
+                let frameNumber: Int? = isPreFrame ? nil : index - extraExposures + 1
                 ExposureRow(
                     item: item,
+                    exposureNumber: frameNumber,
+                    isPreFrame: isPreFrame,
                     onDelete: onDelete,
                     onCycleExtraExposures: onCycleExtraExposures
                 ).transition(.asymmetric(insertion: .opacity, removal: .identity))

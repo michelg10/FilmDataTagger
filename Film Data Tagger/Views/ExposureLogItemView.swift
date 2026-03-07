@@ -18,6 +18,8 @@ private func cityName(from timeZoneIdentifier: String) -> String {
 /// Bridges a LogItem model to LogItemView
 struct ExposureLogItemView: View {
     let item: LogItem
+    var exposureNumber: Int?
+    var isPreFrame: Bool = false
     var onCycleExtraExposures: (() -> Void)?
     @State private var showingLocalTime = false
 
@@ -29,9 +31,9 @@ struct ExposureLogItemView: View {
 
     var body: some View {
         LogItemView(
-            exposureNumber: item.frameNumber,
-            isPreFrame: item.isPreFrame,
-            onFrameNumberTapped: (item.isPreFrame || item.frameNumber == 1) ? onCycleExtraExposures : nil,
+            exposureNumber: exposureNumber,
+            isPreFrame: isPreFrame,
+            onFrameNumberTapped: (isPreFrame || exposureNumber == 1) ? onCycleExtraExposures : nil,
             previewImage: item.photoData
                 .flatMap { UIImage(data: $0) }
                 .map { Image(uiImage: $0) },
@@ -127,7 +129,7 @@ struct ExposureLogItemView: View {
 #Preview("With location") {
     let container = PreviewSampleData.makeContainer()
     let items = PreviewSampleData.sampleItems(from: container)
-    return ExposureLogItemView(item: items[0])
+    return ExposureLogItemView(item: items[0], exposureNumber: 1)
         .padding(.horizontal, 16)
         .background(Color.black)
         .modelContainer(container)
@@ -136,7 +138,7 @@ struct ExposureLogItemView: View {
 #Preview("With notes") {
     let container = PreviewSampleData.makeContainer()
     let items = PreviewSampleData.sampleItems(from: container)
-    return ExposureLogItemView(item: items[1])
+    return ExposureLogItemView(item: items[1], exposureNumber: 2)
         .padding(.horizontal, 16)
         .background(Color.black)
         .modelContainer(container)
