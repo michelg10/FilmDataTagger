@@ -16,7 +16,7 @@ private struct BlockProgressBar: View {
 
     var body: some View {
         Canvas { context, size in
-            let n = maxCapacity
+            let n = min(maxCapacity, 200)
             guard n > 0 else { return }
             let elemRatio: CGFloat = 6.6
             let sepRatio: CGFloat = 3.53

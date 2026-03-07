@@ -101,7 +101,7 @@ struct NewCameraSheet: View {
                             controlBackgroundColor: UIColor(formIsAboveAnotherSheet ? Color(hex: 0x323232) : Color(hex: 0x2E2E2E)),
                             capsuleInset: 3
                         )
-                        .shadow(color: .black.opacity(formIsAboveAnotherSheet ? 0.41 : 0), radius: 15.8)
+                        .shadow(color: .black.opacity(formIsAboveAnotherSheet ? aboveSheetShadowOpacity : sheetShadowOpacity), radius: formIsAboveAnotherSheet ? aboveSheetShadowRadius : sheetShadowRadius)
                     }
                     FormSeparator(formIsAboveAnotherSheet: formIsAboveAnotherSheet)
                 }
@@ -180,7 +180,6 @@ struct InstantFilmInfoSheet: View {
     }
 
     var body: some View {
-        print(Self.sheetHeight)
         return FormSheet(title: "Instant film", sheetHeight: Self.sheetHeight, titleBarPadding: 10 + 2, formIsAboveAnotherSheet: true, bottomAlignTitle: true, adjustTopPadding: -2) {
             JustifiedText(
                 Self.infoText,

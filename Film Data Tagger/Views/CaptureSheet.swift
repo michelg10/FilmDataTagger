@@ -230,13 +230,13 @@ private struct CaptureButton: View {
     var onAddPlaceholder: () -> Void
 
     var body: some View {
-        PrimaryButton(enabled: hasRoll, action: {
+        PrimaryButton(enabled: hasRoll && frameCount < 999, action: {
             playHaptic(.capture)
             onCapture()
-        }) {
+        }, showShadow: false) {
             if hasRoll {
                 HStack(spacing: 0) {
-                    Text("\(frameCount) / \(rollCapacity) •")
+                    Text("\(frameCount + 1) / \(rollCapacity) •")
                         .opacity(0.46)   
                     Text(" Capture")
                 }

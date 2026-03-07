@@ -146,7 +146,14 @@ struct ExposureScreen: View {
         .onDisappear { viewModel.scheduleCameraStop() }
         .sheet(isPresented: $showNewRoll) {
             if let camera = viewModel.openCamera {
-                RollFormSheet(viewModel: viewModel, camera: camera)
+                RollFormSheet(
+                    viewModel: viewModel,
+                    camera: camera,
+                    defaultFilmStock: viewModel.openRoll?.filmStock,
+                    defaultCapacity: viewModel.openRoll?.capacity,
+                    allowSubmitWithPlaceholder: true,
+                    formIsAboveAnotherSheet: true
+                )
             }
         }
     }
@@ -163,6 +170,7 @@ struct ContentView: View {
     @State private var showNewCamera = false
     @State private var showNewRoll = false
     @State private var pendingCameraNavigation: UUID?
+    @State private var pendingRollNavigation = false
     @State private var selectedCamera: Camera?
 
     // Path depth: 0 = camera list, 1 = roll list, 2 = exposure screen
@@ -206,10 +214,15 @@ struct ContentView: View {
                 pendingCameraNavigation = id
             })
         }
-        .sheet(isPresented: $showNewRoll) {
+        .sheet(isPresented: $showNewRoll, onDismiss: {
+            if pendingRollNavigation {
+                pendingRollNavigation = false
+                path.append(ExposureMarker())
+            }
+        }) {
             if let camera = selectedCamera ?? viewModel.openCamera {
                 RollFormSheet(viewModel: viewModel, camera: camera, onRollCreated: {
-                    // TODO: route to the new roll
+                    pendingRollNavigation = true
                 })
             }
         }

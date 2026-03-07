@@ -77,7 +77,7 @@ struct FormTextFieldStyle: TextFieldStyle {
                 Capsule()
                     .foregroundStyle(formIsAboveAnotherSheet ? Color(hex: 0x323232) : Color(hex: 0x2E2E2E))
             })
-            .shadow(color: .black.opacity(formIsAboveAnotherSheet ? 0.41 : 0), radius: 15.8)
+            .shadow(color: .black.opacity(formIsAboveAnotherSheet ? aboveSheetShadowOpacity : sheetShadowOpacity), radius: formIsAboveAnotherSheet ? aboveSheetShadowRadius : sheetShadowRadius)
             .contentShape(Rectangle())
             .onTapGesture {
                 isFocused = true

@@ -8,6 +8,12 @@
 import SwiftUI
 
 let sheetScaleCompensationFactor = UIScreen.main.bounds.width / (UIScreen.main.bounds.width - 16)
+
+let aboveSheetShadowOpacity: Double = 0.2
+let aboveSheetShadowRadius: CGFloat = 16
+let sheetShadowOpacity: Double = 0.12
+let sheetShadowRadius: CGFloat = 16
+
 var bottomSafeAreaInset: CGFloat {
     UIApplication.shared.connectedScenes
         .compactMap { ($0 as? UIWindowScene)?.keyWindow?.safeAreaInsets.bottom }

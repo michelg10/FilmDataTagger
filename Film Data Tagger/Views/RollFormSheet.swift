@@ -93,6 +93,9 @@ struct RollFormSheet: View {
     var viewModel: FilmLogViewModel
     var camera: Camera
     var editingRoll: Roll? = nil
+    var defaultFilmStock: String? = nil
+    var defaultCapacity: Int? = nil
+    var allowSubmitWithPlaceholder: Bool = false
     var onRollCreated: (() -> Void)?
     var formIsAboveAnotherSheet: Bool = false
     @Environment(\.dismiss) private var dismiss
@@ -101,16 +104,22 @@ struct RollFormSheet: View {
     @State private var placeholder: String = filmStockPlaceholders.randomElement()!
 
     private var isEditing: Bool { editingRoll != nil }
+    private var effectiveFilmName: String {
+        filmName.isEmpty && allowSubmitWithPlaceholder ? placeholder : filmName
+    }
 
     var body: some View {
-        let rollIsValid = !filmName.isEmpty && (exposureCount ?? 0) > 0
+        let rollIsValid = !effectiveFilmName.isEmpty && (exposureCount ?? 0) > 0 && (exposureCount ?? 0) <= 144
         let extraExposures = editingRoll?.extraExposures ?? 0
+        let placeholderOpacity = allowSubmitWithPlaceholder && filmName.isEmpty
+            ? 0.6
+            : (formIsAboveAnotherSheet ? 0.3 : 0.25)
         FormSheet(title: isEditing ? "Edit roll" : "New roll", sheetHeight: 405, formIsAboveAnotherSheet: formIsAboveAnotherSheet) {
             VStack(spacing: 21) {
                 TextField(
                     "Roll name",
                     text: $filmName,
-                    prompt: Text(placeholder).foregroundStyle(Color.white.opacity(formIsAboveAnotherSheet ? 0.3 : 0.25))
+                    prompt: Text(placeholder).foregroundStyle(Color.white.opacity(placeholderOpacity))
                 )
                 .textFieldStyle(FormTextFieldStyle(formIsAboveAnotherSheet: formIsAboveAnotherSheet))
                 FormSeparator(formIsAboveAnotherSheet: formIsAboveAnotherSheet)
@@ -153,15 +162,16 @@ struct RollFormSheet: View {
                     selectedTintColor: UIColor(formIsAboveAnotherSheet ? Color(hex: 0x6D6D6D) : Color(hex: 0x646464)),
                     controlBackgroundColor: UIColor(formIsAboveAnotherSheet ? Color(hex: 0x323232) : Color(hex: 0x2E2E2E))
                 )
-                .shadow(color: .black.opacity(formIsAboveAnotherSheet ? 0.41 : 0), radius: 15.8)
+                .shadow(color: .black.opacity(formIsAboveAnotherSheet ? aboveSheetShadowOpacity : sheetShadowOpacity), radius: formIsAboveAnotherSheet ? aboveSheetShadowRadius : sheetShadowRadius)
             }.padding(.bottom, 44)
 
             PrimaryButton(enabled: rollIsValid, action: {
                 playHaptic(.newRollOrCamera)
+                let capacity = exposureCount ?? 36
                 if let editingRoll {
-                    viewModel.editRoll(editingRoll, filmStock: filmName, capacity: exposureCount ?? 36)
+                    viewModel.editRoll(editingRoll, filmStock: effectiveFilmName, capacity: capacity)
                 } else {
-                    viewModel.createRoll(camera: camera, filmStock: filmName, capacity: exposureCount ?? 36)
+                    viewModel.createRoll(camera: camera, filmStock: effectiveFilmName, capacity: capacity)
                 }
                 dismiss()
                 onRollCreated?()
@@ -174,6 +184,13 @@ struct RollFormSheet: View {
                 filmName = editingRoll.filmStock
                 exposureCount = editingRoll.capacity
                 placeholder = editingRoll.filmStock
+            } else {
+                if let defaultFilmStock {
+                    placeholder = defaultFilmStock
+                }
+                if let defaultCapacity {
+                    exposureCount = defaultCapacity
+                }
             }
         }
     }

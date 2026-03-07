@@ -11,7 +11,13 @@ struct PrimaryButton<Label: View>: View {
     var enabled: Bool = true
     var action: () -> Void
     var isAboveAnotherSheet: Bool = false
+    var showShadow: Bool = true
     @ViewBuilder var label: Label
+
+    private var shadowOpacity: Double {
+        guard showShadow && enabled else { return 0 }
+        return isAboveAnotherSheet ? aboveSheetShadowOpacity : sheetShadowOpacity
+    }
 
     var body: some View {
         Button {
@@ -25,7 +31,7 @@ struct PrimaryButton<Label: View>: View {
         }.frame(height: 63)
         .disabled(!enabled)
         .glassEffect(.regular.tint(.white.opacity(enabled ? 0.91 : (isAboveAnotherSheet ? 0.07 : 0.055))).interactive(enabled), in: Capsule(style: .continuous))
-        .shadow(color: .black.opacity(isAboveAnotherSheet && enabled ? 0.41 : 0), radius: 15.8)
+        .shadow(color: .black.opacity(shadowOpacity), radius: isAboveAnotherSheet ? aboveSheetShadowRadius : sheetShadowRadius)
         .contentShape(Capsule())
         .animation(.easeInOut(duration: 0.12), value: enabled)
     }
