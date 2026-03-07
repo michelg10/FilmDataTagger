@@ -259,9 +259,10 @@ struct CaptureSheet: View {
     }
 
     var viewModel: FilmLogViewModel
-    var frameCount: Int = 0
-    var rollCapacity: Int
-    var lastCaptureDate: Date?
+
+    private var frameCount: Int { viewModel.logItems.count }
+    private var rollCapacity: Int { viewModel.openRoll?.totalCapacity ?? 0 }
+    private var lastCaptureDate: Date? { viewModel.logItems.last?.createdAt }
 
     private static let captureButtonHeight: CGFloat = 63 + 26
 
@@ -413,7 +414,7 @@ struct CaptureSheet: View {
     )
     ZStack(alignment: .bottom) {
         Color.black.ignoresSafeArea()
-        CaptureSheet(viewModel: vm, rollCapacity: 36)
+        CaptureSheet(viewModel: vm)
             .padding([.bottom, .leading, .trailing], 8)
     }
 }

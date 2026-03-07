@@ -86,7 +86,6 @@ private struct FinishRollOverlay: View {
 
 struct ExposureScreen: View {
     var viewModel: FilmLogViewModel
-    @Query private var cameras: [Camera]
 
     @State private var showNewRoll = false
     @State private var scrollState = ExposureScrollState()
@@ -99,7 +98,7 @@ struct ExposureScreen: View {
                 logItems: logItems,
                 cameraName: viewModel.openCamera?.name ?? "No camera selected",
                 filmStock: viewModel.openRoll?.filmStock
-                ?? (viewModel.openCamera != nil ? "No roll selected" : ""),
+                    ?? (viewModel.openCamera != nil ? "No roll selected" : ""),
                 hasRoll: viewModel.openRoll != nil,
                 extraExposures: viewModel.openRoll?.extraExposures ?? 0,
                 scrollContextID: viewModel.openRoll?.id ?? viewModel.openCamera?.id,
@@ -117,7 +116,6 @@ struct ExposureScreen: View {
                     }
                 },
                 onScrollToBottomRegistered: { scrollState.scrollToBottom = $0 },
-                camerasWithActiveRolls: cameras.filter { $0.activeRoll != nil },
                 onCameraSelected: { camera in
                     if let roll = camera.activeRoll {
                         viewModel.switchToRoll(roll)
@@ -128,12 +126,7 @@ struct ExposureScreen: View {
             let captureSheetRectangle = UnevenRoundedRectangle(
                 topLeadingRadius: 35, bottomLeadingRadius: screenRadius - 8, bottomTrailingRadius: screenRadius - 8, topTrailingRadius: 35, style: .continuous)
 
-            CaptureSheet(
-                viewModel: viewModel,
-                frameCount: logItems.count,
-                rollCapacity: viewModel.openRoll?.totalCapacity ?? 0,
-                lastCaptureDate: logItems.last?.createdAt
-            )
+            CaptureSheet(viewModel: viewModel)
             .clipShape(captureSheetRectangle)
             .glassEffect(.regular.interactive(), in: captureSheetRectangle)
             .overlay(alignment: .top) {

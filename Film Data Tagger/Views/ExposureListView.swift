@@ -141,6 +141,49 @@ private struct ExposureRow: View {
     }
 }
 
+/// Isolated view that owns `@Query cameras` so that camera changes
+/// only re-render the menu, not the entire ExposureListView.
+private struct CameraSwitcherMenu: View {
+    var cameraName: String
+    var filmStock: String
+    var onCameraSelected: ((Camera) -> Void)?
+    @Query private var cameras: [Camera]
+
+    private var camerasWithActiveRolls: [Camera] {
+        cameras.filter { $0.activeRoll != nil }
+    }
+
+    var body: some View {
+        Menu {
+            ForEach(camerasWithActiveRolls) { camera in
+                Button {
+                    onCameraSelected?(camera)
+                } label: {
+                    if camera.name == cameraName {
+                        Label(camera.name, systemImage: "checkmark")
+                    } else {
+                        Text(camera.name)
+                    }
+                }
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(cameraName)
+                    .font(.system(size: 18, weight: .bold, design: .default))
+                    .fontWidth(.expanded)
+                    .foregroundStyle(Color.white)
+                Text(filmStock)
+                    .font(.system(size: 13, weight: .bold, design: .default))
+                    .fontWidth(.expanded)
+                    .foregroundStyle(Color(hex: 0xAAAAAA))
+            }.padding(.vertical, 2)
+            .frame(height: 44, alignment: .leading)
+            .frame(minWidth: 250, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+    }
+}
+
 struct ExposureListView: View {
     let logItems: [LogItem]
     var cameraName: String = ""
@@ -155,7 +198,6 @@ struct ExposureListView: View {
     var onCycleExtraExposures: (() -> Void)?
     var onNearBottomChanged: ((Bool) -> Void)?
     var onScrollToBottomRegistered: ((@escaping () -> Void) -> Void)?
-    var camerasWithActiveRolls: [Camera] = []
     var onCameraSelected: ((Camera) -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var draggingPlaceholderID: UUID?
@@ -230,6 +272,7 @@ struct ExposureListView: View {
     }
 
     var body: some View {
+        let _ = Self._printChanges()
         Group {
             if logItems.isEmpty {
                 if hasRoll {
@@ -293,34 +336,11 @@ struct ExposureListView: View {
                             .foregroundStyle(Color.white.opacity(0.95))
                     }.frame(width: 44, height: 44)
                     .glassEffect(.regular.interactive(), in: Circle())
-                    Menu {
-                        // TODO: After we add Polaroid support, for Polaroids, show the most recently used camera when you're not in the Polaroid group, show all cameras in group otherwise
-                        ForEach(camerasWithActiveRolls) { camera in
-                            Button {
-                                onCameraSelected?(camera)
-                            } label: {
-                                if camera.name == cameraName {
-                                    Label(camera.name, systemImage: "checkmark")
-                                } else {
-                                    Text(camera.name)
-                                }
-                            }
-                        }
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(cameraName)
-                                .font(.system(size: 18, weight: .bold, design: .default))
-                                .fontWidth(.expanded)
-                                .foregroundStyle(Color.white)
-                            Text(filmStock)
-                                .font(.system(size: 13, weight: .bold, design: .default))
-                                .fontWidth(.expanded)
-                                .foregroundStyle(Color(hex: 0xAAAAAA))
-                        }.padding(.vertical, 2)
-                        .frame(height: 44, alignment: .leading)
-                        .frame(minWidth: 250, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
+                    CameraSwitcherMenu(
+                        cameraName: cameraName,
+                        filmStock: filmStock,
+                        onCameraSelected: onCameraSelected
+                    )
                 }
                 .frame(width: UIScreen.main.bounds.width - 32, height: 44, alignment: .leading)
             }
