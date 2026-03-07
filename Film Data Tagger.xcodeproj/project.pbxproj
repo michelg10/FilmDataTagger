@@ -290,6 +290,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Film Data Tagger/Film_Data_Tagger.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 9K2XM38XLK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -333,6 +334,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Film Data Tagger/Film_Data_Tagger.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "\"Film Data Tagger/Assets.xcassets/test-image.imageset\"";
 				DEVELOPMENT_TEAM = 9K2XM38XLK;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
