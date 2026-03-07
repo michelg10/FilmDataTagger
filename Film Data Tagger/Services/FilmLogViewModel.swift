@@ -53,13 +53,13 @@ final class FilmLogViewModel {
     var currentPlaceName: String?
     var currentLocation: CLLocation? { locationManager.currentLocation }
     private var lastGeocodedLocation: CLLocation?
-    nonisolated(unsafe) private var geocodeTask: Task<Void, Never>?
+    nonisolated private var geocodeTask: Task<Void, Never>?
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
     }
 
-    nonisolated(unsafe) private var remoteChangeObserver: Any?
+    nonisolated private var remoteChangeObserver: Any?
 
     deinit {
         geocodeTask?.cancel()
@@ -119,12 +119,6 @@ final class FilmLogViewModel {
     }
 
     private func loadOrCreateActiveRoll() {
-        if !settings.isInitialized {
-            createDefaultRoll()
-            settings.isInitialized = true
-            return
-        }
-
         // 1. Try persisted instant film group
         if let storedGroupId = settings.activeInstantFilmGroupId {
             let descriptor = FetchDescriptor<InstantFilmGroup>(
@@ -177,17 +171,6 @@ final class FilmLogViewModel {
             reloadItems()
             return
         }
-    }
-
-    private func createDefaultRoll() {
-        let camera = Camera(name: "Olympus XA", listOrder: nextCameraListOrder())
-        modelContext.insert(camera)
-
-        let roll = Roll(filmStock: "Kodak Portra 400", camera: camera)
-        modelContext.insert(roll)
-
-        openRoll = roll
-        reloadItems()
     }
 
     // MARK: - Live Geocoding

@@ -11,15 +11,6 @@ import Foundation
 final class AppSettings {
     static let shared = AppSettings()
 
-    // MARK: - Setup
-
-    /// Whether the app has been initialized with default data. When false on launch,
-    /// the app creates a default camera and roll (or later, shows a setup screen).
-    var isInitialized: Bool {
-        get { defaults.bool(forKey: Keys.isInitialized) }
-        set { defaults.set(newValue, forKey: Keys.isInitialized) }
-    }
-
     // MARK: - Active state
 
     /// The currently open (viewed) roll ID (regular camera mode).
@@ -72,7 +63,6 @@ final class AppSettings {
     private init() {}
 
     private enum Keys {
-        static let isInitialized = "isInitialized"
         static let openRollId = "openRollId"
         static let openCameraId = "openCameraId"
         static let activeInstantFilmGroupId = "activeInstantFilmGroupId"
