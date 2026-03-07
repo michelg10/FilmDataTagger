@@ -17,6 +17,18 @@ final class CameraManager: NSObject {
     private var isConfigured = false
     private var photoContinuation: CheckedContinuation<Data?, Never>?
     private var stopTimer: Task<Void, Never>?
+    private var _previewView: CameraPreviewUIView?
+
+    /// Persistent preview view. Created once, reused across navigation.
+    var previewView: CameraPreviewUIView {
+        if let existing = _previewView { return existing }
+        let view = CameraPreviewUIView()
+        view.previewLayer.session = session
+        view.previewLayer.videoGravity = .resizeAspectFill
+        _previewView = view
+        return view
+    }
+
     var isRunning = false
     var permissionDenied = false
     var cameraUnavailable = false

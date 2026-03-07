@@ -95,7 +95,7 @@ private struct CaptureSheetFullContent: View {
                     }
                     .transition(.opacity)
                 } else if viewModel.referencePhotosEnabled, viewModel.cameraManager.isRunning {
-                    CameraPreview(session: viewModel.cameraManager.session)
+                    CameraPreview(previewView: viewModel.cameraManager.previewView)
                         .transition(.opacity)
                 } else if viewModel.referencePhotosEnabled {
                     ZStack {
