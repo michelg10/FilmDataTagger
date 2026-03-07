@@ -8,30 +8,42 @@
 import SwiftUI
 import SwiftData
 
-struct BlockProgressBar: Layout {
-    let elementRatio: CGFloat = 6.6
-    let separatorRatio: CGFloat = 3.53
+private struct BlockProgressBar: View {
+    var exposureCount: Int
+    var totalCapacity: Int
+    var maxCapacity: Int
+    var isActive: Bool
 
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let height = subviews.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
-        return CGSize(width: proposal.width ?? 0, height: height)
-    }
+    var body: some View {
+        Canvas { context, size in
+            let n = maxCapacity
+            guard n > 0 else { return }
+            let elemRatio: CGFloat = 6.6
+            let sepRatio: CGFloat = 3.53
+            let unit = size.width / (CGFloat(n) * elemRatio + CGFloat(n - 1) * sepRatio)
+            let elemW = unit * elemRatio
+            let stride = elemW + unit * sepRatio
+            let notchH: CGFloat = 2
+            let gap: CGFloat = 2
+            let mainY = notchH + gap
+            let mainH = max(size.height - 2 * (notchH + gap), 0)
+            let baseAlpha: Double = isActive ? 1 : 0.75
 
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let n = (subviews.count + 1) / 2 // elements; separators are the odd-indexed views
-        let totalUnits = CGFloat(n) * elementRatio + CGFloat(n - 1) * separatorRatio
-        let unit = bounds.width / totalUnits
+            for i in 0..<min(totalCapacity, n) {
+                let x = CGFloat(i) * stride
+                let filled = i < exposureCount
+                let alpha = (filled ? 1.0 : 0.15) * 0.95 * baseAlpha
+                let notchAlpha = alpha * 0.25
 
-        var x = bounds.minX
-        for (i, subview) in subviews.enumerated() {
-            let w = (i % 2 == 0) ? unit * elementRatio : unit * separatorRatio
-            subview.place(
-                at: CGPoint(x: x, y: bounds.midY),
-                anchor: .leading,
-                proposal: ProposedViewSize(width: w, height: bounds.height)
-            )
-            x += w
+                context.fill(Path(CGRect(x: x, y: 0, width: elemW, height: notchH)),
+                             with: .color(.white.opacity(notchAlpha)))
+                context.fill(Path(CGRect(x: x, y: mainY, width: elemW, height: mainH)),
+                             with: .color(.white.opacity(alpha)))
+                context.fill(Path(CGRect(x: x, y: size.height - notchH, width: elemW, height: notchH)),
+                             with: .color(.white.opacity(notchAlpha)))
+            }
         }
+        .frame(height: 18)
     }
 }
 
@@ -89,22 +101,12 @@ struct RollListRow: View {
                     .opacity(roll.isActive ? 1 : 0.9)
             }
             
-            BlockProgressBar {
-                ForEach(0..<maxCapacity, id: \.self) { i in
-                    VStack(spacing: 2) {
-                        Rectangle().frame(height: 2).opacity(0.25)
-                        Rectangle()
-                        Rectangle().frame(height: 2).opacity(0.25)
-                    }.foregroundStyle(Color.white.opacity(0.95))
-                    .opacity(i < exposureCount ? 1 : 0.15)
-                    .opacity(i < roll.totalCapacity ? 1 : 0)
-
-                    // separator (except after last element)
-                    if i < maxCapacity - 1 {
-                        Color.clear
-                    }
-                }.opacity(roll.isActive ? 1 : 0.75)
-            }
+            BlockProgressBar(
+                exposureCount: exposureCount,
+                totalCapacity: roll.totalCapacity,
+                maxCapacity: maxCapacity,
+                isActive: roll.isActive
+            )
             
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 let loadedText = Text("Loaded").foregroundStyle(Color.white.opacity(0.5))
