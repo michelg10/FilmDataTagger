@@ -304,7 +304,7 @@ struct CameraListView: View {
                 NavigationLink(value: entry.id) {
                     CameraListRow(
                         entry: entry,
-                        isSelected: entry.id == viewModel.openRoll?.camera?.id
+                        isSelected: entry.id == viewModel.openCamera?.id
                             || entry.id == viewModel.activeInstantFilmGroup?.id
                     )
                         .padding(.vertical, 18)

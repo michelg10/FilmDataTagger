@@ -281,7 +281,7 @@ struct CaptureSheet: View {
 
     private var frameCount: Int { viewModel.logItems.count }
     private var rollCapacity: Int { viewModel.openRoll?.totalCapacity ?? 0 }
-    private var lastCaptureDate: Date? { viewModel.logItems.last?.createdAt }
+    private var lastCaptureDate: Date? { viewModel.logItems.last(where: { $0.hasRealCreatedAt })?.createdAt }
 
     private static let captureButtonHeight: CGFloat = 63 + 26
 
