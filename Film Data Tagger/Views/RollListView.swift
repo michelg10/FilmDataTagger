@@ -54,7 +54,8 @@ struct RollListRow: View {
     }()
 
     private var lastUsedText: String? {
-        let interval = Date().timeIntervalSince(roll.modifiedAt)
+        let lastDate = roll.lastExposureDate ?? roll.createdAt
+        let interval = Date().timeIntervalSince(lastDate)
         let minutes = Int(interval / 60)
         let hours = Int(interval / 3600)
         let days = Int(interval / 86400)
@@ -138,7 +139,9 @@ struct RollListView: View {
     }
 
     private var pastRolls: [Roll] {
-        rolls.filter { !$0.isActive }.sorted { $0.modifiedAt > $1.modifiedAt }
+        rolls.filter { !$0.isActive }.sorted {
+            ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt)
+        }
     }
 
     @State private var rollToDelete: Roll?

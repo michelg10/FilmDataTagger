@@ -31,7 +31,10 @@ final class Roll {
     var isActive: Bool = true
 
     var createdAt: Date = Date.distantPast
-    var modifiedAt: Date = Date.distantPast
+
+    /// The date of the most recent real (non-placeholder) exposure on this roll.
+    /// Maintained by the ViewModel; nil if the roll has no real exposures yet.
+    var lastExposureDate: Date?
 
     /// The log items (frames) in this roll
     @Relationship(deleteRule: .cascade, inverse: \LogItem.roll)
@@ -43,14 +46,8 @@ final class Roll {
         self.camera = camera
         self.capacity = capacity
         self.createdAt = Date()
-        self.modifiedAt = Date()
     }
 
     /// Total capacity including extra pre-first-frame exposures
     var totalCapacity: Int { capacity + extraExposures }
-
-    /// Call this whenever the roll is modified
-    func touch() {
-        self.modifiedAt = Date()
-    }
 }

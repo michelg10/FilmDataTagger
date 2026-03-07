@@ -170,7 +170,7 @@ final class FilmLogViewModel {
         // 4. Fallback: find any active regular roll
         let activeDescriptor = FetchDescriptor<Roll>(
             predicate: #Predicate<Roll> { $0.isActive == true },
-            sortBy: [SortDescriptor(\.modifiedAt, order: .reverse)]
+            sortBy: [SortDescriptor(\.lastExposureDate, order: .reverse)]
         )
         if let roll = try? modelContext.fetch(activeDescriptor).first {
             openRoll = roll
@@ -243,7 +243,7 @@ final class FilmLogViewModel {
 
         modelContext.insert(item)
         roll.logItems = (roll.logItems ?? []) + [item]
-        roll.touch()
+        roll.lastExposureDate = item.createdAt
         logItems.append(item)
 
         // If we don't have a geocode yet, do it in the background
@@ -266,13 +266,16 @@ final class FilmLogViewModel {
         let item = LogItem.placeholder(roll: roll)
         modelContext.insert(item)
         roll.logItems = (roll.logItems ?? []) + [item]
-        roll.touch()
         logItems.append(item)
     }
 
     func deleteItem(_ item: LogItem) {
+        let roll = item.roll
         modelContext.delete(item)
         logItems.removeAll { $0.id == item.id }
+        if let roll {
+            recomputeLastExposureDate(for: roll)
+        }
     }
 
     /// Move a placeholder to just before the target item.
@@ -368,7 +371,6 @@ final class FilmLogViewModel {
     func editRoll(_ roll: Roll, filmStock: String, capacity: Int) {
         roll.filmStock = filmStock
         roll.capacity = capacity
-        roll.touch()
         reloadItems()
     }
 
@@ -380,6 +382,13 @@ final class FilmLogViewModel {
             r.isActive = false
         }
         roll.isActive = true
+    }
+
+    private func recomputeLastExposureDate(for roll: Roll) {
+        roll.lastExposureDate = (roll.logItems ?? [])
+            .filter { $0.hasRealCreatedAt }
+            .map(\.createdAt)
+            .max()
     }
 
     func cycleExtraExposures() {
@@ -556,7 +565,6 @@ final class FilmLogViewModel {
             }
             // Pack is full — deactivate and create new
             pack.isActive = false
-            pack.touch()
         }
 
         let newPack = Roll(filmStock: activeInstantFilmGroup?.name ?? "", capacity: camera.packCapacity)

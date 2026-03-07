@@ -9,6 +9,13 @@ import Foundation
 
 /// Protocol for items that appear in the camera list (regular cameras and instant film groups).
 /// Both Camera and InstantFilmGroup already conform to Identifiable via @Model.
+///
+/// Date semantics:
+/// - Cameras own no dates. Their displayed "last used" is the latest roll date.
+/// - Rolls own one stored date: `createdAt` (immutable). They also cache
+///   `lastExposureDate` (latest real exposure's createdAt, maintained by the ViewModel).
+///   The displayed "last used" is `lastExposureDate ?? createdAt`.
+/// - Exposures own one immutable date: `createdAt`.
 @MainActor
 protocol CameraListEntry {
     var id: UUID { get }
@@ -34,8 +41,8 @@ extension CameraListEntry {
     }
 
     var lastUsedCompact: String? {
-        let allItems = allRolls.flatMap { $0.logItems ?? [] }
-        guard let lastDate = allItems.map(\.createdAt).max() else { return nil }
+        guard !allRolls.isEmpty else { return nil }
+        let lastDate = allRolls.map { $0.lastExposureDate ?? $0.createdAt }.max()!
         return compactTimeString(from: lastDate)
     }
 }
@@ -112,8 +119,8 @@ extension Roll {
 
     var rollSummary: String {
         var desc = "\(activeItemCount) / \(totalCapacity) exposure\(totalCapacity == 1 ? "" : "s") • Loaded \(formatLoadedDate(createdAt))"
-        if !isActive {
-            desc += " • \(relativeTimeString(from: modifiedAt))"
+        if !isActive, let lastDate = lastExposureDate {
+            desc += " • \(relativeTimeString(from: lastDate))"
         }
         return desc
     }

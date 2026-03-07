@@ -25,7 +25,7 @@ struct LogExposureIntent: AppIntent {
         // Find or create active roll
         let rollDescriptor = FetchDescriptor<Roll>(
             predicate: #Predicate { $0.isActive == true },
-            sortBy: [SortDescriptor(\.modifiedAt, order: .reverse)]
+            sortBy: [SortDescriptor(\.lastExposureDate, order: .reverse)]
         )
         let rolls = try context.fetch(rollDescriptor)
 
@@ -51,7 +51,7 @@ struct LogExposureIntent: AppIntent {
 
         context.insert(item)
         roll.logItems = (roll.logItems ?? []) + [item]
-        roll.touch()
+        roll.lastExposureDate = item.createdAt
 
         try context.save()
 
