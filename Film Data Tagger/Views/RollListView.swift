@@ -301,7 +301,7 @@ struct RollListView: View {
                             .foregroundStyle(Color.white)
                             .font(.system(size: 13, weight: .semibold, design: .default))
                             .fontWidth(.expanded)
-                    }.padding(.top, 2)
+                    }
                 }.frame(width: UIScreen.main.bounds.width - 32, height: 44, alignment: .leading)
             }
         }

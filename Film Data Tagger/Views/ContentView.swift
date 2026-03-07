@@ -86,6 +86,7 @@ private struct FinishRollOverlay: View {
 
 struct ExposureScreen: View {
     var viewModel: FilmLogViewModel
+    @Query private var cameras: [Camera]
 
     @State private var showNewRoll = false
     @State private var scrollState = ExposureScrollState()
@@ -114,7 +115,13 @@ struct ExposureScreen: View {
                         scrollState.nearBottomRaw = 1
                     }
                 },
-                onScrollToBottomRegistered: { scrollState.scrollToBottom = $0 }
+                onScrollToBottomRegistered: { scrollState.scrollToBottom = $0 },
+                camerasWithActiveRolls: cameras.filter { $0.activeRoll != nil },
+                onCameraSelected: { camera in
+                    if let roll = camera.activeRoll {
+                        viewModel.switchToRoll(roll)
+                    }
+                }
             )
             let screenRadius = UIScreen.main.value(forKey: "_displayCornerRadius") as? CGFloat ?? 50
             let captureSheetRectangle = UnevenRoundedRectangle(

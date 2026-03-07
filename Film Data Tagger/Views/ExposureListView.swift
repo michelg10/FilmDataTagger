@@ -152,6 +152,8 @@ struct ExposureListView: View {
     var onCycleExtraExposures: (() -> Void)?
     var onNearBottomChanged: ((Bool) -> Void)?
     var onScrollToBottomRegistered: ((@escaping () -> Void) -> Void)?
+    var camerasWithActiveRolls: [Camera] = []
+    var onCameraSelected: ((Camera) -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var draggingPlaceholderID: UUID?
     @State private var dropTargetIndex: Int?
@@ -283,16 +285,33 @@ struct ExposureListView: View {
                             .foregroundStyle(Color.white.opacity(0.95))
                     }.frame(width: 44, height: 44)
                     .glassEffect(.regular.interactive(), in: Circle())
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(cameraName)
-                            .font(.system(size: 18, weight: .bold, design: .default))
-                            .fontWidth(.expanded)
-                            .foregroundStyle(Color.white)
-                            .padding(.top, 2)
-                        Text(filmStock)
-                            .font(.system(size: 13, weight: .bold, design: .default))
-                            .fontWidth(.expanded)
-                            .foregroundStyle(Color(hex: 0xAAAAAA))
+                    Menu {
+                        // TODO: After we add Polaroid support, for Polaroids, show the most recently used camera when you're not in the Polaroid group, show all cameras in group otherwise
+                        ForEach(camerasWithActiveRolls) { camera in
+                            Button {
+                                onCameraSelected?(camera)
+                            } label: {
+                                if camera.name == cameraName {
+                                    Label(camera.name, systemImage: "checkmark")
+                                } else {
+                                    Text(camera.name)
+                                }
+                            }
+                        }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(cameraName)
+                                .font(.system(size: 18, weight: .bold, design: .default))
+                                .fontWidth(.expanded)
+                                .foregroundStyle(Color.white)
+                            Text(filmStock)
+                                .font(.system(size: 13, weight: .bold, design: .default))
+                                .fontWidth(.expanded)
+                                .foregroundStyle(Color(hex: 0xAAAAAA))
+                        }.padding(.vertical, 2)
+                        .frame(height: 44, alignment: .leading)
+                        .frame(minWidth: 250, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
                 }
                 .frame(width: UIScreen.main.bounds.width - 32, height: 44, alignment: .leading)
