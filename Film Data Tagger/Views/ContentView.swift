@@ -196,7 +196,7 @@ struct ContentView: View {
                         .onAppear { selectedCamera = camera }
                     } else if let group = instantFilmGroups.first(where: { $0.id == id }) {
                         // TODO: instant film
-                        EmptyView()
+                        Text("instant film view, coming soon")
                     }
                 }
                 .navigationDestination(for: ExposureMarker.self) { _ in

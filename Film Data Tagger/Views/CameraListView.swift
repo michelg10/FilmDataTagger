@@ -249,7 +249,6 @@ struct CameraListView: View {
     @Query private var cameras: [Camera]
     @Query private var instantFilmGroups: [InstantFilmGroup]
     @State private var editingEntry: (any CameraListEntry)?
-    @State private var showEditCamera = false
     @State private var entryToDelete: (any CameraListEntry)?
     @State private var showDeleteAlert = false
     @State private var draggingEntryID: UUID?
@@ -316,7 +315,6 @@ struct CameraListView: View {
                 .contextMenu {
                     Button {
                         editingEntry = entry
-                        showEditCamera = true
                     } label: {
                         Label("Edit", systemImage: "pencil")
                     }
@@ -402,7 +400,10 @@ struct CameraListView: View {
         .overlay(alignment: .top) { titleOverlay }
         .overlay(alignment: .top) { statusBarGradient }
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showEditCamera) {
+        .sheet(isPresented: Binding(
+            get: { editingEntry != nil },
+            set: { if !$0 { editingEntry = nil } }
+        )) {
             if let editingEntry {
                 NewCameraSheet(viewModel: viewModel, editingEntry: editingEntry)
             }
