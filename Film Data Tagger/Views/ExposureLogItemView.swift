@@ -34,8 +34,7 @@ struct ExposureLogItemView: View {
             exposureNumber: exposureNumber,
             isPreFrame: isPreFrame,
             onFrameNumberTapped: (isPreFrame || exposureNumber == 1) ? onCycleExtraExposures : nil,
-            previewImage: item.photoData
-                .flatMap { UIImage(data: $0) }
+            previewImage: ImageCache.shared.image(for: item.id, data: item.photoData)
                 .map { Image(uiImage: $0) },
             timeText: timeText,
             timeSecondaryText: timeSecondaryText,

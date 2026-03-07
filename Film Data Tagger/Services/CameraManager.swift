@@ -16,6 +16,7 @@ final class CameraManager: NSObject {
     private let sessionQueue = DispatchQueue(label: "camera.session")
     private var isConfigured = false
     private var photoContinuation: CheckedContinuation<Data?, Never>?
+    private var stopTimer: Task<Void, Never>?
     var isRunning = false
     var permissionDenied = false
     var cameraUnavailable = false
@@ -29,6 +30,8 @@ final class CameraManager: NSObject {
     }
 
     func start() {
+        stopTimer?.cancel()
+        stopTimer = nil
         sessionQueue.async {
             if !self.isConfigured {
                 self.isConfigured = true
@@ -43,11 +46,23 @@ final class CameraManager: NSObject {
     }
 
     func stop() {
+        stopTimer?.cancel()
+        stopTimer = nil
         sessionQueue.async {
             if self.session.isRunning {
                 self.session.stopRunning()
             }
             Task { @MainActor in self.isRunning = false }
+        }
+    }
+
+    /// Schedule a stop after a delay. Cancelled if `start()` or `stop()` is called first.
+    func scheduleStop(after seconds: TimeInterval = 30) {
+        stopTimer?.cancel()
+        stopTimer = Task {
+            try? await Task.sleep(for: .seconds(seconds))
+            guard !Task.isCancelled else { return }
+            stop()
         }
     }
 

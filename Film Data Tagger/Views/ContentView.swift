@@ -142,6 +142,8 @@ struct ExposureScreen: View {
             .padding([.bottom, .leading, .trailing], 8)
             .animation(.easeInOut(duration: 0.25), value: logItems.isEmpty)
         }.ignoresSafeArea()
+        .onAppear { viewModel.ensureCameraRunning() }
+        .onDisappear { viewModel.scheduleCameraStop() }
         .sheet(isPresented: $showNewRoll) {
             if let camera = viewModel.openCamera {
                 RollFormSheet(viewModel: viewModel, camera: camera)

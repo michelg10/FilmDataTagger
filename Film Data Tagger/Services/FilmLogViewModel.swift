@@ -69,16 +69,6 @@ final class FilmLogViewModel {
 
     func setup() {
         locationService.setup()
-        if referencePhotosEnabled {
-            Task {
-                let granted = await cameraManager.requestPermission()
-                if granted {
-                    cameraManager.start()
-                } else {
-                    referencePhotosEnabled = false
-                }
-            }
-        }
         loadOrCreateActiveRoll()
         let cutoffDate = min(
             Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
@@ -279,6 +269,24 @@ final class FilmLogViewModel {
         let lastDate = others.last?.createdAt ?? Date()
         item.createdAt = lastDate.addingTimeInterval(1)
         reloadItems()
+    }
+
+    /// Start the camera session if reference photos are enabled. Call on exposure screen appear.
+    func ensureCameraRunning() {
+        guard referencePhotosEnabled else { return }
+        Task {
+            let granted = await cameraManager.requestPermission()
+            if granted {
+                cameraManager.start()
+            } else {
+                referencePhotosEnabled = false
+            }
+        }
+    }
+
+    /// Schedule camera stop after a delay. Call on exposure screen disappear.
+    func scheduleCameraStop() {
+        cameraManager.scheduleStop()
     }
 
     func toggleReferencePhotos() {

@@ -272,7 +272,6 @@ struct ExposureListView: View {
     }
 
     var body: some View {
-        let _ = Self._printChanges()
         Group {
             if logItems.isEmpty {
                 if hasRoll {

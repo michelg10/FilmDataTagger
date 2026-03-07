@@ -30,22 +30,21 @@ final class LocationService {
     /// Backfill place names for recent items that were logged without geocoding.
     func geocodeRecentItems(modelContext: ModelContext, since cutoffDate: Date) {
         Task {
-            let descriptor = FetchDescriptor<LogItem>()
+            let descriptor = FetchDescriptor<LogItem>(
+                predicate: #Predicate<LogItem> {
+                    $0.placeName == nil &&
+                    $0.latitude != nil &&
+                    $0.longitude != nil &&
+                    $0.createdAt >= cutoffDate
+                }
+            )
 
             do {
-                let allItems = try modelContext.fetch(descriptor)
-                let itemsToGeocode = allItems.filter { item in
-                    item.placeName == nil &&
-                    item.latitude != nil &&
-                    item.longitude != nil &&
-                    item.createdAt >= cutoffDate
-                }
-
-                for item in itemsToGeocode {
+                let items = try modelContext.fetch(descriptor)
+                for item in items {
                     guard let lat = item.latitude, let lon = item.longitude else { continue }
                     let location = CLLocation(latitude: lat, longitude: lon)
                     item.placeName = await Geocoder.placeName(for: location)
-                    // Small delay to avoid rate limiting
                     try? await Task.sleep(for: .milliseconds(100))
                 }
             } catch {
