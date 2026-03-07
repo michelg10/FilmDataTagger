@@ -68,6 +68,23 @@ private struct FullInfoRow<Icon: View>: View {
 
 // MARK: - Subviews
 
+/// Isolated so that GPS updates only re-render the text, not the camera preview.
+private struct LocationInfoRow: View {
+    var viewModel: FilmLogViewModel
+
+    var body: some View {
+        FullInfoRow(
+            icon: Image(systemName: "location.fill")
+                .font(.system(size: 17, weight: .semibold, design: .default)),
+            text: viewModel.currentPlaceName ?? "Locating...",
+            subtext: viewModel.currentLocation.map {
+                String(format: "%.4f / %.4f", $0.coordinate.latitude, $0.coordinate.longitude)
+            } ?? (viewModel.currentPlaceName == "Unknown" ? "Location unavailable" : "Locating..."),
+            textSubtextPadding: 3.0
+        )
+    }
+}
+
 private struct CaptureSheetFullContent: View {
     var viewModel: FilmLogViewModel
     var lastCaptureDate: Date?
@@ -138,7 +155,7 @@ private struct CaptureSheetFullContent: View {
                     viewModel.toggleReferencePhotos()
                 }
             }
-            
+
             VStack(alignment: .leading, spacing: 10) {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     FullInfoRow(
@@ -148,15 +165,7 @@ private struct CaptureSheetFullContent: View {
                         subtext: lastCaptureDate != nil ? "since last capture" : "no captures yet"
                     )
                 }
-                FullInfoRow(
-                    icon: Image(systemName: "location.fill")
-                        .font(.system(size: 17, weight: .semibold, design: .default)),
-                    text: viewModel.currentPlaceName ?? "Locating...",
-                    subtext: viewModel.currentLocation.map {
-                        String(format: "%.4f / %.4f", $0.coordinate.latitude, $0.coordinate.longitude)
-                    } ?? (viewModel.currentPlaceName == "Unknown" ? "Location unavailable" : "Locating..."),
-                    textSubtextPadding: 3.0
-                )
+                LocationInfoRow(viewModel: viewModel)
             }
         }
         .padding(.bottom, 21)
