@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import CloudKit
 
 // MARK: - Environment
@@ -349,8 +350,15 @@ private struct ExportPage: View {
 }
 
 private struct AboutPage: View {
-    @State var showBuildNumber: Bool = false
-    
+    @State private var showBuildNumber = false
+    @Query private var cameras: [Camera]
+    @Query private var rolls: [Roll]
+    @Query private var exposures: [LogItem]
+    // TODO: count InstantFilmGroups once instant film is wired up
+
+    private static let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+    private static let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+
     var body: some View {
         SettingsFullScreenDetailPage(title: "About") {
             VStack(alignment: .center, spacing: 0) {
@@ -359,10 +367,10 @@ private struct AboutPage: View {
                     .frame(width: 130, height: 130)
                     .clipShape(RoundedRectangle(cornerRadius: 32))
                     .padding(.bottom, 32)
-                
-                let versionString = Text("1.0.0").foregroundStyle(Color.white.opacity(0.5))
-                let buildNumber = Text("b.14").foregroundStyle(Color.white.opacity(0.5)).fontDesign(.monospaced)
-                Text("Sprokbook \(showBuildNumber ? buildNumber : versionString)")
+
+                let versionText = Text(Self.version).foregroundStyle(Color.white.opacity(0.5))
+                let buildText = Text("b.\(Self.build)").foregroundStyle(Color.white.opacity(0.5)).fontDesign(.monospaced)
+                Text("Sprokbook \(showBuildNumber ? buildText : versionText)")
                     .font(.system(size: 28, weight: .bold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
@@ -373,9 +381,9 @@ private struct AboutPage: View {
                     }
                     .padding(.bottom, 32)
                 VStack(spacing: 14) {
-                    Text("\(15)\(Text(" cameras").foregroundStyle(Color.white.opacity(0.5)))")
-                    Text("\(200)\(Text(" rolls").foregroundStyle(Color.white.opacity(0.5)))")
-                    Text("\(5329)\(Text(" exposures").foregroundStyle(Color.white.opacity(0.5)))")
+                    Text("\(cameras.count)\(Text(" camera\(cameras.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5)))")
+                    Text("\(rolls.count)\(Text(" roll\(rolls.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5)))")
+                    Text("\(exposures.count)\(Text(" exposure\(exposures.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5)))")
                 }.foregroundStyle(Color.white)
                 .font(.system(size: 20, weight: .semibold, design: .default))
                 .fontWidth(.expanded)
