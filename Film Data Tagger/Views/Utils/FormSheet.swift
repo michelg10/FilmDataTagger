@@ -70,6 +70,8 @@ struct FormTextFieldStyle: TextFieldStyle {
         configuration
             .foregroundStyle(Color.white.opacity(0.95))
             .font(.system(size: 17, weight: .semibold, design: .default))
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.words)
             .focused($isFocused)
             .padding(.horizontal, 16)
             .frame(height: 44)
