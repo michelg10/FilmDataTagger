@@ -161,7 +161,7 @@ struct RollListView: View {
         ZStack {
             if !rolls.isEmpty {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
+                    LazyVStack(alignment: .leading, spacing: 0) {
                         // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
                         if let activeRoll {
                             VStack(alignment: .leading, spacing: 0) {
