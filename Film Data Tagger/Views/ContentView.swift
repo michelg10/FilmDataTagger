@@ -174,6 +174,7 @@ struct ContentView: View {
     @State private var pendingCameraNavigation: UUID?
     @State private var pendingRollNavigation = false
     @State private var selectedCamera: Camera?
+    @State private var showSettings = false
 
     init(viewModel: FilmLogViewModel) {
         self.viewModel = viewModel
@@ -256,7 +257,7 @@ struct ContentView: View {
                 if !isOnExposureList {
                     // Settings button
                     Button {
-                        // TODO: settings
+                        showSettings = true
                     } label: {
                         Image(systemName: "gearshape.fill")
                             .font(.system(size: 24, weight: .bold, design: .default))
@@ -298,6 +299,9 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showSettings) {
+            SettingsSheet(viewModel: viewModel)
+        }
     }
 }
 
