@@ -42,8 +42,11 @@ final class LogItem {
     /// When true, this item is a placeholder with no captured metadata
     var isPlaceholder: Bool = false
 
-    /// Reference photo captured at time of logging (JPEG data, stored externally by SwiftData)
+    /// Reference photo captured at time of logging (HEIC data, stored externally by SwiftData)
     @Attribute(.externalStorage) var photoData: Data?
+
+    /// Small thumbnail for list display (~120px HEIC, inline in the database)
+    var thumbnailData: Data?
 
     init(roll: Roll) {
         self.id = UUID()

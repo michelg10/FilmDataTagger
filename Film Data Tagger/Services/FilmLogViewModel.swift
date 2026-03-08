@@ -178,42 +178,73 @@ final class FilmLogViewModel {
 
     // MARK: - Logging
 
+    private var pendingCaptures = 0
+    private var isCapturing = false
+
     func logExposure() async {
-        let roll: Roll
-        if isInstantFilmMode {
-            guard let subCamera = activeInstantFilmCamera else { return }
-            roll = activePackForSubCamera(subCamera)
-        } else {
-            guard let openRoll else { return }
-            activateRollIfNeeded(openRoll)
-            roll = openRoll
-        }
+        pendingCaptures += 1
+        guard !isCapturing else { return }
+        isCapturing = true
 
-        let item = LogItem(roll: roll)
+        // Collect data once — shared across all pending taps
         let location = settings.locationEnabled ? locationService.currentLocation : nil
-
-        if let location {
-            item.setLocation(location)
-            item.placeName = locationService.currentPlaceName
-        }
-
-        // Capture reference photo before inserting so the item appears complete
-        if referencePhotosEnabled {
-            item.photoData = await cameraManager.capturePhoto(
+        let placeName = settings.locationEnabled ? locationService.currentPlaceName : nil
+        let photoData: Data? = if referencePhotosEnabled {
+            await cameraManager.capturePhoto(
                 maxDimension: settings.photoQuality.maxDimension,
                 compressionQuality: settings.photoQuality.compressionQuality
             )
+        } else {
+            nil
         }
 
-        modelContext.insert(item)
-        roll.logItems = (roll.logItems ?? []) + [item]
-        roll.lastExposureDate = item.createdAt
-        logItems.append(item)
+        // Generate thumbnail off-main, pre-cache for each item in the loop
+        let thumbnailData: Data? = if let photoData {
+            await Task.detached { CameraManager.generateThumbnail(from: photoData) }.value
+        } else {
+            nil
+        }
 
-        // If we don't have a geocode yet, do it in the background
-        if item.placeName == nil, let location = location {
-            Task {
-                item.placeName = await Geocoder.placeName(for: location)
+        // Drain the counter — any taps during the await are included
+        let count = pendingCaptures
+        pendingCaptures = 0
+        isCapturing = false
+
+        for _ in 0..<count {
+            let roll: Roll
+            if isInstantFilmMode {
+                guard let subCamera = activeInstantFilmCamera else { continue }
+                roll = activePackForSubCamera(subCamera)
+            } else {
+                guard let openRoll else { return }
+                activateRollIfNeeded(openRoll)
+                roll = openRoll
+            }
+
+            let item = LogItem(roll: roll)
+            item.photoData = photoData
+            item.thumbnailData = thumbnailData
+
+            if let location {
+                item.setLocation(location)
+                item.placeName = placeName
+            }
+
+            // Pre-cache so the row displays without decoding
+            if let thumbnailData {
+                ImageCache.shared.preload(for: item.id, data: thumbnailData)
+            }
+
+            modelContext.insert(item)
+            roll.logItems = (roll.logItems ?? []) + [item]
+            roll.lastExposureDate = item.createdAt
+            logItems.append(item)
+
+            // If we don't have a geocode yet, do it in the background
+            if item.placeName == nil, let location {
+                Task {
+                    item.placeName = await Geocoder.placeName(for: location)
+                }
             }
         }
     }

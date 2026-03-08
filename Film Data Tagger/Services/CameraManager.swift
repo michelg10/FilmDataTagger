@@ -173,22 +173,64 @@ final class CameraManager: NSObject {
         return Self.resized(data, maxDimension: maxDimension, quality: compressionQuality)
     }
 
-    private static func resized(_ data: Data, maxDimension: CGFloat, quality: CGFloat) -> Data? {
-        guard let image = UIImage(data: data) else { return data }
-        let size = image.size
-        let scale = min(maxDimension / max(size.width, size.height), 1.0)
-        guard scale < 1.0 else { return data }
-        let newSize = CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
-        let renderer = UIGraphicsImageRenderer(size: newSize)
-        let resizedImage = renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: newSize))
-        }
-        guard let cgImage = resizedImage.cgImage else { return data }
+    nonisolated private static func resized(_ data: Data, maxDimension: CGFloat, quality: CGFloat) -> Data? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                  kCGImageSourceThumbnailMaxPixelSize: maxDimension,
+                  kCGImageSourceCreateThumbnailFromImageAlways: true,
+                  kCGImageSourceCreateThumbnailWithTransform: true,
+              ] as CFDictionary) else { return data }
+
+        guard let opaqueImage = stripAlpha(thumbnail) else { return data }
+
         let heifData = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(heifData, "public.heic" as CFString, 1, nil) else { return data }
-        CGImageDestinationAddImage(dest, cgImage, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+        CGImageDestinationAddImage(dest, opaqueImage, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
         CGImageDestinationFinalize(dest)
         return heifData as Data
+    }
+
+    /// Generate a 180×180 square JPEG thumbnail (scale-to-fill + center crop).
+    nonisolated static func generateThumbnail(from data: Data, size: Int = 180) -> Data? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let fullW = properties[kCGImagePropertyPixelWidth] as? Int,
+              let fullH = properties[kCGImagePropertyPixelHeight] as? Int,
+              fullW > 0, fullH > 0 else { return nil }
+
+        // Decode so the short edge == size (scale-to-fill)
+        let shortEdge = min(fullW, fullH)
+        let longEdge = max(fullW, fullH)
+        let maxPixelSize = Int(ceil(Double(longEdge) * Double(size) / Double(shortEdge)))
+
+        guard let decoded = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                  kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+                  kCGImageSourceCreateThumbnailFromImageAlways: true,
+                  kCGImageSourceCreateThumbnailWithTransform: true,
+              ] as CFDictionary) else { return nil }
+
+        // Center crop to square
+        let w = decoded.width, h = decoded.height
+        let cropRect = if w > h {
+            CGRect(x: (w - h) / 2, y: 0, width: h, height: h)
+        } else {
+            CGRect(x: 0, y: (h - w) / 2, width: w, height: w)
+        }
+        guard let cropped = decoded.cropping(to: cropRect),
+              let opaque = stripAlpha(cropped) else { return nil }
+        return UIImage(cgImage: opaque).jpegData(compressionQuality: 0.7)
+    }
+
+    /// Re-draw a CGImage without alpha channel.
+    nonisolated private static func stripAlpha(_ image: CGImage) -> CGImage? {
+        guard let ctx = CGContext(
+            data: nil, width: image.width, height: image.height,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
+        ) else { return nil }
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return ctx.makeImage()
     }
 }
 
