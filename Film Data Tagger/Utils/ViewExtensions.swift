@@ -7,7 +7,18 @@
 
 import SwiftUI
 
-let sheetScaleCompensationFactor = UIScreen.main.bounds.width / (UIScreen.main.bounds.width - 16)
+extension UIScreen {
+    static var currentWidth: CGFloat {
+        (UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?
+            .screen
+            .bounds
+            .width) ?? 0
+    }
+}
+
+let sheetScaleCompensationFactor = UIScreen.currentWidth / (UIScreen.currentWidth - 16)
 
 let aboveSheetShadowOpacity: Double = 0.2
 let aboveSheetShadowRadius: CGFloat = 16

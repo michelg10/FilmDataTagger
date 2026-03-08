@@ -319,7 +319,7 @@ struct RollListView: View {
                             .font(.system(size: 13, weight: .semibold, design: .default))
                             .fontWidth(.expanded)
                     }
-                }.frame(width: UIScreen.main.bounds.width - 32, height: 44, alignment: .leading)
+                }.frame(width: UIScreen.currentWidth - 32, height: 44, alignment: .leading)
             }
         }
     }

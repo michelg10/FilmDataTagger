@@ -259,7 +259,7 @@ private struct CaptureButton: View {
 // MARK: - CaptureSheet
 
 struct CaptureSheet: View {
-    private static let referencePhotoSize = (143.0 / 347.0) * (UIScreen.main.bounds.width - 2 * (15 + 8))
+    private static let referencePhotoSize = (143.0 / 347.0) * (UIScreen.currentWidth - 2 * (15 + 8))
     private static let handleAreaHeight: CGFloat = 15
     static let compactHeight: CGFloat = 147
     static let fullHeight: CGFloat = 110 + 25 + referencePhotoSize

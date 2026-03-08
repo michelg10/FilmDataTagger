@@ -197,7 +197,7 @@ private struct SettingsDetailPage<Content: View>: View {
                         .padding(.top, 3)
                     Spacer()
                     DismissButton()
-                }.frame(width: UIScreen.main.bounds.width - 32, height: 44, alignment: .leading)
+                }.frame(width: UIScreen.currentWidth - 32, height: 44, alignment: .leading)
             }
         }
     }
@@ -225,7 +225,7 @@ private struct SettingsFullScreenDetailPage<Content: View>: View {
                             .padding(.top, 3)
                         Spacer()
                         DismissButton()
-                    }.frame(width: UIScreen.main.bounds.width - 32, height: 44, alignment: .leading)
+                    }.frame(width: UIScreen.currentWidth - 32, height: 44, alignment: .leading)
                 }
             }
     }
@@ -451,13 +451,15 @@ struct SettingsSheet: View {
                             .padding(.leading, 20)
                         Spacer()
                         DismissButton()
-                    }.frame(width: UIScreen.main.bounds.width - 32, height: 44)
+                    }.frame(width: UIScreen.currentWidth - 32, height: 44)
                 }
             }
         }
         .environment(\.dismissSheet, { dismiss() })
         .background(Color(hex: 0x121212))
         .navigationBarBackButtonHidden()
+        .onChange(of: settings.preferredCamera) { viewModel.cameraManager.reconfigure() }
+        .onChange(of: settings.photoQuality) { viewModel.cameraManager.reconfigure() }
         .alert("Reset all settings?", isPresented: $showResetAlert) {
             Button("Reset", role: .destructive) {
                 // TODO: implement reset

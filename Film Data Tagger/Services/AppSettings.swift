@@ -48,6 +48,34 @@ enum PhotoQuality: String, CaseIterable {
         case .maximum: "Capture reference photos at the highest available quality. This may reduce performance and significantly increase storage use."
         }
     }
+
+    /// Maximum dimension (width or height) for the resized photo.
+    var maxDimension: CGFloat? {
+        switch self {
+        case .low: 360
+        case .medium: 720
+        case .high: 1440
+        case .maximum: nil
+        }
+    }
+
+    var compressionQuality: CGFloat {
+        switch self {
+        case .low: 0.6
+        case .medium: 0.7
+        case .high: 0.85
+        case .maximum: 0.95 // Not used; native HEIF output is stored as-is
+        }
+    }
+
+    /// Session preset matching the quality level.
+    var sessionPreset: AVCaptureSession.Preset {
+        switch self {
+        case .low: .vga640x480
+        case .medium: .hd1280x720
+        case .high, .maximum: .photo
+        }
+    }
 }
 
 enum PreferredCamera: String, CaseIterable {
@@ -193,8 +221,15 @@ final class AppSettings {
             .flatMap(ReferencePhotoStartup.init) ?? .preserveLast
         photoQuality = d.string(forKey: Keys.photoQuality)
             .flatMap(PhotoQuality.init) ?? .high
-        preferredCamera = d.string(forKey: Keys.preferredCamera)
-            .flatMap(PreferredCamera.init) ?? .ultraWide
+        let savedCamera = d.string(forKey: Keys.preferredCamera).flatMap(PreferredCamera.init)
+        let available = PreferredCamera.available
+        preferredCamera = if let savedCamera, available.contains(savedCamera) {
+            savedCamera
+        } else if available.contains(.ultraWide) {
+            .ultraWide
+        } else {
+            available.first ?? .wide
+        }
         locationEnabled = d.object(forKey: Keys.locationEnabled) == nil
             ? true : d.bool(forKey: Keys.locationEnabled)
         locationAccuracy = d.string(forKey: Keys.locationAccuracy)

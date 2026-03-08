@@ -162,7 +162,7 @@ struct InstantFilmInfoSheet: View {
 
     private static var textHeight: CGFloat {
         let horizontalPadding: CGFloat = (15 + 8) * 2 + 8 + 6 // FormSheet padding + leading/trailing
-        let width = UIScreen.main.bounds.width - horizontalPadding
+        let width = UIScreen.currentWidth - horizontalPadding
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.lineSpacing = infoLineSpacing
         let boundingRect = NSAttributedString(

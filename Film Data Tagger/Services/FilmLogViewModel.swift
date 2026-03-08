@@ -68,6 +68,11 @@ final class FilmLogViewModel {
     // MARK: - Setup
 
     func setup() {
+        switch settings.referencePhotoStartup {
+        case .preserveLast: break
+        case .on: referencePhotosEnabled = true
+        case .off: referencePhotosEnabled = false
+        }
         locationService.setup()
         loadOrCreateActiveRoll()
         let cutoffDate = min(
@@ -196,7 +201,10 @@ final class FilmLogViewModel {
 
         // Capture reference photo before inserting so the item appears complete
         if referencePhotosEnabled {
-            item.photoData = await cameraManager.capturePhoto()
+            item.photoData = await cameraManager.capturePhoto(
+                maxDimension: settings.photoQuality.maxDimension,
+                compressionQuality: settings.photoQuality.compressionQuality
+            )
         }
 
         modelContext.insert(item)

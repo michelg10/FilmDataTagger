@@ -178,7 +178,7 @@ private struct CameraSwitcherMenu: View {
                     .foregroundStyle(Color(hex: 0xAAAAAA))
             }.padding(.vertical, 2)
             .frame(height: 44, alignment: .leading)
-            .frame(minWidth: 250, maxWidth: UIScreen.main.bounds.width - 32 - 44 - 12, alignment: .leading)
+            .frame(minWidth: 250, maxWidth: UIScreen.currentWidth - 32 - 44 - 12, alignment: .leading)
             .contentShape(Rectangle())
         }
     }
@@ -341,7 +341,7 @@ struct ExposureListView: View {
                         onCameraSelected: onCameraSelected
                     )
                 }
-                .frame(width: UIScreen.main.bounds.width - 32, height: 44, alignment: .leading)
+                .frame(width: UIScreen.currentWidth - 32, height: 44, alignment: .leading)
             }
         }
         .preferredColorScheme(.dark)

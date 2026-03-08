@@ -7,6 +7,7 @@
 
 @preconcurrency import AVFoundation
 import UIKit
+import ImageIO
 
 @Observable @MainActor
 final class CameraManager: NSObject {
@@ -14,7 +15,8 @@ final class CameraManager: NSObject {
     nonisolated(unsafe) let session = AVCaptureSession()
     nonisolated(unsafe) private let output = AVCapturePhotoOutput()
     private let sessionQueue = DispatchQueue(label: "camera.session")
-    private var isConfigured = false
+    // Only accessed from sessionQueue — serial queue provides synchronization.
+    nonisolated(unsafe) private var isConfigured = false
     private var photoContinuation: CheckedContinuation<Data?, Never>?
     private var stopTimer: Task<Void, Never>?
     private var _previewView: CameraPreviewUIView?
@@ -44,10 +46,14 @@ final class CameraManager: NSObject {
     func start() {
         stopTimer?.cancel()
         stopTimer = nil
+        let camera = AppSettings.shared.preferredCamera
+        let deviceType = camera.deviceType
+        let position = camera.position
+        let preset = AppSettings.shared.photoQuality.sessionPreset
         sessionQueue.async {
             if !self.isConfigured {
                 self.isConfigured = true
-                self.configureSession()
+                self.configureSession(deviceType: deviceType, position: position, preset: preset)
             }
             if !self.session.isRunning {
                 self.session.startRunning()
@@ -78,13 +84,16 @@ final class CameraManager: NSObject {
         }
     }
 
-    private nonisolated func configureSession() {
+    private nonisolated func configureSession(
+        deviceType: AVCaptureDevice.DeviceType,
+        position: AVCaptureDevice.Position,
+        preset: AVCaptureSession.Preset
+    ) {
         session.beginConfiguration()
-        session.sessionPreset = .photo
+        session.sessionPreset = preset
 
-        // Prefer ultra-wide, fall back to wide, then default
         let device: AVCaptureDevice? =
-            AVCaptureDevice.default(.builtInUltraWideCamera, for: .video, position: .back)
+            AVCaptureDevice.default(deviceType, for: .video, position: position)
             ?? AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
             ?? AVCaptureDevice.default(for: .video)
 
@@ -105,19 +114,81 @@ final class CameraManager: NSObject {
         session.commitConfiguration()
     }
 
-    func capturePhoto() async -> Data? {
+    /// Re-read preferred camera and quality from AppSettings and reconfigure the session.
+    func reconfigure() {
+        let camera = AppSettings.shared.preferredCamera
+        let deviceType = camera.deviceType
+        let position = camera.position
+        let preset = AppSettings.shared.photoQuality.sessionPreset
+        sessionQueue.async {
+            guard self.isConfigured else { return }
+
+            self.session.beginConfiguration()
+
+            // Update preset
+            if self.session.canSetSessionPreset(preset) {
+                self.session.sessionPreset = preset
+            }
+
+            // Swap camera input
+            let newDevice =
+                AVCaptureDevice.default(deviceType, for: .video, position: position)
+                ?? AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
+                ?? AVCaptureDevice.default(for: .video)
+
+            if let newDevice, let newInput = try? AVCaptureDeviceInput(device: newDevice) {
+                // Remove existing input
+                for input in self.session.inputs {
+                    self.session.removeInput(input)
+                }
+                if self.session.canAddInput(newInput) {
+                    self.session.addInput(newInput)
+                }
+            }
+
+            self.session.commitConfiguration()
+        }
+    }
+
+    func capturePhoto(maxDimension: CGFloat? = nil, compressionQuality: CGFloat = 0.8) async -> Data? {
         guard session.isRunning, output.connection(with: .video)?.isActive == true else {
             return nil
         }
 
-        return await withCheckedContinuation { continuation in
+        let data: Data? = await withCheckedContinuation { continuation in
             self.photoContinuation = continuation
 
-            let settings = AVCapturePhotoSettings()
-            settings.photoQualityPrioritization = .speed
+            let photoSettings: AVCapturePhotoSettings
+            if self.output.availablePhotoCodecTypes.contains(.hevc) {
+                photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
+            } else {
+                photoSettings = AVCapturePhotoSettings()
+            }
+            photoSettings.photoQualityPrioritization = .speed
 
-            self.output.capturePhoto(with: settings, delegate: self)
+            self.output.capturePhoto(with: photoSettings, delegate: self)
         }
+
+        guard let data, let maxDimension else { return data }
+        return Self.resized(data, maxDimension: maxDimension, quality: compressionQuality)
+    }
+
+    private static func resized(_ data: Data, maxDimension: CGFloat, quality: CGFloat) -> Data? {
+        guard let image = UIImage(data: data) else { return data }
+        let size = image.size
+        let scale = min(maxDimension / max(size.width, size.height), 1.0)
+        guard scale < 1.0 else { return data }
+        let newSize = CGSize(width: (size.width * scale).rounded(), height: (size.height * scale).rounded())
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        let resizedImage = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+        guard let cgImage = resizedImage.cgImage else { return data }
+        let heifData = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(heifData, "public.heic" as CFString, 1, nil) else { return data }
+        CGImageDestinationAddImage(dest, cgImage, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+        CGImageDestinationFinalize(dest)
+        return heifData as Data
     }
 }
 
