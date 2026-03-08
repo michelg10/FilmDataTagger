@@ -71,15 +71,18 @@ private struct FullInfoRow<Icon: View>: View {
 /// Isolated so that GPS updates only re-render the text, not the camera preview.
 private struct LocationInfoRow: View {
     let viewModel: FilmLogViewModel
+    private var locationEnabled: Bool { AppSettings.shared.locationEnabled }
 
     var body: some View {
         FullInfoRow(
             icon: Image(systemName: "location.fill")
                 .font(.system(size: 17, weight: .semibold, design: .default)),
-            text: viewModel.currentPlaceName ?? "Locating...",
-            subtext: viewModel.currentLocation.map {
-                String(format: "%.4f / %.4f", $0.coordinate.latitude, $0.coordinate.longitude)
-            } ?? (viewModel.currentPlaceName == "Unknown" ? "Location unavailable" : "Locating..."),
+            text: locationEnabled ? (viewModel.currentPlaceName ?? "Locating...") : "Disabled",
+            subtext: locationEnabled
+                ? (viewModel.currentLocation.map {
+                    String(format: "%.4f / %.4f", $0.coordinate.latitude, $0.coordinate.longitude)
+                } ?? (viewModel.currentPlaceName == "Unknown" ? "Location unavailable" : "Locating..."))
+                : "",
             textSubtextPadding: 3.0
         )
     }
@@ -178,6 +181,7 @@ private struct CaptureSheetCompactContent: View {
     let referencePhotosEnabled: Bool
     let cameraUnavailable: Bool
     let permissionDenied: Bool
+    let locationEnabled: Bool
     let currentPlaceName: String?
     let lastCaptureDate: Date?
     let onEyeTapped: (() -> Void)?
@@ -214,7 +218,7 @@ private struct CaptureSheetCompactContent: View {
             CompactInfoRow(
                 icon: Image(systemName: "location.fill")
                     .font(.system(size: 15, weight: .semibold, design: .default)),
-                text: currentPlaceName ?? "Locating..."
+                text: locationEnabled ? (currentPlaceName ?? "Locating...") : "Disabled"
             ).padding(.trailing, 15)
             .padding(.vertical, 4)
         }.padding(.horizontal, 27 - 15)
@@ -352,6 +356,7 @@ struct CaptureSheet: View {
                         referencePhotosEnabled: viewModel.referencePhotosEnabled,
                         cameraUnavailable: viewModel.cameraManager.cameraUnavailable,
                         permissionDenied: viewModel.cameraManager.permissionDenied,
+                        locationEnabled: AppSettings.shared.locationEnabled,
                         currentPlaceName: viewModel.currentPlaceName,
                         lastCaptureDate: lastCaptureDate,
                         onEyeTapped: {

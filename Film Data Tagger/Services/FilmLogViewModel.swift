@@ -190,14 +190,12 @@ final class FilmLogViewModel {
         }
 
         let item = LogItem(roll: roll)
-        let location = locationService.currentLocation
+        let location = settings.locationEnabled ? locationService.currentLocation : nil
 
-        if let location = location {
+        if let location {
             item.setLocation(location)
+            item.placeName = locationService.currentPlaceName
         }
-
-        // Use the pre-computed place name for instant display
-        item.placeName = locationService.currentPlaceName
 
         // Capture reference photo before inserting so the item appears complete
         if referencePhotosEnabled {

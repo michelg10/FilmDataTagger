@@ -18,11 +18,26 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
     override init() {
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+        manager.desiredAccuracy = AppSettings.shared.locationAccuracy.clAccuracy
     }
 
     func requestPermission() {
         manager.requestWhenInUseAuthorization()
+    }
+
+    func updateAccuracy(_ accuracy: CLLocationAccuracy) {
+        manager.desiredAccuracy = accuracy
+    }
+
+    func stopUpdating() {
+        manager.stopUpdatingLocation()
+        currentLocation = nil
+    }
+
+    func startUpdating() {
+        if authorizationStatus == .authorizedWhenInUse || authorizationStatus == .authorizedAlways {
+            manager.startUpdatingLocation()
+        }
     }
 
     // MARK: - CLLocationManagerDelegate

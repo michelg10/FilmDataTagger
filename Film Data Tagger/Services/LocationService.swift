@@ -23,8 +23,27 @@ final class LocationService {
     }
 
     func setup() {
+        guard AppSettings.shared.locationEnabled else { return }
         locationManager.requestPermission()
         startLiveGeocoding()
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        if enabled {
+            locationManager.requestPermission()
+            locationManager.startUpdating()
+            startLiveGeocoding()
+        } else {
+            geocodeTask?.cancel()
+            geocodeTask = nil
+            locationManager.stopUpdating()
+            currentPlaceName = nil
+            lastGeocodedLocation = nil
+        }
+    }
+
+    func updateAccuracy(_ accuracy: CLLocationAccuracy) {
+        locationManager.updateAccuracy(accuracy)
     }
 
     /// Backfill place names for recent items that were logged without geocoding.

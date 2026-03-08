@@ -460,6 +460,8 @@ struct SettingsSheet: View {
         .navigationBarBackButtonHidden()
         .onChange(of: settings.preferredCamera) { viewModel.cameraManager.reconfigure() }
         .onChange(of: settings.photoQuality) { viewModel.cameraManager.reconfigure() }
+        .onChange(of: settings.locationEnabled) { viewModel.locationService.setEnabled(settings.locationEnabled) }
+        .onChange(of: settings.locationAccuracy) { viewModel.locationService.updateAccuracy(settings.locationAccuracy.clAccuracy) }
         .alert("Reset all settings?", isPresented: $showResetAlert) {
             Button("Reset", role: .destructive) {
                 // TODO: implement reset
