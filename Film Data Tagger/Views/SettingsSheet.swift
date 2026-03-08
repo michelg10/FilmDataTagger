@@ -96,6 +96,7 @@ private struct SettingsSeparator: View {
 
 private struct SettingsSection<Content: View>: View {
     var header: String? = nil
+    var caption: String? = nil
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -113,6 +114,15 @@ private struct SettingsSection<Content: View>: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: 26))
             .background(RoundedRectangle(cornerRadius: 26).foregroundStyle(Color(hex: 0x1D1D1D)))
+            if let caption {
+                Text(caption)
+                    .font(.system(size: 13, weight: .regular, design: .default))
+                    .foregroundStyle(Color.white.opacity(0.35))
+                    .lineHeight(.exact(points: 16))
+                    .multilineTextAlignment(.leading)
+                    .padding(.top, 12)
+                    .padding(.horizontal, 20)
+            }
         }.padding(.bottom, 36)
     }
 }
@@ -126,6 +136,7 @@ private struct SettingsDetailPage<Content: View>: View {
             VStack(alignment: .leading, spacing: 0) {
                 content
             }.padding(.horizontal, 16)
+            .offset(y: -32)
         }
         .background(Color(hex: 0x121212))
         .navigationBarBackButtonHidden()
@@ -138,6 +149,7 @@ private struct SettingsDetailPage<Content: View>: View {
                         .font(.system(size: 18, weight: .bold, design: .default))
                         .fontWidth(.expanded)
                         .foregroundStyle(Color.white)
+                        .padding(.top, 3)
                     Spacer()
                     DismissButton()
                 }.frame(width: UIScreen.main.bounds.width - 32, height: 44, alignment: .leading)
@@ -152,7 +164,7 @@ private struct DismissButton: View {
     var body: some View {
         Button { dismissSheet?() } label: {
             Image(systemName: "xmark")
-                .font(.system(size: 20, weight: .semibold, design: .default))
+                .font(.system(size: 16, weight: .bold, design: .default))
                 .foregroundStyle(Color.white.opacity(0.95))
         }
         .frame(width: 44, height: 44)
@@ -188,7 +200,7 @@ private struct ReferencePhotoPage: View {
                     SettingsOptionRow(text: option.label, value: option, selection: $settings.referencePhotoStartup)
                 }
             }
-            SettingsSection(header: "Photo quality") {
+            SettingsSection(header: "Quality", caption: settings.photoQuality.caption) {
                 ForEach(PhotoQuality.allCases, id: \.self) { option in
                     if option != .low { SettingsSeparator() }
                     SettingsOptionRow(text: option.label, value: option, selection: $settings.photoQuality)
@@ -217,7 +229,7 @@ private struct LocationPage: View {
                         .toggleStyle(.switch)
                 }
             }
-            SettingsSection(header: "Accuracy") {
+            SettingsSection(header: "Accuracy", caption: settings.locationAccuracy.caption) {
                 ForEach(LocationAccuracy.allCases, id: \.self) { option in
                     if option != .low { SettingsSeparator() }
                     SettingsOptionRow(text: option.label, value: option, selection: $settings.locationAccuracy)
@@ -306,6 +318,7 @@ struct SettingsSheet: View {
                         }.buttonStyle(.plain)
                     }
                 }.padding(.horizontal, 16)
+                .offset(y: -38)
             }.toolbar {
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 0) {

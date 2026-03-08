@@ -35,8 +35,17 @@ enum PhotoQuality: String, CaseIterable {
         switch self {
         case .low: "Low"
         case .medium: "Medium"
-        case .high: "High"
+        case .high: "High (Recommended)"
         case .maximum: "Maximum"
+        }
+    }
+
+    var caption: String {
+        switch self {
+        case .low: "Capture reference photos up to 360p. Lower quality may improve performance and reduce storage use."
+        case .medium: "Capture reference photos up to 720p. Lower quality may improve performance and reduce storage use."
+        case .high: "Capture reference photos up to 1440p. Higher quality may reduce performance and increase storage use."
+        case .maximum: "Capture reference photos at the highest available quality. This may reduce performance and significantly increase storage use."
         }
     }
 }
@@ -91,6 +100,15 @@ enum LocationAccuracy: String, CaseIterable {
         }
     }
 
+    var caption: String {
+        switch self {
+        case .low: "Record location at up to 1000 meter accuracy. Lower accuracy may improve battery life."
+        case .medium: "Record location at up to 100 meter accuracy. Lower accuracy may improve battery life."
+        case .high: "Record location at up to 10 meter accuracy. Higher accuracy may reduce battery life."
+        case .maximum: "Record location at the highest possible accuracy. This may significantly reduce battery life."
+        }
+    }
+
     var clAccuracy: CLLocationAccuracy {
         switch self {
         case .low: kCLLocationAccuracyKilometer
@@ -107,87 +125,83 @@ final class AppSettings {
 
     // MARK: - Active state
 
-    /// The currently open (viewed) roll ID (regular camera mode).
     var openRollId: UUID? {
-        get { uuid(forKey: Keys.openRollId) }
-        set { setUUID(newValue, forKey: Keys.openRollId) }
+        didSet { defaults.set(openRollId?.uuidString, forKey: Keys.openRollId) }
     }
 
-    /// The currently selected camera ID (used when no roll is open).
     var openCameraId: UUID? {
-        get { uuid(forKey: Keys.openCameraId) }
-        set { setUUID(newValue, forKey: Keys.openCameraId) }
+        didSet { defaults.set(openCameraId?.uuidString, forKey: Keys.openCameraId) }
     }
 
-    /// The currently active instant film group ID.
     var activeInstantFilmGroupId: UUID? {
-        get { uuid(forKey: Keys.activeInstantFilmGroupId) }
-        set { setUUID(newValue, forKey: Keys.activeInstantFilmGroupId) }
+        didSet { defaults.set(activeInstantFilmGroupId?.uuidString, forKey: Keys.activeInstantFilmGroupId) }
     }
 
-    /// The currently active instant film camera ID.
     var activeInstantFilmCameraId: UUID? {
-        get { uuid(forKey: Keys.activeInstantFilmCameraId) }
-        set { setUUID(newValue, forKey: Keys.activeInstantFilmCameraId) }
+        didSet { defaults.set(activeInstantFilmCameraId?.uuidString, forKey: Keys.activeInstantFilmCameraId) }
     }
 
     // MARK: - Preferences
 
-    /// Whether reference photos are captured with each exposure.
     var referencePhotosEnabled: Bool {
-        get {
-            defaults.object(forKey: Keys.referencePhotosEnabled) == nil
-                ? true
-                : defaults.bool(forKey: Keys.referencePhotosEnabled)
-        }
-        set { defaults.set(newValue, forKey: Keys.referencePhotosEnabled) }
+        didSet { defaults.set(referencePhotosEnabled, forKey: Keys.referencePhotosEnabled) }
     }
 
     var referencePhotoStartup: ReferencePhotoStartup {
-        get { enumValue(forKey: Keys.referencePhotoStartup) ?? .preserveLast }
-        set { defaults.set(newValue.rawValue, forKey: Keys.referencePhotoStartup) }
+        didSet { defaults.set(referencePhotoStartup.rawValue, forKey: Keys.referencePhotoStartup) }
     }
 
     var photoQuality: PhotoQuality {
-        get { enumValue(forKey: Keys.photoQuality) ?? .high }
-        set { defaults.set(newValue.rawValue, forKey: Keys.photoQuality) }
+        didSet { defaults.set(photoQuality.rawValue, forKey: Keys.photoQuality) }
     }
 
     var preferredCamera: PreferredCamera {
-        get { enumValue(forKey: Keys.preferredCamera) ?? .ultraWide }
-        set { defaults.set(newValue.rawValue, forKey: Keys.preferredCamera) }
+        didSet { defaults.set(preferredCamera.rawValue, forKey: Keys.preferredCamera) }
     }
 
     var locationEnabled: Bool {
-        get {
-            defaults.object(forKey: Keys.locationEnabled) == nil
-                ? true
-                : defaults.bool(forKey: Keys.locationEnabled)
-        }
-        set { defaults.set(newValue, forKey: Keys.locationEnabled) }
+        didSet { defaults.set(locationEnabled, forKey: Keys.locationEnabled) }
     }
 
     var locationAccuracy: LocationAccuracy {
-        get { enumValue(forKey: Keys.locationAccuracy) ?? .high }
-        set { defaults.set(newValue.rawValue, forKey: Keys.locationAccuracy) }
+        didSet { defaults.set(locationAccuracy.rawValue, forKey: Keys.locationAccuracy) }
     }
 
     var reduceHaptics: Bool {
-        get { defaults.bool(forKey: Keys.reduceHaptics) }
-        set { defaults.set(newValue, forKey: Keys.reduceHaptics) }
+        didSet { defaults.set(reduceHaptics, forKey: Keys.reduceHaptics) }
     }
 
-    /// The last time the app was launched (used for geocoding cutoff).
     var lastAppLaunchDate: Date? {
-        get { defaults.object(forKey: Keys.lastAppLaunchDate) as? Date }
-        set { defaults.set(newValue, forKey: Keys.lastAppLaunchDate) }
+        didSet { defaults.set(lastAppLaunchDate, forKey: Keys.lastAppLaunchDate) }
     }
 
     // MARK: - Private
 
     private let defaults = UserDefaults.standard
 
-    private init() {}
+    private init() {
+        let d = UserDefaults.standard
+
+        openRollId = d.string(forKey: Keys.openRollId).flatMap(UUID.init)
+        openCameraId = d.string(forKey: Keys.openCameraId).flatMap(UUID.init)
+        activeInstantFilmGroupId = d.string(forKey: Keys.activeInstantFilmGroupId).flatMap(UUID.init)
+        activeInstantFilmCameraId = d.string(forKey: Keys.activeInstantFilmCameraId).flatMap(UUID.init)
+
+        referencePhotosEnabled = d.object(forKey: Keys.referencePhotosEnabled) == nil
+            ? true : d.bool(forKey: Keys.referencePhotosEnabled)
+        referencePhotoStartup = d.string(forKey: Keys.referencePhotoStartup)
+            .flatMap(ReferencePhotoStartup.init) ?? .preserveLast
+        photoQuality = d.string(forKey: Keys.photoQuality)
+            .flatMap(PhotoQuality.init) ?? .high
+        preferredCamera = d.string(forKey: Keys.preferredCamera)
+            .flatMap(PreferredCamera.init) ?? .ultraWide
+        locationEnabled = d.object(forKey: Keys.locationEnabled) == nil
+            ? true : d.bool(forKey: Keys.locationEnabled)
+        locationAccuracy = d.string(forKey: Keys.locationAccuracy)
+            .flatMap(LocationAccuracy.init) ?? .high
+        reduceHaptics = d.bool(forKey: Keys.reduceHaptics)
+        lastAppLaunchDate = d.object(forKey: Keys.lastAppLaunchDate) as? Date
+    }
 
     private enum Keys {
         static let openRollId = "openRollId"
@@ -202,19 +216,5 @@ final class AppSettings {
         static let locationAccuracy = "locationAccuracy"
         static let reduceHaptics = "reduceHaptics"
         static let lastAppLaunchDate = "lastAppLaunchDate"
-    }
-
-    private func uuid(forKey key: String) -> UUID? {
-        guard let str = defaults.string(forKey: key) else { return nil }
-        return UUID(uuidString: str)
-    }
-
-    private func setUUID(_ value: UUID?, forKey key: String) {
-        defaults.set(value?.uuidString, forKey: key)
-    }
-
-    private func enumValue<T: RawRepresentable>(forKey key: String) -> T? where T.RawValue == String {
-        guard let raw = defaults.string(forKey: key) else { return nil }
-        return T(rawValue: raw)
     }
 }
