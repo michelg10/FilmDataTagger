@@ -29,26 +29,41 @@ final class LocationService {
 
     /// Backfill place names for recent items that were logged without geocoding.
     func geocodeRecentItems(modelContext: ModelContext, since cutoffDate: Date) {
-        Task {
-            let descriptor = FetchDescriptor<LogItem>(
-                predicate: #Predicate<LogItem> {
-                    $0.placeName == nil &&
-                    $0.latitude != nil &&
-                    $0.longitude != nil &&
-                    $0.createdAt >= cutoffDate
-                }
-            )
+        // Fetch on main (ModelContext requires it), collect IDs + coordinates
+        let descriptor = FetchDescriptor<LogItem>(
+            predicate: #Predicate<LogItem> {
+                $0.placeName == nil &&
+                $0.latitude != nil &&
+                $0.longitude != nil &&
+                $0.createdAt >= cutoffDate
+            }
+        )
 
-            do {
-                let items = try modelContext.fetch(descriptor)
-                for item in items {
-                    guard let lat = item.latitude, let lon = item.longitude else { continue }
-                    let location = CLLocation(latitude: lat, longitude: lon)
-                    item.placeName = await Geocoder.placeName(for: location)
-                    try? await Task.sleep(for: .milliseconds(100))
+        let pending: [(UUID, CLLocation)]
+        do {
+            let items = try modelContext.fetch(descriptor)
+            pending = items.compactMap { item in
+                guard let lat = item.latitude, let lon = item.longitude else { return nil }
+                return (item.id, CLLocation(latitude: lat, longitude: lon))
+            }
+        } catch {
+            print("Failed to fetch items for geocoding: \(error)")
+            return
+        }
+
+        guard !pending.isEmpty else { return }
+
+        // Geocode off main, then hop back to assign results
+        Task.detached {
+            for (id, location) in pending {
+                let placeName = await Geocoder.placeName(for: location)
+                await MainActor.run {
+                    let lookup = FetchDescriptor<LogItem>(predicate: #Predicate { $0.id == id })
+                    if let item = try? modelContext.fetch(lookup).first {
+                        item.placeName = placeName
+                    }
                 }
-            } catch {
-                print("Failed to fetch items for geocoding: \(error)")
+                try? await Task.sleep(for: .milliseconds(100))
             }
         }
     }

@@ -79,6 +79,14 @@ final class FilmLogViewModel {
         observeRemoteChanges()
     }
 
+    /// Geocode any items from the last hour that are missing place names
+    /// (e.g. exposures logged via Shortcuts while the app was backgrounded).
+    func geocodeUngeocodedItems() {
+        let cutoff = Date().addingTimeInterval(-3600)
+        locationService.geocodeRecentItems(modelContext: modelContext, since: cutoff)
+        reloadItems()
+    }
+
     private func observeRemoteChanges() {
         remoteChangeObserver = NotificationCenter.default.addObserver(
             forName: .NSPersistentStoreRemoteChange,
