@@ -444,21 +444,6 @@ struct SettingsSheet: View {
                         SettingsSeparator()
                         SettingsNavRow(text: "About") { AboutPage() }
                     }
-                    SettingsSection {
-                        Button {
-                            showResetAlert = true
-                        } label: {
-                            HStack(spacing: 0) {
-                                Text("Reset...")
-                                    .padding(.leading, 20)
-                                    .foregroundStyle(.red)
-                                    .font(.system(size: 17, weight: .regular, design: .default))
-                                Spacer()
-                            }
-                            .frame(height: 54)
-                            .contentShape(Rectangle())
-                        }.buttonStyle(.plain)
-                    }
                 }.padding(.horizontal, 16)
                 .offset(y: -38)
             }.toolbar {
@@ -484,14 +469,6 @@ struct SettingsSheet: View {
         .onChange(of: settings.locationAccuracy) { viewModel.locationService.updateAccuracy(settings.locationAccuracy.clAccuracy) }
         .task {
             iCloudStatus = try? await CKContainer.default().accountStatus()
-        }
-        .alert("Reset all settings?", isPresented: $showResetAlert) {
-            Button("Reset", role: .destructive) {
-                // TODO: implement reset
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will restore all settings to their defaults. Your cameras, rolls, and exposures will not be affected.")
         }
     }
 
