@@ -23,7 +23,7 @@ extension EnvironmentValues {
 // MARK: - Reusable Components
 
 private struct SettingsRow<Trailing: View>: View {
-    var text: String
+    let text: String
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
@@ -41,7 +41,7 @@ private struct SettingsRow<Trailing: View>: View {
 }
 
 private struct SettingsNavRow<Destination: View>: View {
-    var text: String
+    let text: String
     @ViewBuilder var destination: Destination
 
     var body: some View {
@@ -57,6 +57,25 @@ private struct SettingsNavRow<Destination: View>: View {
     }
 }
 
+private struct SettingsActionRow: View {
+    let text: String
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 0) {
+                Text(text)
+                    .padding(.leading, 20)
+                    .foregroundStyle(color)
+                    .font(.system(size: 17, weight: .medium, design: .default))
+                Spacer(minLength: 16)
+            }.frame(height: 54)
+            .contentShape(Rectangle())
+        }.buttonStyle(SettingsButtonStyle())
+    }
+}
+
 private struct SettingsButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -65,8 +84,8 @@ private struct SettingsButtonStyle: ButtonStyle {
 }
 
 private struct SettingsOptionRow<T: Equatable>: View {
-    var text: String
-    var value: T
+    let text: String
+    let value: T
     @Binding var selection: T
 
     var body: some View {
@@ -127,8 +146,34 @@ private struct SettingsSection<Content: View>: View {
     }
 }
 
+private struct SettingsHeroSection<Icon: View>: View {
+    @ViewBuilder var icon: Icon
+    let title: String
+    let subtitle: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            icon
+                .frame(width: 64, height: 64)
+                .padding(.bottom, 20)
+            Text(title)
+                .font(.system(size: 22, weight: .bold, design: .default))
+                .fontWidth(.expanded)
+                .padding(.bottom, 8)
+            Text(subtitle)
+                .font(.system(size: 17, weight: .regular, design: .default))
+                .lineHeight(.exact(points: 23))
+                .foregroundStyle(Color.white.opacity(0.6))
+                .multilineTextAlignment(.leading)
+        }.padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 26).foregroundStyle(Color(hex: 0x222222)))
+        .padding(.bottom, 36)
+    }
+}
+
 private struct SettingsDetailPage<Content: View>: View {
-    var title: String
+    let title: String
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -243,10 +288,32 @@ private struct LocationPage: View {
 private struct ExportPage: View {
     var body: some View {
         SettingsDetailPage(title: "Export") {
+            SettingsHeroSection(
+                icon: {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.init(hex: 0x303030))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 16)
+                                    .inset(by: 2)
+                                    .stroke(Color.init(hex: 0x787878), lineWidth: 2)
+                            }
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 21, weight: .bold, design: .default))
+                            .foregroundStyle(Color.white)
+                    }
+                },
+                title: "Data export",
+                subtitle: "Export your data for backup, external programs, or spreadsheet analysis."
+            )
             SettingsSection {
-                SettingsNavRow(text: "Export as JSON") { Text("TODO") }
+                SettingsActionRow(text: "Export as JSON", color: .accentColor) {
+                    // TODO: export JSON
+                }
                 SettingsSeparator()
-                SettingsNavRow(text: "Export as CSV") { Text("TODO") }
+                SettingsActionRow(text: "Export as CSV", color: .accentColor) {
+                    // TODO: export CSV
+                }
             }
         }
     }
@@ -269,7 +336,7 @@ private struct AboutPage: View {
 // MARK: - Settings Sheet
 
 struct SettingsSheet: View {
-    var viewModel: FilmLogViewModel
+    let viewModel: FilmLogViewModel
     @Environment(\.dismiss) private var dismiss
     @Bindable private var settings = AppSettings.shared
     @State private var showResetAlert = false
