@@ -64,7 +64,7 @@ private struct FinishRollOverlay: View {
     var scrollState: ExposureScrollState
     var hasRoll: Bool
     var hasItems: Bool
-    @Binding var showNewRoll: Bool
+    var onFinishRoll: () -> Void
 
     var body: some View {
         if hasRoll && hasItems {
@@ -73,7 +73,7 @@ private struct FinishRollOverlay: View {
                 action: {
                     if scrollState.isNearBottom {
                         playHaptic(.newRollOrCamera)
-                        showNewRoll = true
+                        onFinishRoll()
                     } else {
                         scrollState.scrollToBottom?()
                     }
@@ -87,7 +87,7 @@ private struct FinishRollOverlay: View {
 struct ExposureScreen: View {
     var viewModel: FilmLogViewModel
 
-    @State private var showNewRoll = false
+    @State private var newRollCamera: Camera?
     @State private var scrollState = ExposureScrollState()
 
     private var logItems: [LogItem] { viewModel.logItems }
@@ -134,7 +134,11 @@ struct ExposureScreen: View {
                     scrollState: scrollState,
                     hasRoll: viewModel.openRoll != nil,
                     hasItems: !logItems.isEmpty,
-                    showNewRoll: $showNewRoll
+                    onFinishRoll: {
+                        if let camera = viewModel.openCamera {
+                            newRollCamera = camera
+                        }
+                    }
                 )
                 .frame(maxWidth: .infinity)
                 .offset(y: -48 - 20) // button height + spacing
@@ -144,17 +148,15 @@ struct ExposureScreen: View {
         }.ignoresSafeArea()
         .onAppear { viewModel.ensureCameraRunning() }
         .onDisappear { viewModel.scheduleCameraStop() }
-        .sheet(isPresented: $showNewRoll) {
-            if let camera = viewModel.openCamera {
-                RollFormSheet(
-                    viewModel: viewModel,
-                    camera: camera,
-                    defaultFilmStock: viewModel.openRoll?.filmStock,
-                    defaultCapacity: viewModel.openRoll?.capacity,
-                    allowSubmitWithPlaceholder: true,
-                    formIsAboveAnotherSheet: true
-                )
-            }
+        .sheet(item: $newRollCamera) { camera in
+            RollFormSheet(
+                viewModel: viewModel,
+                camera: camera,
+                defaultFilmStock: viewModel.openRoll?.filmStock,
+                defaultCapacity: viewModel.openRoll?.capacity,
+                allowSubmitWithPlaceholder: true,
+                formIsAboveAnotherSheet: true
+            )
         }
     }
 }
@@ -170,7 +172,7 @@ struct ContentView: View {
 
     @State private var path: NavigationPath
     @State private var showNewCamera = false
-    @State private var showNewRoll = false
+    @State private var newRollCamera: Camera?
     @State private var pendingCameraNavigation: UUID?
     @State private var pendingRollNavigation = false
     @State private var selectedCamera: Camera?
@@ -226,9 +228,9 @@ struct ContentView: View {
                     // Add button
                     Button {
                         playHaptic(.newRollOrCamera)
-                        if isOnRollList {
-                            showNewRoll = true
-                        } else {
+                        if isOnRollList, let camera = selectedCamera ?? viewModel.openCamera {
+                            newRollCamera = camera
+                        } else if !isOnRollList {
                             showNewCamera = true
                         }
                     } label: {
@@ -286,17 +288,15 @@ struct ContentView: View {
                 pendingCameraNavigation = id
             })
         }
-        .sheet(isPresented: $showNewRoll, onDismiss: {
+        .sheet(item: $newRollCamera, onDismiss: {
             if pendingRollNavigation {
                 pendingRollNavigation = false
                 path.append(ExposureMarker())
             }
-        }) {
-            if let camera = selectedCamera ?? viewModel.openCamera {
-                RollFormSheet(viewModel: viewModel, camera: camera, onRollCreated: {
-                    pendingRollNavigation = true
-                })
-            }
+        }) { camera in
+            RollFormSheet(viewModel: viewModel, camera: camera, onRollCreated: {
+                pendingRollNavigation = true
+            })
         }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showSettings) {
