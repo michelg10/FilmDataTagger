@@ -255,6 +255,18 @@ struct RollListView: View {
             }
         }
         .animation(.easeOut(duration: 0.25), value: rolls.isEmpty)
+        .overlay(alignment: .bottom) {
+            let terminalColor = Color.black.opacity(bottomGradientOpacity)
+            VStack(spacing: 0) {
+                LinearGradient(colors: [.black.opacity(0), terminalColor], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 60)
+                terminalColor.frame(height: bottomSafeAreaInset - 6 + 0.25 * 60)
+            }
+            .frame(height: bottomSafeAreaInset - 6 + 1.25 * 60)
+            .frame(maxWidth: .infinity)
+            .allowsHitTesting(false)
+            .offset(y: bottomSafeAreaInset)
+        }
         .alert(
             "Delete \"\(rollToDelete?.filmStock ?? "")\"?",
             isPresented: Binding(

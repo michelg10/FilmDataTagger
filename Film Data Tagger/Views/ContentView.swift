@@ -159,6 +159,8 @@ struct ExposureScreen: View {
     }
 }
 
+let bottomGradientOpacity: Double = 0.4
+
 // MARK: - Content View
 
 struct ContentView: View {
@@ -166,12 +168,26 @@ struct ContentView: View {
     @Query private var cameras: [Camera]
     @Query private var instantFilmGroups: [InstantFilmGroup]
 
-    @State private var path = NavigationPath()
+    @State private var path: NavigationPath
     @State private var showNewCamera = false
     @State private var showNewRoll = false
     @State private var pendingCameraNavigation: UUID?
     @State private var pendingRollNavigation = false
     @State private var selectedCamera: Camera?
+
+    init(viewModel: FilmLogViewModel) {
+        self.viewModel = viewModel
+        var initialPath = NavigationPath()
+        if let group = viewModel.activeInstantFilmGroup {
+            initialPath.append(group.id)
+        } else if let roll = viewModel.openRoll, let camera = roll.camera {
+            initialPath.append(camera.id)
+            initialPath.append(ExposureMarker())
+        } else if let camera = viewModel.openCamera {
+            initialPath.append(camera.id)
+        }
+        _path = State(initialValue: initialPath)
+    }
 
     // Path depth: 0 = camera list, 1 = roll list, 2 = exposure screen
     private var isOnExposureList: Bool { path.count >= 2 }
@@ -203,7 +219,62 @@ struct ContentView: View {
                     ExposureScreen(viewModel: viewModel)
                 }
         }
-        .overlay(alignment: .bottom) { floatingButtons }
+        .overlay(alignment: .bottom) {
+            HStack(spacing: 0) {
+                if !isOnExposureList {
+                    // Add button
+                    Button {
+                        playHaptic(.newRollOrCamera)
+                        if isOnRollList {
+                            showNewRoll = true
+                        } else {
+                            showNewCamera = true
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 20, weight: .bold, design: .default))
+                                .padding(.leading, 18)
+                            Text(addButtonLabel)
+                                .font(.system(size: 20, weight: .bold, design: .default))
+                                .fontWidth(.expanded)
+                                .padding(.trailing, 24)
+                                .id("bottom-leading-button-\(addButtonLabel)")
+                                .transition(.blurReplace)
+                        }.foregroundStyle(Color.white.opacity(0.95))
+                        .frame(height: 60)
+                        .contentShape(Rectangle())
+                    }
+                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .shadow(color: .black.opacity(0.25), radius: 16.4)
+                    .buttonStyle(.plain)
+                    .transition(.blurReplace.combined(with: .scale(0.9)))
+                }
+
+                Spacer(minLength: 0)
+
+                if !isOnExposureList {
+                    // Settings button
+                    Button {
+                        // TODO: settings
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 24, weight: .bold, design: .default))
+                            .foregroundStyle(Color.white.opacity(0.95))
+                            .frame(width: 60, height: 60)
+                            .contentShape(Rectangle())
+                    }
+                    .glassEffect(.regular.interactive(), in: Circle())
+                    .shadow(color: .black.opacity(0.25), radius: 16.4)
+                    .buttonStyle(.plain)
+                    .transition(.blurReplace.combined(with: .scale(0.9)))
+                }
+            }
+            .padding(.horizontal, 28)
+            .offset(y: 6)
+            .animation(.easeInOut(duration: 0.25), value: isOnExposureList)
+            .animation(.easeInOut(duration: 0.25), value: isOnRollList)
+        }
         .sheet(isPresented: $showNewCamera, onDismiss: {
             if let id = pendingCameraNavigation {
                 pendingCameraNavigation = nil
@@ -227,84 +298,7 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .onAppear { restoreNavigationPath(viewModel) }
     }
-
-    private var floatingButtons: some View {
-        HStack(spacing: 0) {
-            if !isOnExposureList {
-                // Add button
-                Button {
-                    playHaptic(.newRollOrCamera)
-                    if isOnRollList {
-                        showNewRoll = true
-                    } else {
-                        showNewCamera = true
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 20, weight: .bold, design: .default))
-                            .padding(.leading, 18)
-                        Text(addButtonLabel)
-                            .font(.system(size: 20, weight: .bold, design: .default))
-                            .fontWidth(.expanded)
-                            .padding(.trailing, 24)
-                            .id("bottom-leading-button-\(addButtonLabel)")
-                            .transition(.blurReplace)
-                    }.foregroundStyle(Color.white.opacity(0.95))
-                    .frame(height: 60)
-                    .contentShape(Rectangle())
-                }
-                .glassEffect(.regular.interactive(), in: Capsule())
-                .shadow(color: .black.opacity(0.25), radius: 16.4)
-                .buttonStyle(.plain)
-                .transition(.blurReplace.combined(with: .scale(0.9)))
-            }
-
-            Spacer(minLength: 0)
-
-            if !isOnExposureList {
-                // Settings button
-                Button {
-                    // TODO: settings
-                } label: {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 24, weight: .bold, design: .default))
-                        .foregroundStyle(Color.white.opacity(0.95))
-                        .frame(width: 60, height: 60)
-                        .contentShape(Rectangle())
-                }
-                .glassEffect(.regular.interactive(), in: Circle())
-                .shadow(color: .black.opacity(0.25), radius: 16.4)
-                .buttonStyle(.plain)
-                .transition(.blurReplace.combined(with: .scale(0.9)))
-            }
-        }
-        .padding(.horizontal, 28)
-        .offset(y: 6)
-        .animation(.easeInOut(duration: 0.25), value: isOnExposureList)
-        .animation(.easeInOut(duration: 0.25), value: isOnRollList)
-    }
-
-    // MARK: - Deep link restoration
-
-    private func restoreNavigationPath(_ vm: FilmLogViewModel) {
-        guard path.isEmpty else { return }
-        var t = Transaction()
-        t.disablesAnimations = true
-        withTransaction(t) {
-            if let group = vm.activeInstantFilmGroup {
-                path.append(group.id)
-            } else if let roll = vm.openRoll, let camera = roll.camera {
-                path.append(camera.id)
-                path.append(ExposureMarker())
-            } else if let camera = vm.openCamera {
-                path.append(camera.id)
-            }
-        }
-    }
-
 }
 
 #Preview {
