@@ -60,7 +60,7 @@ private struct SettingsNavRow<Destination: View>: View {
 private struct SettingsButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .background(configuration.isPressed ? Color(hex: 0x646464) : .clear)
+            .background(configuration.isPressed ? Color(hex: 0x656565) : .clear)
     }
 }
 
@@ -113,7 +113,7 @@ private struct SettingsSection<Content: View>: View {
                 content
             }
             .clipShape(RoundedRectangle(cornerRadius: 26))
-            .background(RoundedRectangle(cornerRadius: 26).foregroundStyle(Color(hex: 0x1D1D1D)))
+            .background(RoundedRectangle(cornerRadius: 26).foregroundStyle(Color(hex: 0x222222)))
             if let caption {
                 Text(caption)
                     .font(.system(size: 13, weight: .regular, design: .default))
