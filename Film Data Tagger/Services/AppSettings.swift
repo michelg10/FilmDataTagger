@@ -7,6 +7,7 @@
 
 import Foundation
 import CoreLocation
+import AVFoundation
 
 // MARK: - Settings Enums
 
@@ -32,9 +33,9 @@ enum PhotoQuality: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .low: "Low (360p)"
-        case .medium: "Medium (720p)"
-        case .high: "High (1440p)"
+        case .low: "Low"
+        case .medium: "Medium"
+        case .high: "High"
         case .maximum: "Maximum"
         }
     }
@@ -52,6 +53,25 @@ enum PreferredCamera: String, CaseIterable {
         case .wide: "Wide"
         case .telephoto: "Telephoto"
         case .front: "Front"
+        }
+    }
+
+    var deviceType: AVCaptureDevice.DeviceType {
+        switch self {
+        case .ultraWide: .builtInUltraWideCamera
+        case .wide: .builtInWideAngleCamera
+        case .telephoto: .builtInTelephotoCamera
+        case .front: .builtInWideAngleCamera
+        }
+    }
+
+    var position: AVCaptureDevice.Position {
+        self == .front ? .front : .back
+    }
+
+    static var available: [PreferredCamera] {
+        allCases.filter {
+            AVCaptureDevice.default($0.deviceType, for: .video, position: $0.position) != nil
         }
     }
 }
