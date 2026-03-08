@@ -203,6 +203,34 @@ private struct SettingsDetailPage<Content: View>: View {
     }
 }
 
+private struct SettingsFullScreenDetailPage<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .offset(y: -32)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(hex: 0x121212))
+            .navigationBarBackButtonHidden()
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    HStack(spacing: 0) {
+                        BackButton()
+                        Spacer()
+                        Text(title)
+                            .font(.system(size: 18, weight: .bold, design: .default))
+                            .fontWidth(.expanded)
+                            .foregroundStyle(Color.white)
+                            .padding(.top, 3)
+                        Spacer()
+                        DismissButton()
+                    }.frame(width: UIScreen.main.bounds.width - 32, height: 44, alignment: .leading)
+                }
+            }
+    }
+}
+
 private struct DismissButton: View {
     @Environment(\.dismissSheet) private var dismissSheet
 
@@ -320,15 +348,42 @@ private struct ExportPage: View {
 }
 
 private struct AboutPage: View {
+    @State var showBuildNumber: Bool = false
+    
     var body: some View {
-        SettingsDetailPage(title: "About") {
-            SettingsSection {
-                SettingsRow(text: "Version") {
-                    Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
-                        .foregroundStyle(Color.white.opacity(0.7))
-                        .font(.system(size: 17, weight: .medium, design: .default))
-                }
-            }
+        SettingsFullScreenDetailPage(title: "About") {
+            VStack(alignment: .center, spacing: 0) {
+                Image("app-icon-image")
+                    .resizable()
+                    .frame(width: 130, height: 130)
+                    .clipShape(RoundedRectangle(cornerRadius: 32))
+                    .padding(.bottom, 32)
+                
+                let versionString = Text("1.0.0").foregroundStyle(Color.white.opacity(0.5))
+                let buildNumber = Text("b.14").foregroundStyle(Color.white.opacity(0.5)).fontDesign(.monospaced)
+                Text("Sprokbook \(showBuildNumber ? buildNumber : versionString)")
+                    .font(.system(size: 28, weight: .bold, design: .default))
+                    .fontWidth(.expanded)
+                    .foregroundStyle(Color.white)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        showBuildNumber.toggle()
+                    }
+                    .padding(.bottom, 32)
+                VStack(spacing: 14) {
+                    Text("\(15)\(Text(" cameras").foregroundStyle(Color.white.opacity(0.5)))")
+                    Text("\(200)\(Text(" rolls").foregroundStyle(Color.white.opacity(0.5)))")
+                    Text("\(5329)\(Text(" exposures").foregroundStyle(Color.white.opacity(0.5)))")
+                }.foregroundStyle(Color.white)
+                .font(.system(size: 20, weight: .semibold, design: .default))
+                .fontWidth(.expanded)
+                .opacity(0.8)
+                Spacer(minLength: 0)
+                Text("Made with \(Image(systemName: "heart.fill")) by Michel")
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.5))
+            }.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }
