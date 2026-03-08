@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import CloudKit
 
 // MARK: - Environment
 
@@ -395,6 +396,17 @@ struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable private var settings = AppSettings.shared
     @State private var showResetAlert = false
+    @State private var iCloudStatus: CKAccountStatus?
+
+    private var iCloudStatusLabel: String {
+        switch iCloudStatus {
+        case .available: "Active"
+        case .noAccount: "Signed out"
+        case .restricted, .temporarilyUnavailable: "Unavailable"
+        case .couldNotDetermine, .none: "…"
+        @unknown default: "Unknown"
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -414,7 +426,7 @@ struct SettingsSheet: View {
                     }
                     SettingsSection {
                         SettingsRow(text: "iCloud sync") {
-                            Text("Active") // Active, Signed out, Unavailable
+                            Text(iCloudStatusLabel)
                                 .foregroundStyle(Color.white.opacity(0.7))
                                 .fontWidth(.expanded)
                                 .font(.system(size: 17, weight: .medium, design: .default))
@@ -462,6 +474,9 @@ struct SettingsSheet: View {
         .onChange(of: settings.photoQuality) { viewModel.cameraManager.reconfigure() }
         .onChange(of: settings.locationEnabled) { viewModel.locationService.setEnabled(settings.locationEnabled) }
         .onChange(of: settings.locationAccuracy) { viewModel.locationService.updateAccuracy(settings.locationAccuracy.clAccuracy) }
+        .task {
+            iCloudStatus = try? await CKContainer.default().accountStatus()
+        }
         .alert("Reset all settings?", isPresented: $showResetAlert) {
             Button("Reset", role: .destructive) {
                 // TODO: implement reset
