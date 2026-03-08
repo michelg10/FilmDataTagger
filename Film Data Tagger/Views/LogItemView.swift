@@ -9,14 +9,14 @@ import SwiftUI
 
 struct LogItemView: View {
     /// Exposure number to display, must be <100
-    var exposureNumber: Int?
+    let exposureNumber: Int?
     var isPreFrame: Bool = false
     var onFrameNumberTapped: (() -> Void)?
-    var previewImage: Image?
-    var timeText: Text
-    var timeSecondaryText: Text?
+    let previewImage: Image?
+    let timeText: Text
+    let timeSecondaryText: Text?
     var onTimeTapped: (() -> Void)?
-    var locationText: Text
+    let locationText: Text
 
     var body: some View {
         HStack(spacing: 12) {

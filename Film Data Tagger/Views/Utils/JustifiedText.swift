@@ -8,10 +8,10 @@
 import SwiftUI
 
 struct JustifiedText: UIViewRepresentable {
-    var text: String
-    var font: UIFont
-    var textColor: UIColor
-    var lineSpacing: CGFloat
+    let text: String
+    let font: UIFont
+    let textColor: UIColor
+    let lineSpacing: CGFloat
 
     init(_ text: String, font: UIFont = .systemFont(ofSize: 17), textColor: UIColor = .white, lineSpacing: CGFloat = 4) {
         self.text = text

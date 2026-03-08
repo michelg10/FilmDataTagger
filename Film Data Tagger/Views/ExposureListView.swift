@@ -12,7 +12,7 @@ import UniformTypeIdentifiers
 private let exposureItemHeight: CGFloat = 76
 
 private struct ExposureDropIndicatorLine: View {
-    var active: Bool
+    let active: Bool
 
     var body: some View {
         Capsule()
@@ -123,7 +123,7 @@ private struct ExposureEndDropDelegate: DropDelegate {
 
 private struct ExposureRow: View {
     let item: LogItem
-    var exposureNumber: Int?
+    let exposureNumber: Int?
     var isPreFrame: Bool = false
     var onDelete: ((LogItem) -> Void)?
     var onCycleExtraExposures: (() -> Void)?
@@ -144,8 +144,8 @@ private struct ExposureRow: View {
 /// Isolated view that owns `@Query cameras` so that camera changes
 /// only re-render the menu, not the entire ExposureListView.
 private struct CameraSwitcherMenu: View {
-    var cameraName: String
-    var filmStock: String
+    let cameraName: String
+    let filmStock: String
     var onCameraSelected: ((Camera) -> Void)?
     @Query private var cameras: [Camera]
 

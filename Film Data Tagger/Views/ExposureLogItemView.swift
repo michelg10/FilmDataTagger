@@ -18,7 +18,7 @@ private func cityName(from timeZoneIdentifier: String) -> String {
 /// Bridges a LogItem model to LogItemView
 struct ExposureLogItemView: View {
     let item: LogItem
-    var exposureNumber: Int?
+    let exposureNumber: Int?
     var isPreFrame: Bool = false
     var onCycleExtraExposures: (() -> Void)?
     @State private var showingLocalTime = false

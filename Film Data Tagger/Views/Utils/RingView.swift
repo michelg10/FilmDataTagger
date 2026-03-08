@@ -8,11 +8,11 @@
 import SwiftUI
 
 struct RingView: View {
-    var diameter: CGFloat
-    var strokeWidth: CGFloat
-    var progress: Double
-    var fillColor: Color
-    var trackColor: Color
+    let diameter: CGFloat
+    let strokeWidth: CGFloat
+    let progress: Double
+    let fillColor: Color
+    let trackColor: Color
     var overflowShadowColor: Color = .black.opacity(0.75)
     var overflowShadowRadius: CGFloat = 2.9
 

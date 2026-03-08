@@ -9,7 +9,7 @@ import SwiftUI
 
 struct PrimaryButton<Label: View>: View {
     var enabled: Bool = true
-    var action: () -> Void
+    let action: () -> Void
     var isAboveAnotherSheet: Bool = false
     var showShadow: Bool = true
     @ViewBuilder var label: Label

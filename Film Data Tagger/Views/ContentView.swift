@@ -11,8 +11,8 @@ import SwiftData
 struct FinishRollButton: View {
     var icon: String = "checkmark.arrow.trianglehead.counterclockwise"
     var text: String = "Finish roll"
-    var isNearBottom: Bool
-    var action: () -> Void
+    let isNearBottom: Bool
+    let action: () -> Void
 
     var body: some View {
         ZStack {
@@ -61,10 +61,10 @@ private class ExposureScrollState {
 
 /// Isolated view so that scroll-state changes only re-render this, not ExposureListView.
 private struct FinishRollOverlay: View {
-    var scrollState: ExposureScrollState
-    var hasRoll: Bool
-    var hasItems: Bool
-    var onFinishRoll: () -> Void
+    let scrollState: ExposureScrollState
+    let hasRoll: Bool
+    let hasItems: Bool
+    let onFinishRoll: () -> Void
 
     var body: some View {
         if hasRoll && hasItems {
@@ -85,7 +85,7 @@ private struct FinishRollOverlay: View {
 }
 
 struct ExposureScreen: View {
-    var viewModel: FilmLogViewModel
+    let viewModel: FilmLogViewModel
 
     @State private var newRollCamera: Camera?
     @State private var scrollState = ExposureScrollState()
@@ -166,7 +166,7 @@ let bottomGradientOpacity: Double = 0.4
 // MARK: - Content View
 
 struct ContentView: View {
-    var viewModel: FilmLogViewModel
+    let viewModel: FilmLogViewModel
     @Query private var cameras: [Camera]
     @Query private var instantFilmGroups: [InstantFilmGroup]
 

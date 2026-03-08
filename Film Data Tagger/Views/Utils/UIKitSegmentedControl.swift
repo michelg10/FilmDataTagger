@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct UIKitSegmentedControl: View {
-    var segments: [String]
+    let segments: [String]
     @Binding var selectedIndex: Int?
     var height: CGFloat = 32
     var selectedTextAttributes: [NSAttributedString.Key: Any] = [
@@ -11,7 +11,7 @@ struct UIKitSegmentedControl: View {
         .font: UIFont.systemFont(ofSize: 13)
     ]
     var selectedTintColor: UIColor? = nil
-    var controlBackgroundColor: UIColor
+    let controlBackgroundColor: UIColor
     var capsuleInset: CGFloat = 2
 
     var body: some View {
@@ -38,11 +38,11 @@ struct UIKitSegmentedControl: View {
 }
 
 private struct InnerSegmentedControl: UIViewRepresentable {
-    var segments: [String]
+    let segments: [String]
     @Binding var selectedIndex: Int?
-    var selectedTextAttributes: [NSAttributedString.Key: Any]
-    var normalTextAttributes: [NSAttributedString.Key: Any]
-    var selectedTintColor: UIColor?
+    let selectedTextAttributes: [NSAttributedString.Key: Any]
+    let normalTextAttributes: [NSAttributedString.Key: Any]
+    let selectedTintColor: UIColor?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)

@@ -10,10 +10,10 @@ import SwiftData
 import UniformTypeIdentifiers
 
 struct CameraRollProgress: View {
-    var isSelected: Bool
-    var isInstantFilm: Bool
-    var exposureCount: Int?
-    var totalExposureCount: Int?
+    let isSelected: Bool
+    let isInstantFilm: Bool
+    let exposureCount: Int?
+    let totalExposureCount: Int?
     
     var exposureProgress: Double? {
         guard let exposureCount = exposureCount, let totalExposureCount = totalExposureCount else {
@@ -64,8 +64,8 @@ struct CameraRollProgress: View {
 }
 
 struct CameraListRow: View {
-    var entry: any CameraListEntry
-    var isSelected: Bool
+    let entry: any CameraListEntry
+    let isSelected: Bool
 
     var body: some View {
         HStack(spacing: 0) {
@@ -132,7 +132,7 @@ struct CameraListRow: View {
 private let cameraRowHeight: CGFloat = 111
 
 private struct CameraDropIndicatorLine: View {
-    var active: Bool
+    let active: Bool
 
     var body: some View {
         Capsule()
@@ -245,7 +245,7 @@ private struct CameraEndDropDelegate: DropDelegate {
 }
 
 struct CameraListView: View {
-    var viewModel: FilmLogViewModel
+    let viewModel: FilmLogViewModel
     @Query private var cameras: [Camera]
     @Query private var instantFilmGroups: [InstantFilmGroup]
     @State private var editingEntry: (any CameraListEntry)?

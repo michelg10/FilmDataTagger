@@ -25,8 +25,8 @@ private func formatElapsed(from date: Date?, now: Date) -> String? {
 }
 
 private struct CompactInfoRow<Icon: View>: View {
-    var icon: Icon
-    var text: String
+    let icon: Icon
+    let text: String
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -42,9 +42,9 @@ private struct CompactInfoRow<Icon: View>: View {
 }
 
 private struct FullInfoRow<Icon: View>: View {
-    var icon: Icon
-    var text: String
-    var subtext: String
+    let icon: Icon
+    let text: String
+    let subtext: String
     var textSubtextPadding: CGFloat = 0
 
     var body: some View {
@@ -70,7 +70,7 @@ private struct FullInfoRow<Icon: View>: View {
 
 /// Isolated so that GPS updates only re-render the text, not the camera preview.
 private struct LocationInfoRow: View {
-    var viewModel: FilmLogViewModel
+    let viewModel: FilmLogViewModel
 
     var body: some View {
         FullInfoRow(
@@ -86,9 +86,9 @@ private struct LocationInfoRow: View {
 }
 
 private struct CaptureSheetFullContent: View {
-    var viewModel: FilmLogViewModel
-    var lastCaptureDate: Date?
-    var referencePhotoSize: CGFloat
+    let viewModel: FilmLogViewModel
+    let lastCaptureDate: Date?
+    let referencePhotoSize: CGFloat
 
     var body: some View {
         HStack(spacing: 18) {
@@ -175,12 +175,12 @@ private struct CaptureSheetFullContent: View {
 }
 
 private struct CaptureSheetCompactContent: View {
-    var referencePhotosEnabled: Bool
-    var cameraUnavailable: Bool
-    var permissionDenied: Bool
-    var currentPlaceName: String?
-    var lastCaptureDate: Date?
-    var onEyeTapped: (() -> Void)?
+    let referencePhotosEnabled: Bool
+    let cameraUnavailable: Bool
+    let permissionDenied: Bool
+    let currentPlaceName: String?
+    let lastCaptureDate: Date?
+    let onEyeTapped: (() -> Void)?
 
     private var showEyeSlash: Bool {
         !referencePhotosEnabled || cameraUnavailable || permissionDenied
@@ -223,11 +223,11 @@ private struct CaptureSheetCompactContent: View {
 }
 
 private struct CaptureButton: View {
-    var hasRoll: Bool
-    var frameCount: Int
-    var rollCapacity: Int
-    var onCapture: () -> Void
-    var onAddPlaceholder: () -> Void
+    let hasRoll: Bool
+    let frameCount: Int
+    let rollCapacity: Int
+    let onCapture: () -> Void
+    let onAddPlaceholder: () -> Void
 
     var body: some View {
         PrimaryButton(enabled: hasRoll && frameCount < 999, action: {
@@ -277,7 +277,7 @@ struct CaptureSheet: View {
         }
     }
 
-    var viewModel: FilmLogViewModel
+    let viewModel: FilmLogViewModel
 
     private var frameCount: Int { viewModel.logItems.count }
     private var rollCapacity: Int { viewModel.openRoll?.totalCapacity ?? 0 }

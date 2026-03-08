@@ -9,10 +9,10 @@ import SwiftUI
 import SwiftData
 
 private struct BlockProgressBar: View {
-    var exposureCount: Int
-    var totalCapacity: Int
-    var maxCapacity: Int
-    var isActive: Bool
+    let exposureCount: Int
+    let totalCapacity: Int
+    let maxCapacity: Int
+    let isActive: Bool
 
     var body: some View {
         Canvas { context, size in
@@ -48,7 +48,7 @@ private struct BlockProgressBar: View {
 }
 
 struct RollListRow: View {
-    var roll: Roll
+    let roll: Roll
     var maxCapacity: Int = 36
 
     private var exposureCount: Int {
@@ -126,8 +126,8 @@ struct RollListRow: View {
 }
 
 struct RollListView: View {
-    var camera: Camera
-    var viewModel: FilmLogViewModel
+    let camera: Camera
+    let viewModel: FilmLogViewModel
     var onRollSelected: ((Roll) -> Void)?
 
     @Environment(\.dismiss) private var dismiss

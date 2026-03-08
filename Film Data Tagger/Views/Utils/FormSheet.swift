@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct FormSheet<Content: View>: View {
-    var title: String
-    var sheetHeight: CGFloat
+    let title: String
+    let sheetHeight: CGFloat
     var titleBarPadding: CGFloat = 21
     var formIsAboveAnotherSheet: Bool = false
     var bottomAlignTitle: Bool = false

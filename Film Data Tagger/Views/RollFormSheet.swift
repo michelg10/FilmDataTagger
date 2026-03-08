@@ -90,8 +90,8 @@ private let filmStockPlaceholders = [
 ]
 
 struct RollFormSheet: View {
-    var viewModel: FilmLogViewModel
-    var camera: Camera
+    let viewModel: FilmLogViewModel
+    let camera: Camera
     var editingRoll: Roll? = nil
     var defaultFilmStock: String? = nil
     var defaultCapacity: Int? = nil
