@@ -60,7 +60,7 @@ struct ExposureLogItemView: View {
         guard item.hasRealCreatedAt else { return nil }
         if hasDifferentTimeZone {
             let tz = displayTimeZone
-            let tzLabel = showingLocalTime ? "Local" : cityName(from: item.timeZoneIdentifier!)
+            let tzLabel = showingLocalTime ? "Local" : cityName(from: item.timeZoneIdentifier ?? "")
             var fmt = Date.FormatStyle.dateTime.month().day().year()
             fmt.timeZone = tz
             return Text("\(item.createdAt.formatted(fmt)) · \(tzLabel)")
@@ -81,7 +81,7 @@ struct ExposureLogItemView: View {
         if showingLocalTime {
             return .current
         }
-        return TimeZone(identifier: item.timeZoneIdentifier!) ?? .current
+        return item.timeZoneIdentifier.flatMap { TimeZone(identifier: $0) } ?? .current
     }
 }
 

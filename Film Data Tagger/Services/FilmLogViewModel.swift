@@ -79,7 +79,7 @@ final class FilmLogViewModel {
             Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
             settings.lastAppLaunchDate ?? Date.distantPast
         )
-        locationService.geocodeRecentItems(modelContext: modelContext, since: cutoffDate)
+        locationService.geocodeRecentItems(container: modelContext.container, since: cutoffDate)
         recordAppLaunch()
         observeRemoteChanges()
     }
@@ -88,7 +88,7 @@ final class FilmLogViewModel {
     /// (e.g. exposures logged via Shortcuts while the app was backgrounded).
     func geocodeUngeocodedItems() {
         let cutoff = Date().addingTimeInterval(-3600)
-        locationService.geocodeRecentItems(modelContext: modelContext, since: cutoff)
+        locationService.geocodeRecentItems(container: modelContext.container, since: cutoff)
         reloadItems()
     }
 
