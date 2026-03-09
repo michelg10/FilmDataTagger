@@ -9,6 +9,16 @@ import SwiftUI
 import SwiftData
 import CloudKit
 
+// MARK: - Share Sheet
+
+private struct ShareSheet: UIViewControllerRepresentable {
+    let url: URL
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [url], applicationActivities: nil)
+    }
+    func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
+}
+
 // MARK: - Environment
 
 private struct DismissSheetKey: EnvironmentKey {
@@ -75,6 +85,34 @@ private struct SettingsActionRow: View {
             }.frame(height: 54)
             .contentShape(Rectangle())
         }.buttonStyle(SettingsButtonStyle())
+    }
+}
+
+private struct SettingsTaskRow: View {
+    let text: String
+    let color: Color
+    var isActive: Bool = false
+    var isDisabled: Bool = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 0) {
+                Text(text)
+                    .padding(.leading, 20)
+                    .foregroundStyle(isActive ? color.opacity(0.4) : color)
+                    .font(.system(size: 17, weight: .medium, design: .default))
+                Spacer(minLength: 16)
+                if isActive {
+                    ProgressView()
+                        .tint(color.opacity(0.6))
+                        .padding(.trailing, 16)
+                }
+            }.frame(height: 54)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(SettingsButtonStyle())
+        .disabled(isActive || isDisabled)
     }
 }
 
@@ -331,6 +369,12 @@ private struct LocationPage: View {
 }
 
 private struct ExportPage: View {
+    let viewModel: FilmLogViewModel
+    @State private var activeExport: ExportType?
+    @State private var shareURL: URL?
+
+    private enum ExportType { case json, csv }
+
     var body: some View {
         SettingsDetailPage(title: "Export") {
             SettingsHeroSection(
@@ -352,13 +396,30 @@ private struct ExportPage: View {
                 subtitle: "Export your data for backup, external programs, or spreadsheet analysis."
             )
             SettingsSection(caption: "JSON is best for backup and external programs. CSV is best for spreadsheets.\nSome data, like reference photos, is not included in exports.") {
-                SettingsActionRow(text: "Export as JSON", color: .accentColor) {
-                    // TODO: export JSON
+                SettingsTaskRow(text: "Export as JSON", color: .accentColor, isActive: activeExport == .json, isDisabled: activeExport != nil) {
+                    guard activeExport == nil else { return }
+                    activeExport = .json
+                    Task {
+                        let url = await viewModel.exportJSON()
+                        activeExport = nil
+                        shareURL = url
+                    }
                 }
                 SettingsSeparator()
-                SettingsActionRow(text: "Export as CSV", color: .accentColor) {
-                    // TODO: export CSV
+                SettingsTaskRow(text: "Export as CSV", color: .accentColor, isActive: activeExport == .csv, isDisabled: activeExport != nil) {
+                    guard activeExport == nil else { return }
+                    activeExport = .csv
+                    Task {
+                        let url = await viewModel.exportCSV()
+                        activeExport = nil
+                        shareURL = url
+                    }
                 }
+            }
+        }
+        .sheet(isPresented: Binding(get: { shareURL != nil }, set: { if !$0 { shareURL = nil } })) {
+            if let shareURL {
+                ShareSheet(url: shareURL)
             }
         }
     }
@@ -455,7 +516,7 @@ struct SettingsSheet: View {
                                 .font(.system(size: 17, weight: .medium, design: .default))
                         }
                         SettingsSeparator()
-                        SettingsNavRow(text: "Export...") { ExportPage() }
+                        SettingsNavRow(text: "Export...") { ExportPage(viewModel: viewModel) }
                         SettingsSeparator()
                         SettingsNavRow(text: "About") { AboutPage() }
                     }

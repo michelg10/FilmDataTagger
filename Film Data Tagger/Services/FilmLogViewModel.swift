@@ -249,6 +249,32 @@ final class FilmLogViewModel {
         }
     }
 
+    // MARK: - Export
+
+    func exportJSON() async -> URL {
+        await Task.detached {
+            // Simulate blocking work
+            let start = Date()
+            while Date().timeIntervalSince(start) < 1 {}
+
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("export.json")
+            try? "test".data(using: .utf8)?.write(to: url)
+            return url
+        }.value
+    }
+
+    func exportCSV() async -> URL {
+        await Task.detached {
+            // Simulate blocking work
+            let start = Date()
+            while Date().timeIntervalSince(start) < 1 {}
+
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("export.csv")
+            try? "test".data(using: .utf8)?.write(to: url)
+            return url
+        }.value
+    }
+
     func logPlaceholder() {
         let roll: Roll
         if isInstantFilmMode {
