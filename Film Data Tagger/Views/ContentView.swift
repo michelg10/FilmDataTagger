@@ -309,7 +309,9 @@ struct ContentView: View {
             RollFormSheet(
                 viewModel: viewModel,
                 camera: camera,
+                defaultFilmStock: camera.activeRoll?.filmStock,
                 defaultCapacity: camera.activeRoll?.capacity,
+                allowSubmitWithPlaceholder: camera.activeRoll != nil,
                 onRollCreated: {
                     pendingRollNavigation = true
                 }

@@ -100,19 +100,21 @@ struct RollFormSheet: View {
     var formIsAboveAnotherSheet: Bool = false
     @Environment(\.dismiss) private var dismiss
     @State private var filmName: String = ""
-    @State private var exposureCount: Int? = 36
+    @State private var exposureCount: Int? = nil
     @State private var placeholder: String = filmStockPlaceholders.randomElement()!
 
     private var isEditing: Bool { editingRoll != nil }
     private var effectiveFilmName: String {
         filmName.isEmpty && allowSubmitWithPlaceholder ? placeholder : filmName
     }
+    private var placeholderCapacity: Int { defaultCapacity ?? 36 }
+    private var effectiveExposureCount: Int { exposureCount ?? (allowSubmitWithPlaceholder ? placeholderCapacity : 0) }
 
     var body: some View {
-        let rollIsValid = !effectiveFilmName.isEmpty && (exposureCount ?? 0) > 0 && (exposureCount ?? 0) <= 144
+        let rollIsValid = !effectiveFilmName.isEmpty && effectiveExposureCount > 0 && effectiveExposureCount <= 144
         let extraExposures = editingRoll?.extraExposures ?? 0
         let placeholderOpacity = allowSubmitWithPlaceholder && filmName.isEmpty
-            ? 0.6
+            ? 0.55
             : (formIsAboveAnotherSheet ? 0.3 : 0.25)
         FormSheet(title: isEditing ? "Edit roll" : "New roll", sheetHeight: 405, formIsAboveAnotherSheet: formIsAboveAnotherSheet) {
             VStack(spacing: 21) {
@@ -128,7 +130,8 @@ struct RollFormSheet: View {
                         "Exposures",
                         value: $exposureCount,
                         format: .number.grouping(.never),
-                        prompt: Text("36").foregroundStyle(Color.white.opacity(formIsAboveAnotherSheet ? 0.3 : 0.25))
+                        prompt: Text("\(placeholderCapacity)").foregroundStyle(Color.white.opacity(
+                            defaultCapacity != nil ? 0.55 : (formIsAboveAnotherSheet ? 0.3 : 0.25)))
                     ).keyboardType(.numberPad)
                     .textFieldStyle(FormTextFieldStyle(formIsAboveAnotherSheet: formIsAboveAnotherSheet))
                     if extraExposures > 0 {
@@ -145,7 +148,7 @@ struct RollFormSheet: View {
                     segments: ["12", "15", "24", "36"],
                     selectedIndex: Binding(
                         get: {
-                            [12, 15, 24, 36].firstIndex(of: exposureCount)
+                            [12, 15, 24, 36].firstIndex(of: effectiveExposureCount)
                         },
                         set: { index in
                             exposureCount = index.map { [12, 15, 24, 36][$0] }
@@ -167,7 +170,7 @@ struct RollFormSheet: View {
 
             PrimaryButton(enabled: rollIsValid, action: {
                 playHaptic(.newRollOrCamera)
-                let capacity = exposureCount ?? 36
+                let capacity = effectiveExposureCount
                 if let editingRoll {
                     viewModel.editRoll(editingRoll, filmStock: effectiveFilmName, capacity: capacity)
                 } else {
@@ -188,8 +191,8 @@ struct RollFormSheet: View {
                 if let defaultFilmStock {
                     placeholder = defaultFilmStock
                 }
-                if let defaultCapacity {
-                    exposureCount = defaultCapacity
+                if defaultCapacity == nil {
+                    exposureCount = 36
                 }
             }
         }

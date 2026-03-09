@@ -133,6 +133,7 @@ private struct ExposureRow: View {
     var body: some View {
         ExposureLogItemView(item: item, exposureNumber: exposureNumber, isPreFrame: isPreFrame, onCycleExtraExposures: onCycleExtraExposures)
             .frame(height: exposureItemHeight, alignment: .center)
+            .contentShape(Rectangle())
             .contextMenu {
                 Button(role: .destructive) {
                     onDelete?(item)
