@@ -284,7 +284,7 @@ struct ExposureListView: View {
                         .fontWidth(.expanded)
                         .foregroundStyle(Color.white.opacity(0.5))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(.bottom, 227)
+                        .padding(.bottom, 153)
                         .padding(.top, 18)
                         .offset(y: -21)
                 } else {
