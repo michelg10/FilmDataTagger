@@ -13,6 +13,7 @@ struct CameraRollProgress: View {
     let isInstantFilm: Bool
     let exposureCount: Int?
     let totalExposureCount: Int?
+    let size: CGFloat = 60
 
     var exposureProgress: Double? {
         guard let exposureCount = exposureCount, let totalExposureCount = totalExposureCount else {
@@ -28,18 +29,18 @@ struct CameraRollProgress: View {
             if isInstantFilm {
                 Circle()
                     .stroke(Color.white.opacity(0.85), lineWidth: 6)
-                    .frame(width: 53, height: 53)
-                
+                    .frame(width: size - 6, height: size - 6)
+
                 Circle()
                     .stroke(Color.white.opacity(0.5), lineWidth: 2)
                     .frame(width: 21, height: 21)
-                
+
                 Circle()
                     .stroke(Color.white.opacity(0.5), lineWidth: 1.5)
                     .frame(width: 7, height: 7)
             } else {
                 RingView(
-                    diameter: 53,
+                    diameter: size - 6,
                     strokeWidth: 6,
                     progress: exposureProgress ?? 0,
                     fillColor: Color.white.opacity(0.95),
@@ -58,7 +59,7 @@ struct CameraRollProgress: View {
                         .foregroundStyle(Color.white.opacity(0.5))
                 }
             }
-        }.frame(width: 59, height: 59)
+        }.frame(width: size, height: size)
     }
 }
 
@@ -302,7 +303,7 @@ struct CameraListView: View {
                 NavigationLink(value: entry.id) {
                     CameraListRow(
                         entry: entry
-                    ).padding(.vertical, 18)
+                    ).frame(height: 118)
                 }
                 .overlay(alignment: .top) {
                     CameraDropIndicatorLine(active: dropTargetIndex == index)
