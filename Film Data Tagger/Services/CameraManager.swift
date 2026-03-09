@@ -19,6 +19,7 @@ final class CameraManager: NSObject {
     nonisolated(unsafe) private var isConfigured = false
     private var photoContinuation: CheckedContinuation<Data?, Never>?
     private var isCaptureInFlight = false
+    private var captureGeneration = 0
     private var stopTimer: Task<Void, Never>?
     private var _previewView: CameraPreviewUIView?
 
@@ -158,6 +159,8 @@ final class CameraManager: NSObject {
         // Only one capture at a time — flag set before the await so reentrancy can't sneak in
         guard !isCaptureInFlight else { return nil }
         isCaptureInFlight = true
+        captureGeneration &+= 1
+        let generation = captureGeneration
 
         let data: Data? = await withCheckedContinuation { continuation in
             self.photoContinuation = continuation
@@ -171,6 +174,14 @@ final class CameraManager: NSObject {
             photoSettings.photoQualityPrioritization = .speed
 
             self.output.capturePhoto(with: photoSettings, delegate: self)
+
+            // Safety timeout — if neither delegate callback resumes the continuation, unblock after 5s
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(5))
+                guard self.captureGeneration == generation else { return }
+                self.photoContinuation?.resume(returning: nil)
+                self.photoContinuation = nil
+            }
         }
 
         isCaptureInFlight = false
@@ -250,6 +261,19 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
         let data = photo.fileDataRepresentation()
         Task { @MainActor in
             self.photoContinuation?.resume(returning: data)
+            self.photoContinuation = nil
+        }
+    }
+
+    /// Terminal callback — guaranteed to fire for every capture request.
+    /// Safety net: if didFinishProcessingPhoto never fired, resume with nil.
+    nonisolated func photoOutput(
+        _ output: AVCapturePhotoOutput,
+        didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings,
+        error: Error?
+    ) {
+        Task { @MainActor in
+            self.photoContinuation?.resume(returning: nil)
             self.photoContinuation = nil
         }
     }

@@ -130,26 +130,20 @@ struct LogExposureIntent: AppIntent {
             return nil
         }
 
-        return await withTaskGroup(of: CLLocation?.self) { group in
-            group.addTask { @MainActor in
-                await withCheckedContinuation { continuation in
-                    let delegate = OneTimeLocationDelegate { location in
-                        continuation.resume(returning: location)
-                    }
-                    manager.delegate = delegate
-                    manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-                    // Retain both manager and delegate for the duration of the continuation
-                    objc_setAssociatedObject(delegate, "manager", manager, .OBJC_ASSOCIATION_RETAIN)
-                    manager.requestLocation()
-                }
+        return await withCheckedContinuation { continuation in
+            let delegate = OneTimeLocationDelegate { location in
+                continuation.resume(returning: location)
             }
-            group.addTask {
+            manager.delegate = delegate
+            manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+            objc_setAssociatedObject(delegate, "manager", manager, .OBJC_ASSOCIATION_RETAIN)
+            manager.requestLocation()
+
+            // Timeout after 10s — the task retains the delegate, keeping it alive
+            Task { @MainActor in
                 try? await Task.sleep(for: .seconds(10))
-                return nil
+                delegate.timeout()
             }
-            let result = await group.next() ?? nil
-            group.cancelAll()
-            return result
         }
     }
 }
@@ -161,6 +155,13 @@ private class OneTimeLocationDelegate: NSObject, CLLocationManagerDelegate {
 
     init(completion: @escaping (CLLocation?) -> Void) {
         self.completion = completion
+    }
+
+    /// Called by the timeout task to ensure the continuation is always resumed.
+    func timeout() {
+        guard !hasCompleted else { return }
+        hasCompleted = true
+        completion(nil)
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
