@@ -119,7 +119,7 @@ nonisolated struct ExportService {
             row.append(e.speed.map { "\($0)" } ?? "")
             row.append(e.locationTimestamp.map { iso8601.string(from: $0) } ?? "")
             row.append(csvEscape(e.placeName ?? ""))
-            row.append(e.timeZoneIdentifier ?? "")
+            row.append(csvEscape(e.timeZoneIdentifier ?? ""))
             csv += row.joined(separator: ",") + "\n"
         }
 
@@ -186,10 +186,15 @@ nonisolated struct ExportService {
     // MARK: - Helpers
 
     private static func csvEscape(_ value: String) -> String {
-        if value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r") {
-            return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+        let needsQuoting = value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")
+        let escaped = needsQuoting
+            ? "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+            : value
+        // Prevent spreadsheet formula injection
+        if let first = escaped.first, "=+−-@".contains(first) {
+            return "'" + escaped
         }
-        return value
+        return escaped
     }
 
     private static let dateFormatter: DateFormatter = {
