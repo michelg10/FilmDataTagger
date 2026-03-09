@@ -306,9 +306,14 @@ struct ContentView: View {
                 path.append(ExposureMarker())
             }
         }) { camera in
-            RollFormSheet(viewModel: viewModel, camera: camera, onRollCreated: {
-                pendingRollNavigation = true
-            })
+            RollFormSheet(
+                viewModel: viewModel,
+                camera: camera,
+                defaultCapacity: camera.activeRoll?.capacity,
+                onRollCreated: {
+                    pendingRollNavigation = true
+                }
+            )
         }
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showSettings) {
