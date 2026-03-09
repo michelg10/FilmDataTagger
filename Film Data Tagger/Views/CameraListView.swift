@@ -385,15 +385,18 @@ struct CameraListView: View {
                     titleVisible = atTop
                 }
             } else {
-                // TODO: replace this for onboarding
-                Text("no cameras\nadded")
-                    .multilineTextAlignment(.center)
-                    .lineHeight(.exact(points: 32))
-                    .font(.system(size: 25, weight: .bold, design: .default))
-                    .fontWidth(.expanded)
-                    .opacity(0.4)
-                    .padding(.bottom, 117)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                VStack(spacing: 11) {
+                    Text("Welcome to Sprokbook")
+                        .font(.system(size: 22, weight: .bold, design: .default))
+                        .fontWidth(.expanded)
+                    Text("Add a camera to get started")
+                        .font(.system(size: 17, weight: .semibold, design: .default))
+                        .fontWidth(.expanded)
+                        .multilineTextAlignment(.center)
+                        .lineHeight(.exact(points: 21))
+                        .foregroundStyle(Color.white.opacity(0.5))
+                        .frame(width: 189)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

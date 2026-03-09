@@ -243,15 +243,15 @@ struct RollListView: View {
                     .padding(.bottom, 217 - 20 - bottomSafeAreaInset - 46) // overscroll
                 }
             } else {
-                // TODO: update this for onboarding
-                Text("no rolls logged")
-                    .font(.system(size: 25, weight: .bold, design: .default))
-                    .fontWidth(.expanded)
-                    .opacity(0.4)
-                    .padding(.bottom, 135)
-                    .padding(.horizontal, 16)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    .transition(.opacity)
+                VStack(spacing: 13) {
+                    Image("no-film-icon")
+                        .frame(width: 61, height: 52)
+                        .opacity(0.5)
+                    Text("no rolls")
+                        .font(.system(size: 25, weight: .bold, design: .default))
+                        .fontWidth(.expanded)
+                        .foregroundStyle(Color.white.opacity(0.5))
+                }.padding(.bottom, 54)
             }
         }
         .animation(.easeOut(duration: 0.25), value: rolls.isEmpty)
