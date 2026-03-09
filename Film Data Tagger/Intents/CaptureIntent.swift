@@ -130,15 +130,26 @@ struct LogExposureIntent: AppIntent {
             return nil
         }
 
-        return await withCheckedContinuation { continuation in
-            let delegate = OneTimeLocationDelegate { location in
-                continuation.resume(returning: location)
+        return await withTaskGroup(of: CLLocation?.self) { group in
+            group.addTask { @MainActor in
+                await withCheckedContinuation { continuation in
+                    let delegate = OneTimeLocationDelegate { location in
+                        continuation.resume(returning: location)
+                    }
+                    manager.delegate = delegate
+                    manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+                    // Retain both manager and delegate for the duration of the continuation
+                    objc_setAssociatedObject(delegate, "manager", manager, .OBJC_ASSOCIATION_RETAIN)
+                    manager.requestLocation()
+                }
             }
-            manager.delegate = delegate
-            manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-            manager.requestLocation()
-
-            objc_setAssociatedObject(manager, "delegate", delegate, .OBJC_ASSOCIATION_RETAIN)
+            group.addTask {
+                try? await Task.sleep(for: .seconds(10))
+                return nil
+            }
+            let result = await group.next() ?? nil
+            group.cancelAll()
+            return result
         }
     }
 }

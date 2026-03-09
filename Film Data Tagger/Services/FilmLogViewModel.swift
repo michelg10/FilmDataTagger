@@ -74,6 +74,7 @@ final class FilmLogViewModel {
         case .off: referencePhotosEnabled = false
         }
         locationService.setup()
+        repairDuplicateActiveRolls()
         loadOrCreateActiveRoll()
         let cutoffDate = min(
             Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
@@ -100,6 +101,7 @@ final class FilmLogViewModel {
         ) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
+                self.repairDuplicateActiveRolls()
                 self.reloadItems()
             }
         }
@@ -124,6 +126,26 @@ final class FilmLogViewModel {
             logItems = (openRoll?.logItems ?? [] as [LogItem])
                 .sorted { $0.createdAt < $1.createdAt }
         }
+    }
+
+    /// Ensure each camera has at most one active roll.
+    /// Keeps the most recently used one, deactivates the rest.
+    private func repairDuplicateActiveRolls() {
+        let cameras = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
+        var didRepair = false
+        for camera in cameras {
+            let activeRolls = (camera.rolls ?? []).filter(\.isActive)
+            guard activeRolls.count > 1 else { continue }
+            // Keep the one with the most recent exposure, or most recently created
+            let keeper = activeRolls
+                .sorted { ($0.lastExposureDate ?? .distantPast) > ($1.lastExposureDate ?? .distantPast) }
+                .first!
+            for roll in activeRolls where roll.id != keeper.id {
+                roll.isActive = false
+            }
+            didRepair = true
+        }
+        if didRepair { save() }
     }
 
     private func loadOrCreateActiveRoll() {
@@ -194,6 +216,8 @@ final class FilmLogViewModel {
         // Collect data once — shared across all pending taps
         let location = settings.locationEnabled ? locationService.currentLocation : nil
         let placeName = locationService.geocodingState.persistablePlaceName
+        // If the camera isn't ready yet, capturePhoto returns nil — that's fine,
+        // the exposure still logs timestamp + location. Speed of capture matters more than blocking for a photo.
         let photoData: Data? = if referencePhotosEnabled {
             await cameraManager.capturePhoto(
                 maxDimension: settings.photoQuality.maxDimension,
