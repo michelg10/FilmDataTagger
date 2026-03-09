@@ -136,13 +136,28 @@ private struct SettingsSection<Content: View>: View {
             .clipShape(RoundedRectangle(cornerRadius: 26))
             .background(RoundedRectangle(cornerRadius: 26).foregroundStyle(Color(hex: 0x222222)))
             if let caption {
-                Text(caption)
-                    .font(.system(size: 13, weight: .regular, design: .default))
-                    .foregroundStyle(Color.white.opacity(0.35))
-                    .lineHeight(.exact(points: 16))
-                    .multilineTextAlignment(.leading)
-                    .padding(.top, 12)
-                    .padding(.horizontal, 20)
+                let lines = caption.split(separator: "\n")
+                let styledText = { (text: String) in
+                    Text(text)
+                        .font(.system(size: 13, weight: .regular, design: .default))
+                        .foregroundStyle(Color.white.opacity(0.35))
+                        .lineHeight(.exact(points: 16))
+                        .multilineTextAlignment(.leading)
+                }
+
+                Group {
+                    if lines.count > 1 {
+                        VStack(alignment: .leading, spacing: 9) {
+                            ForEach(lines, id: \.self) { line in
+                                styledText(String(line))
+                            }
+                        }
+                    } else {
+                        styledText(caption)
+                    }
+                }
+                .padding(.top, 12)
+                .padding(.horizontal, 20)
             }
         }.padding(.bottom, 36)
     }
@@ -336,7 +351,7 @@ private struct ExportPage: View {
                 title: "Data export",
                 subtitle: "Export your data for backup, external programs, or spreadsheet analysis."
             )
-            SettingsSection {
+            SettingsSection(caption: "JSON is best for backup and external programs. CSV is best for spreadsheets.\nSome data, like reference photos, is not included in exports.") {
                 SettingsActionRow(text: "Export as JSON", color: .accentColor) {
                     // TODO: export JSON
                 }
