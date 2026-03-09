@@ -117,10 +117,12 @@ struct CameraListRow: View {
             }
             Spacer(minLength: 20)
             HStack(spacing: 9) {
-                if let lastUsed = entry.lastUsedCompact {
-                    Text(lastUsed)
-                        .font(.system(size: 15, weight: .semibold, design: .default))
-                        .fontWidth(.expanded)
+                TimelineView(.periodic(from: .now, by: 30)) { _ in
+                    if let lastUsed = entry.lastUsedCompact {
+                        Text(lastUsed)
+                            .font(.system(size: 15, weight: .semibold, design: .default))
+                            .fontWidth(.expanded)
+                    }
                 }
                 Image(systemName: "chevron.right")
                     .font(.system(size: 17, weight: .bold, design: .default))
@@ -374,17 +376,15 @@ struct CameraListView: View {
             let entries = allEntries
             let orderedIDs = entries.map(\.id)
             if !entries.isEmpty {
-                TimelineView(.periodic(from: .now, by: 30)) { _ in
-                    ScrollView {
-                        cameraScrollContent(entries: entries, orderedIDs: orderedIDs)
-                    }
-                    .scrollClipDisabled()
-                    .padding(.top, 68)
-                    .onScrollGeometryChange(for: Bool.self) { geo in
-                        geo.contentOffset.y + geo.contentInsets.top <= 0
-                    } action: { _, atTop in
-                        titleVisible = atTop
-                    }
+                ScrollView {
+                    cameraScrollContent(entries: entries, orderedIDs: orderedIDs)
+                }
+                .scrollClipDisabled()
+                .padding(.top, 68)
+                .onScrollGeometryChange(for: Bool.self) { geo in
+                    geo.contentOffset.y + geo.contentInsets.top <= 0
+                } action: { _, atTop in
+                    titleVisible = atTop
                 }
             } else {
                 VStack(spacing: 11) {

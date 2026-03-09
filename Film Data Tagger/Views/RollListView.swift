@@ -148,9 +148,11 @@ struct RollListRow: View {
                 
                 Spacer(minLength: 20)
                 
-                let usedAgoTime = Text(lastUsedText ?? "now").foregroundStyle(Color.white.opacity(0.9))
-                Text("used \(usedAgoTime)\(lastUsedText == nil ? "" : " ago")")
-                    .foregroundStyle(Color.white.opacity(0.5))
+                TimelineView(.periodic(from: .now, by: 30)) { _ in
+                    let usedAgoTime = Text(lastUsedText ?? "now").foregroundStyle(Color.white.opacity(0.9))
+                    Text("used \(usedAgoTime)\(lastUsedText == nil ? "" : " ago")")
+                        .foregroundStyle(Color.white.opacity(0.5))
+                }
             }.font(.system(size: 13, weight: .semibold, design: .default))
             .fontWidth(.expanded)
             .opacity(roll.isActive ? 1 : 0.8)
@@ -193,7 +195,6 @@ struct RollListView: View {
     var body: some View {
         ZStack {
             if !rolls.isEmpty {
-                TimelineView(.periodic(from: .now, by: 30)) { _ in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
@@ -273,7 +274,6 @@ struct RollListView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 23)
                     .padding(.bottom, 217 - 20 - bottomSafeAreaInset - 46) // overscroll
-                }
                 }
             } else {
                 VStack(spacing: 13) {
