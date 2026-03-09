@@ -264,7 +264,6 @@ private struct SettingsFullScreenDetailPage<Content: View>: View {
 
     var body: some View {
         content
-            .offset(y: -32)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(hex: 0x121212))
             .navigationBarBackButtonHidden()
@@ -438,11 +437,12 @@ private struct AboutPage: View {
     var body: some View {
         SettingsFullScreenDetailPage(title: "About") {
             VStack(alignment: .center, spacing: 0) {
+                Spacer(minLength: 0)
                 Image("app-icon-image")
                     .resizable()
                     .frame(width: 130, height: 130)
                     .clipShape(RoundedRectangle(cornerRadius: 32))
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 25)
 
                 let versionText = Text(Self.version).foregroundStyle(Color.white.opacity(0.5))
                 let buildText = Text("b.\(Self.build)").foregroundStyle(Color.white.opacity(0.5)).fontDesign(.monospaced)
@@ -455,7 +455,7 @@ private struct AboutPage: View {
                     .onTapGesture {
                         showBuildNumber.toggle()
                     }
-                    .padding(.bottom, 32)
+                    .padding(.bottom, 44)
                 VStack(spacing: 14) {
                     Text("\(cameras.count)\(Text(" camera\(cameras.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5)))")
                     Text("\(rolls.count)\(Text(" roll\(rolls.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5)))")
@@ -464,10 +464,12 @@ private struct AboutPage: View {
                 .font(.system(size: 20, weight: .semibold, design: .default))
                 .fontWidth(.expanded)
                 .opacity(0.8)
+                .padding(.bottom, 42 + 68)
                 Spacer(minLength: 0)
                 Text("Made with \(Image(systemName: "heart.fill")) by Michel")
                     .font(.system(size: 17, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.5))
+                    .padding(.bottom, 21)
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
