@@ -105,6 +105,10 @@ final class FilmLogViewModel {
         }
     }
 
+    private func save() {
+        try? modelContext.save()
+    }
+
     private func recordAppLaunch() {
         settings.lastAppLaunchDate = Date()
     }
@@ -245,9 +249,12 @@ final class FilmLogViewModel {
             if item.placeName == nil, let location {
                 Task {
                     item.placeName = await Geocoder.placeName(for: location)
+                    // we don't have to save here, since placenames are not critical data,
+                    // and we'll regenerate any potentially lost placeNames upon next launch anyway.
                 }
             }
         }
+        save()
     }
 
     // MARK: - Export
@@ -281,6 +288,7 @@ final class FilmLogViewModel {
         modelContext.insert(item)
         roll.logItems = (roll.logItems ?? []) + [item]
         logItems.append(item)
+        save()
     }
 
     func deleteItem(_ item: LogItem) {
@@ -290,6 +298,7 @@ final class FilmLogViewModel {
         if let roll {
             recomputeLastExposureDate(for: roll)
         }
+        save()
     }
 
     /// Move a placeholder to just before the target item.
@@ -307,6 +316,7 @@ final class FilmLogViewModel {
         }
 
         reloadItems()
+        save()
     }
 
     /// Move a placeholder to just after the target item.
@@ -324,6 +334,7 @@ final class FilmLogViewModel {
         }
 
         reloadItems()
+        save()
     }
 
     /// Move a placeholder to after the last item.
@@ -333,6 +344,7 @@ final class FilmLogViewModel {
         let lastDate = others.last?.createdAt ?? Date()
         item.createdAt = lastDate.addingTimeInterval(1)
         reloadItems()
+        save()
     }
 
     /// Start the camera session if reference photos are enabled. Call on exposure screen appear.
@@ -385,6 +397,7 @@ final class FilmLogViewModel {
         camera.rolls = (camera.rolls ?? []) + [roll]
 
         switchToRoll(roll)
+        save()
         return roll
     }
 
@@ -404,6 +417,7 @@ final class FilmLogViewModel {
         roll.filmStock = filmStock
         roll.capacity = capacity
         reloadItems()
+        save()
     }
 
     /// If the roll isn't already the active roll for its camera, activate it
@@ -431,6 +445,7 @@ final class FilmLogViewModel {
         roll.extraExposures = next > maxExtra ? 0 : next
         playHaptic(.cycleExtraExposures)
         reloadItems()
+        save()
     }
 
     func deleteRoll(_ roll: Roll) {
@@ -441,6 +456,7 @@ final class FilmLogViewModel {
             logItems = []
             openCamera = camera
         }
+        save()
     }
 
     // MARK: - Camera Management
@@ -449,15 +465,18 @@ final class FilmLogViewModel {
     func createCamera(name: String) -> Camera {
         let camera = Camera(name: name, listOrder: nextCameraListOrder())
         modelContext.insert(camera)
+        save()
         return camera
     }
 
     func renameCamera(_ camera: Camera, to name: String) {
         camera.name = name
+        save()
     }
 
     func renameInstantFilmGroup(_ group: InstantFilmGroup, to name: String) {
         group.name = name
+        save()
     }
 
     func deleteCamera(_ camera: Camera) {
@@ -467,6 +486,7 @@ final class FilmLogViewModel {
             logItems = []
         }
         modelContext.delete(camera)
+        save()
     }
 
     /// All cameras and instant film groups for the camera list, sorted by user-defined order.
@@ -516,6 +536,7 @@ final class FilmLogViewModel {
                 group.listOrder = Double(index)
             }
         }
+        save()
     }
 
     // MARK: - Instant Film Group Management
@@ -619,5 +640,4 @@ final class FilmLogViewModel {
         guard camera.packCapacity > 0 else { return total }
         return (total % camera.packCapacity)
     }
-
 }
