@@ -251,27 +251,19 @@ final class FilmLogViewModel {
 
     // MARK: - Export
 
-    func exportJSON() async -> URL {
-        await Task.detached {
-            // Simulate blocking work
-            let start = Date()
-            while Date().timeIntervalSince(start) < 1 {}
-
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("export.json")
-            try? "test".data(using: .utf8)?.write(to: url)
-            return url
+    func exportJSON() async -> URL? {
+        let container = modelContext.container
+        return await Task.detached {
+            let context = ModelContext(container)
+            return try? ExportService.exportJSON(context: context)
         }.value
     }
 
-    func exportCSV() async -> URL {
-        await Task.detached {
-            // Simulate blocking work
-            let start = Date()
-            while Date().timeIntervalSince(start) < 1 {}
-
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("export.csv")
-            try? "test".data(using: .utf8)?.write(to: url)
-            return url
+    func exportCSV() async -> URL? {
+        let container = modelContext.container
+        return await Task.detached {
+            let context = ModelContext(container)
+            return try? ExportService.exportCSV(context: context)
         }.value
     }
 

@@ -400,9 +400,8 @@ private struct ExportPage: View {
                     guard activeExport == nil else { return }
                     activeExport = .json
                     Task {
-                        let url = await viewModel.exportJSON()
+                        shareURL = await viewModel.exportJSON()
                         activeExport = nil
-                        shareURL = url
                     }
                 }
                 SettingsSeparator()
@@ -410,9 +409,8 @@ private struct ExportPage: View {
                     guard activeExport == nil else { return }
                     activeExport = .csv
                     Task {
-                        let url = await viewModel.exportCSV()
+                        shareURL = await viewModel.exportCSV()
                         activeExport = nil
-                        shareURL = url
                     }
                 }
             }
