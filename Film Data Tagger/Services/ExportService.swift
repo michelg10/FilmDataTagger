@@ -13,11 +13,11 @@ private typealias JObj = [(String, Any)]
 
 nonisolated struct ExportService {
     private static let exportVersion = 1
-    private static let iso8601 = ISO8601DateFormatter()
 
     // MARK: - JSON
 
     static func exportJSON(context: ModelContext) throws -> URL {
+        let iso8601 = ISO8601DateFormatter()
         let cameras = try context.fetch(FetchDescriptor<Camera>())
         let rolls = try context.fetch(FetchDescriptor<Roll>())
         let exposures = try context.fetch(FetchDescriptor<LogItem>())
@@ -34,9 +34,9 @@ nonisolated struct ExportService {
                     ("exposures", exposures.count),
                 ] as JObj),
             ] as JObj),
-            ("cameras", cameras.map { jsonCamera($0) }),
-            ("rolls", rolls.map { jsonRoll($0) }),
-            ("exposures", exposures.map { jsonExposure($0) }),
+            ("cameras", cameras.map { jsonCamera($0, iso8601: iso8601) }),
+            ("rolls", rolls.map { jsonRoll($0, iso8601: iso8601) }),
+            ("exposures", exposures.map { jsonExposure($0, iso8601: iso8601) }),
         ]
 
         let json = serializeJSON(root, indent: 0)
@@ -45,7 +45,7 @@ nonisolated struct ExportService {
         return url
     }
 
-    private static func jsonCamera(_ c: Camera) -> JObj {
+    private static func jsonCamera(_ c: Camera, iso8601: ISO8601DateFormatter) -> JObj {
         [
             ("id", c.id.uuidString),
             ("name", c.name),
@@ -54,7 +54,7 @@ nonisolated struct ExportService {
         ]
     }
 
-    private static func jsonRoll(_ r: Roll) -> JObj {
+    private static func jsonRoll(_ r: Roll, iso8601: ISO8601DateFormatter) -> JObj {
         var obj: JObj = [
             ("id", r.id.uuidString),
         ]
@@ -68,7 +68,7 @@ nonisolated struct ExportService {
         return obj
     }
 
-    private static func jsonExposure(_ e: LogItem) -> JObj {
+    private static func jsonExposure(_ e: LogItem, iso8601: ISO8601DateFormatter) -> JObj {
         var obj: JObj = [
             ("id", e.id.uuidString),
         ]
@@ -93,6 +93,7 @@ nonisolated struct ExportService {
     // MARK: - CSV
 
     static func exportCSV(context: ModelContext) throws -> URL {
+        let iso8601 = ISO8601DateFormatter()
         let exposures = try context.fetch(FetchDescriptor<LogItem>())
 
         var csv = "id,rollId,cameraId,cameraName,filmStock,createdAt,isPlaceholder,notes,"

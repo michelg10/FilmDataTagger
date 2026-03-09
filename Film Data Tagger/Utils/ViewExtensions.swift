@@ -19,6 +19,8 @@ extension UIScreen {
 }
 
 let sheetScaleCompensationFactor = UIScreen.currentWidth / (UIScreen.currentWidth - 16)
+// Private API, but widely used across the App Store with no known rejections. Falls back to 50 if unavailable.
+let screenCornerRadius: CGFloat = UIScreen.main.value(forKey: "_displayCornerRadius") as? CGFloat ?? 50
 
 let aboveSheetShadowOpacity: Double = 0.2
 let aboveSheetShadowRadius: CGFloat = 16

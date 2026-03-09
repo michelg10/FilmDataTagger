@@ -124,10 +124,8 @@ struct ExposureScreen: View {
                     }
                 }
             )
-            // Private API, but widely used across the App Store with no known rejections. Falls back to 50 if unavailable.
-            let screenRadius = UIScreen.main.value(forKey: "_displayCornerRadius") as? CGFloat ?? 50
             let captureSheetRectangle = UnevenRoundedRectangle(
-                topLeadingRadius: 35, bottomLeadingRadius: screenRadius - 8, bottomTrailingRadius: screenRadius - 8, topTrailingRadius: 35, style: .continuous)
+                topLeadingRadius: 35, bottomLeadingRadius: screenCornerRadius - 8, bottomTrailingRadius: screenCornerRadius - 8, topTrailingRadius: 35, style: .continuous)
 
             CaptureSheet(viewModel: viewModel)
             .clipShape(captureSheetRectangle)
@@ -184,15 +182,19 @@ struct ContentView: View {
     init(viewModel: FilmLogViewModel) {
         self.viewModel = viewModel
         var initialPath = NavigationPath()
+        var initialCamera: Camera?
         if let group = viewModel.activeInstantFilmGroup {
             initialPath.append(group.id)
         } else if let roll = viewModel.openRoll, let camera = roll.camera {
             initialPath.append(camera.id)
             initialPath.append(ExposureMarker())
+            initialCamera = camera
         } else if let camera = viewModel.openCamera {
             initialPath.append(camera.id)
+            initialCamera = camera
         }
         _path = State(initialValue: initialPath)
+        _selectedCamera = State(initialValue: initialCamera)
     }
 
     // Path depth: 0 = camera list, 1 = roll list, 2 = exposure screen
@@ -312,6 +314,9 @@ struct ContentView: View {
             SettingsSheet(viewModel: viewModel)
         }
         .onChange(of: cameras.map(\.id)) {
+            validateNavigationPath()
+        }
+        .onChange(of: viewModel.openRoll?.id) {
             validateNavigationPath()
         }
     }

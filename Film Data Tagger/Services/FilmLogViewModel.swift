@@ -82,7 +82,9 @@ final class FilmLogViewModel {
             Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
             settings.lastAppLaunchDate ?? Date.distantPast
         )
-        locationService.geocodeRecentItems(container: modelContext.container, since: cutoffDate)
+        locationService.geocodeRecentItems(container: modelContext.container, since: cutoffDate) { [weak self] results in
+            self?.applyGeocodingResults(results)
+        }
         recordAppLaunch()
         observeRemoteChanges()
     }
@@ -94,13 +96,26 @@ final class FilmLogViewModel {
         settings.lastForegroundDate = Date()
         reloadItems()
         locationService.geocodeRecentItems(container: modelContext.container, since: cutoff) { [weak self] results in
-            guard let self else { return }
-            for (id, placeName) in results {
-                if let item = self.logItems.first(where: { $0.id == id }) {
+            self?.applyGeocodingResults(results)
+        }
+    }
+
+    /// Apply geocoded place names to items on the main context and save.
+    private func applyGeocodingResults(_ results: [(UUID, String)]) {
+        guard !results.isEmpty else { return }
+        for (id, placeName) in results {
+            // Check in-memory logItems first (fast path)
+            if let item = logItems.first(where: { $0.id == id }) {
+                item.placeName = placeName
+            } else {
+                // Item not in current view — fetch from main context
+                let descriptor = FetchDescriptor<LogItem>(predicate: #Predicate { $0.id == id })
+                if let item = try? modelContext.fetch(descriptor).first {
                     item.placeName = placeName
                 }
             }
         }
+        save()
     }
 
     private func observeRemoteChanges() {
