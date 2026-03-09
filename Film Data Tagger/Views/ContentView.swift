@@ -311,6 +311,24 @@ struct ContentView: View {
         .sheet(isPresented: $showSettings) {
             SettingsSheet(viewModel: viewModel)
         }
+        .onChange(of: cameras.map(\.id)) {
+            validateNavigationPath()
+        }
+    }
+
+    /// Pop the nav path if the selected camera or roll no longer exists (e.g. deleted via iCloud sync).
+    private func validateNavigationPath() {
+        guard isOnRollList || isOnExposureList else { return }
+        // The first path element is a camera UUID
+        guard let selectedCamera, cameras.contains(where: { $0.id == selectedCamera.id }) else {
+            path = NavigationPath()
+            return
+        }
+        // If on exposure screen, verify the open roll still exists
+        if isOnExposureList, viewModel.openRoll == nil {
+            path = NavigationPath()
+            path.append(selectedCamera.id)
+        }
     }
 }
 
