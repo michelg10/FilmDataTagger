@@ -264,6 +264,11 @@ final class FilmLogViewModel {
         guard !isCapturing else { return }
         isCapturing = true
 
+        // Snapshot state before the await — roll/camera could change during capture
+        let targetRoll = openRoll
+        let targetSubCamera = activeInstantFilmCamera
+        let wasInstantFilm = isInstantFilmMode
+
         // Collect data once — shared across all pending taps
         let location = settings.locationEnabled ? locationService.currentLocation : nil
         let placeName = locationService.geocodingState.persistablePlaceName
@@ -292,13 +297,13 @@ final class FilmLogViewModel {
 
         for _ in 0..<count {
             let roll: Roll
-            if isInstantFilmMode {
-                guard let subCamera = activeInstantFilmCamera else { continue }
+            if wasInstantFilm {
+                guard let subCamera = targetSubCamera else { continue }
                 roll = activePackForSubCamera(subCamera)
             } else {
-                guard let openRoll else { continue }
-                activateRollIfNeeded(openRoll)
-                roll = openRoll
+                guard let targetRoll else { continue }
+                activateRollIfNeeded(targetRoll)
+                roll = targetRoll
             }
 
             let item = LogItem(roll: roll)
