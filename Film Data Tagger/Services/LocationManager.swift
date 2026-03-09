@@ -13,10 +13,11 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
 
     var currentLocation: CLLocation?
-    var authorizationStatus: CLAuthorizationStatus = .notDetermined
+    var authorizationStatus: CLAuthorizationStatus
     var onAuthorizationChanged: ((CLAuthorizationStatus) -> Void)?
 
     override init() {
+        authorizationStatus = manager.authorizationStatus
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = AppSettings.shared.locationAccuracy.clAccuracy

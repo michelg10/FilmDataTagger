@@ -186,15 +186,15 @@ nonisolated struct ExportService {
     // MARK: - Helpers
 
     private static func csvEscape(_ value: String) -> String {
-        let needsQuoting = value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")
-        let escaped = needsQuoting
-            ? "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
-            : value
-        // Prevent spreadsheet formula injection
-        if let first = escaped.first, "=+−-@".contains(first) {
-            return "'" + escaped
+        // Prevent spreadsheet formula injection — prefix before quoting
+        var sanitized = value
+        if let first = sanitized.first, "=+−-@".contains(first) {
+            sanitized = "'" + sanitized
         }
-        return escaped
+        if sanitized.contains(",") || sanitized.contains("\"") || sanitized.contains("\n") || sanitized.contains("\r") {
+            return "\"" + sanitized.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+        }
+        return sanitized
     }
 
     private static let dateFormatter: DateFormatter = {

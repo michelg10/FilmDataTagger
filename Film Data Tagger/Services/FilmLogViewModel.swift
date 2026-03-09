@@ -342,10 +342,13 @@ final class FilmLogViewModel {
 
             // If we don't have a geocode yet, do it in the background
             if item.placeName == nil, let location {
-                Task {
-                    item.placeName = await Geocoder.placeName(for: location)
-                    // we don't have to save here, since placenames are not critical data,
-                    // and we'll regenerate any potentially lost placeNames upon next launch anyway.
+                let itemID = item.id
+                Task { [weak self] in
+                    let placeName = await Geocoder.placeName(for: location)
+                    // Only write if the item still exists in the current view
+                    if let item = self?.logItems.first(where: { $0.id == itemID }) {
+                        item.placeName = placeName
+                    }
                 }
             }
         }
