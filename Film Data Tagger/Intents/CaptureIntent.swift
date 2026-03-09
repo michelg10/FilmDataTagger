@@ -55,7 +55,7 @@ struct CameraEntityQuery: EntityQuery {
     private static func subtitle(for roll: Roll) -> String {
         let count = (roll.logItems ?? []).count
         let total = roll.totalCapacity
-        var result = "\(count) / \(total)"
+        var result = "\(count + 1) / \(total)" // show the current frame counter
         if let lastDate = roll.lastExposureDate {
             let seconds = Int(Date().timeIntervalSince(lastDate))
             let ago: String
