@@ -86,6 +86,7 @@ private struct FinishRollOverlay: View {
 
 struct ExposureScreen: View {
     let viewModel: FilmLogViewModel
+    var onCameraSwitched: ((Camera) -> Void)? = nil
 
     @State private var newRollCamera: Camera?
     @State private var scrollState = ExposureScrollState()
@@ -119,6 +120,7 @@ struct ExposureScreen: View {
                 onCameraSelected: { camera in
                     if let roll = camera.activeRoll {
                         viewModel.switchToRoll(roll)
+                        onCameraSwitched?(camera)
                     }
                 }
             )
@@ -220,7 +222,12 @@ struct ContentView: View {
                     }
                 }
                 .navigationDestination(for: ExposureMarker.self) { _ in
-                    ExposureScreen(viewModel: viewModel)
+                    ExposureScreen(viewModel: viewModel) { camera in
+                        path = NavigationPath()
+                        path.append(camera.id)
+                        path.append(ExposureMarker())
+                        selectedCamera = camera
+                    }
                 }
         }
         .overlay(alignment: .bottom) {
