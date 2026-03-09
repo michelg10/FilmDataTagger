@@ -153,9 +153,7 @@ final class CameraManager: NSObject {
     }
 
     func capturePhoto(maxDimension: CGFloat? = nil, compressionQuality: CGFloat = 0.8) async -> Data? {
-        guard session.isRunning, output.connection(with: .video)?.isActive == true else {
-            return nil
-        }
+        guard isRunning else { return nil }
         // Only one capture at a time — flag set before the await so reentrancy can't sneak in
         guard !isCaptureInFlight else { return nil }
         isCaptureInFlight = true
@@ -165,15 +163,17 @@ final class CameraManager: NSObject {
         let data: Data? = await withCheckedContinuation { continuation in
             self.photoContinuation = continuation
 
-            let photoSettings: AVCapturePhotoSettings
-            if self.output.availablePhotoCodecTypes.contains(.hevc) {
-                photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
-            } else {
-                photoSettings = AVCapturePhotoSettings()
+            // All AVCapturePhotoOutput access must happen on the session queue
+            self.sessionQueue.async {
+                let photoSettings: AVCapturePhotoSettings
+                if self.output.availablePhotoCodecTypes.contains(.hevc) {
+                    photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
+                } else {
+                    photoSettings = AVCapturePhotoSettings()
+                }
+                photoSettings.photoQualityPrioritization = .speed
+                self.output.capturePhoto(with: photoSettings, delegate: self)
             }
-            photoSettings.photoQualityPrioritization = .speed
-
-            self.output.capturePhoto(with: photoSettings, delegate: self)
 
             // Safety timeout — if neither delegate callback resumes the continuation, unblock after 5s
             Task { @MainActor in
