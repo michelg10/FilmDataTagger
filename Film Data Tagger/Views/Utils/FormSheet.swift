@@ -33,7 +33,7 @@ struct FormSheet<Content: View>: View {
                         .font(.system(size: 20, weight: .semibold, design: .default))
                         .foregroundStyle(Color.white.opacity(0.95))
                         .frame(width: 44, height: 44)
-                }.glassEffect(.regular.tint(.white.opacity(formIsAboveAnotherSheet ? 0.07 : 0.06)).interactive(), in: Circle())
+                }.glassEffectCompat(tint: .white.opacity(formIsAboveAnotherSheet ? 0.07 : 0.06), in: Circle())
                 .accessibilityLabel("Close")
             }.padding(.bottom, titleBarPadding)
 

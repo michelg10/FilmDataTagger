@@ -390,7 +390,7 @@ struct CameraListView: View {
                         .font(.system(size: 17, weight: .semibold, design: .default))
                         .fontWidth(.expanded)
                         .multilineTextAlignment(.center)
-                        .lineHeight(.exact(points: 21))
+                        .lineHeightCompat(points: 21, fallbackSpacing: 0.7)
                         .foregroundStyle(Color.white.opacity(0.5))
                         .frame(width: 189)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)

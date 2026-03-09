@@ -179,7 +179,7 @@ private struct SettingsSection<Content: View>: View {
                     Text(text)
                         .font(.system(size: 13, weight: .regular, design: .default))
                         .foregroundStyle(Color.white.opacity(0.35))
-                        .lineHeight(.exact(points: 16))
+                        .lineHeightCompat(points: 16, fallbackSpacing: 0.5)
                         .multilineTextAlignment(.leading)
                 }
 
@@ -217,7 +217,7 @@ private struct SettingsHeroSection<Icon: View>: View {
                 .padding(.bottom, 8)
             Text(subtitle)
                 .font(.system(size: 17, weight: .regular, design: .default))
-                .lineHeight(.exact(points: 23))
+                .lineHeightCompat(points: 23, fallbackSpacing: 2.7)
                 .foregroundStyle(Color.white.opacity(0.6))
                 .multilineTextAlignment(.leading)
         }.padding(20)
@@ -295,7 +295,7 @@ private struct DismissButton: View {
                 .foregroundStyle(Color.white.opacity(0.95))
         }
         .frame(width: 44, height: 44)
-        .glassEffect(.regular.interactive(), in: Circle())
+        .glassEffectCompat(in: Circle())
         .accessibilityLabel("Close")
     }
 }
@@ -311,7 +311,7 @@ private struct BackButton: View {
                 .frame(width: 44, height: 44)
         }
         .frame(width: 44, height: 44)
-        .glassEffect(.regular.interactive(), in: Circle())
+        .glassEffectCompat(in: Circle())
         .accessibilityLabel("Back")
     }
 }

@@ -41,7 +41,7 @@ struct FinishRollButton: View {
                                 .transition(.opacity)
                         }
                     }
-            }.glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
+            }.glassEffectCompat(in: Capsule(style: .continuous))
             .accessibilityLabel(isNearBottom ? text : "Scroll to bottom")
         }.frame(maxWidth: .infinity)
         .animation(.easeInOut(duration: 0.25), value: isNearBottom)
@@ -130,7 +130,7 @@ struct ExposureScreen: View {
 
             CaptureSheet(viewModel: viewModel)
             .clipShape(captureSheetRectangle)
-            .glassEffect(.regular.interactive(), in: captureSheetRectangle)
+            .glassEffectCompat(in: captureSheetRectangle)
             .overlay(alignment: .top) {
                 FinishRollOverlay(
                     scrollState: scrollState,
@@ -259,7 +259,7 @@ struct ContentView: View {
                         .frame(height: 60)
                         .contentShape(Rectangle())
                     }
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .glassEffectCompat(in: Capsule())
                     .shadow(color: .black.opacity(0.25), radius: 16.4)
                     .buttonStyle(.plain)
                     .transition(.blurReplace.combined(with: .scale(0.9)))
@@ -278,7 +278,7 @@ struct ContentView: View {
                             .frame(width: 60, height: 60)
                             .contentShape(Rectangle())
                     }
-                    .glassEffect(.regular.interactive(), in: Circle())
+                    .glassEffectCompat(in: Circle())
                     .shadow(color: .black.opacity(0.25), radius: 16.4)
                     .buttonStyle(.plain)
                     .transition(.blurReplace.combined(with: .scale(0.9)))

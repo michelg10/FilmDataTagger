@@ -339,7 +339,7 @@ struct ExposureListView: View {
                             .font(.system(size: 16, weight: .bold, design: .default))
                             .foregroundStyle(Color.white.opacity(0.95))
                     }.frame(width: 44, height: 44)
-                    .glassEffect(.regular.interactive(), in: Circle())
+                    .glassEffectCompat(in: Circle())
                     .accessibilityLabel("Back")
                     CameraSwitcherMenu(
                         cameraName: cameraName,

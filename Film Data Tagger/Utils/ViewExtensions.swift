@@ -48,4 +48,31 @@ extension View {
             self
         }
     }
+
+    @ViewBuilder
+    func lineHeightCompat(points: CGFloat, fallbackSpacing: CGFloat = 0) -> some View {
+        if #available(iOS 26, *) {
+            self.lineHeight(.exact(points: points))
+        } else {
+            self.lineSpacing(fallbackSpacing)
+        }
+    }
+
+    @ViewBuilder
+    func glassEffectCompat(in shape: some InsettableShape, interactive: Bool = true) -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffect(.regular.interactive(interactive), in: shape)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func glassEffectCompat(tint: Color, in shape: some InsettableShape, interactive: Bool = true) -> some View {
+        if #available(iOS 26, *) {
+            self.glassEffect(.regular.tint(tint).interactive(interactive), in: shape)
+        } else {
+            self
+        }
+    }
 }

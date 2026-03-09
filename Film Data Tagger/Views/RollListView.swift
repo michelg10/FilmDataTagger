@@ -123,7 +123,7 @@ struct RollListRow: View {
                     .fontWidth(.expanded)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .lineHeight(.exact(points: 24))
+                    .lineHeightCompat(points: 24)
                     .foregroundStyle(Color.white)
                 Spacer(minLength: 20)
                 let exposureCountText = Text(exposureCountDisplay).foregroundStyle(Color.white.opacity(0.9))
@@ -339,7 +339,7 @@ struct RollListView: View {
                             .foregroundStyle(Color.white.opacity(0.95))
                             .frame(width: 44, height: 44)
                     }.frame(width: 44, height: 44)
-                    .glassEffect(.regular.interactive(), in: Circle())
+                    .glassEffectCompat(in: Circle())
                     .accessibilityLabel("Back")
                     VStack(alignment: .leading, spacing: 4) {
                         Text(camera.name)
