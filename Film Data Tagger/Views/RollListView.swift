@@ -202,7 +202,6 @@ struct RollListView: View {
                                     .font(.system(size: 17, weight: .semibold, design: .default))
                                     .fontWidth(.expanded)
                                     .opacity(0.6)
-                                    .padding(.bottom, 2)
 
                                 Button {
                                     viewModel.switchToRoll(activeRoll)
@@ -234,7 +233,6 @@ struct RollListView: View {
                                 .font(.system(size: 17, weight: .semibold, design: .default))
                                 .fontWidth(.expanded)
                                 .opacity(0.6)
-                                .padding(.bottom, 2)
 
                             ForEach(Array(pastRolls.enumerated()), id: \.element.id) { index, roll in
                                 if index > 0 {
@@ -272,7 +270,7 @@ struct RollListView: View {
                     }.animation(.easeOut(duration: 0.25), value: activeRoll?.id)
                     .animation(.easeOut(duration: 0.25), value: pastRolls.map(\.id))
                     .padding(.horizontal, 16)
-                    .padding(.top, 16)
+                    .padding(.top, 23)
                     .padding(.bottom, 217 - 20 - bottomSafeAreaInset - 46) // overscroll
                 }
             } else {
