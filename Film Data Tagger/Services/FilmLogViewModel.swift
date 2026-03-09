@@ -440,10 +440,11 @@ final class FilmLogViewModel {
 
     func deleteItem(_ item: LogItem) {
         let roll = item.roll
+        let deletedID = item.id
         modelContext.delete(item)
-        logItems.removeAll { $0.id == item.id }
+        logItems.removeAll { $0.id == deletedID }
         if let roll {
-            recomputeLastExposureDate(for: roll)
+            recomputeLastExposureDate(for: roll, excluding: deletedID)
         }
         save()
     }
@@ -577,9 +578,9 @@ final class FilmLogViewModel {
         roll.isActive = true
     }
 
-    private func recomputeLastExposureDate(for roll: Roll) {
+    private func recomputeLastExposureDate(for roll: Roll, excluding excludedID: UUID? = nil) {
         roll.lastExposureDate = (roll.logItems ?? [])
-            .filter { $0.hasRealCreatedAt }
+            .filter { $0.hasRealCreatedAt && $0.id != excludedID }
             .map(\.createdAt)
             .max()
     }
