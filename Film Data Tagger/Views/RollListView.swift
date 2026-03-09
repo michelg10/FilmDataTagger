@@ -14,6 +14,29 @@ private struct BlockProgressBar: View {
     let maxCapacity: Int
     let isActive: Bool
 
+    // Max gap between blocks for capacities 1–24, linearly interpolated from anchors:
+    // 1–8 → 11.0, 12 → 8.0, 15 → 7.0, 24 → 5.0. Beyond 24, no cap.
+    private static let maxGapTable: [CGFloat] = {
+        let anchors: [(Int, CGFloat)] = [(8, 11.0), (12, 8.0), (15, 7.0), (24, 5.0)]
+        var table = [CGFloat](repeating: 0, count: 25) // index 0 unused
+        for i in 1...24 {
+            if i <= anchors[0].0 {
+                table[i] = anchors[0].1
+            } else {
+                for a in 0..<anchors.count - 1 {
+                    let (loN, loV) = anchors[a]
+                    let (hiN, hiV) = anchors[a + 1]
+                    if i <= hiN {
+                        let t = CGFloat(i - loN) / CGFloat(hiN - loN)
+                        table[i] = loV + t * (hiV - loV)
+                        break
+                    }
+                }
+            }
+        }
+        return table
+    }()
+
     var body: some View {
         Canvas { context, size in
             let n = min(maxCapacity, 200)
@@ -21,8 +44,18 @@ private struct BlockProgressBar: View {
             let elemRatio: CGFloat = 6.6
             let sepRatio: CGFloat = 3.53
             let unit = size.width / (CGFloat(n) * elemRatio + CGFloat(n - 1) * sepRatio)
-            let elemW = unit * elemRatio
-            let stride = elemW + unit * sepRatio
+            let gapCap = n < Self.maxGapTable.count ? Self.maxGapTable[n] : CGFloat.infinity
+            let uncappedSep = unit * sepRatio
+            let sepW: CGFloat
+            let elemW: CGFloat
+            if uncappedSep > gapCap {
+                sepW = gapCap
+                elemW = (size.width - CGFloat(n - 1) * gapCap) / CGFloat(n)
+            } else {
+                sepW = uncappedSep
+                elemW = unit * elemRatio
+            }
+            let stride = elemW + sepW
             let notchH: CGFloat = 2
             let gap: CGFloat = 2
             let mainY = notchH + gap
