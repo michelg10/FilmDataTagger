@@ -54,7 +54,8 @@ private struct ExposureRowDropDelegate: DropDelegate {
         let targetIdx = info.location.y < exposureItemHeight / 2 ? index : index + 1
         guard let draggingPlaceholderID,
               let draggedItem = logItems.first(where: { $0.id == draggingPlaceholderID }),
-              draggedItem.isPlaceholder else {
+              draggedItem.isPlaceholder,
+              index < logItems.count else {
             return false
         }
 
@@ -68,7 +69,8 @@ private struct ExposureRowDropDelegate: DropDelegate {
     }
 
     private func updateTarget(info: DropInfo) {
-        guard let draggingPlaceholderID, draggingPlaceholderID != logItems[index].id else {
+        guard index < logItems.count,
+              let draggingPlaceholderID, draggingPlaceholderID != logItems[index].id else {
             return
         }
         let midY = exposureItemHeight / 2
@@ -335,6 +337,7 @@ struct ExposureListView: View {
                             .foregroundStyle(Color.white.opacity(0.95))
                     }.frame(width: 44, height: 44)
                     .glassEffect(.regular.interactive(), in: Circle())
+                    .accessibilityLabel("Back")
                     CameraSwitcherMenu(
                         cameraName: cameraName,
                         filmStock: filmStock,

@@ -79,6 +79,7 @@ struct NewCameraSheet: View {
                         .onTapGesture {
                             showInstantFilmInfo = true
                         }
+                        .accessibilityLabel("About camera types")
                         UIKitSegmentedControl(
                             segments: ["Standard", "Instant Film"],
                             selectedIndex: Binding(

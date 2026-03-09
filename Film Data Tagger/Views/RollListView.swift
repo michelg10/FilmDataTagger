@@ -307,6 +307,7 @@ struct RollListView: View {
                             .frame(width: 44, height: 44)
                     }.frame(width: 44, height: 44)
                     .glassEffect(.regular.interactive(), in: Circle())
+                    .accessibilityLabel("Back")
                     VStack(alignment: .leading, spacing: 4) {
                         Text(camera.name)
                             .font(.system(size: 18, weight: .bold, design: .default))

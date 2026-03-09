@@ -279,6 +279,7 @@ struct ContentView: View {
                     .shadow(color: .black.opacity(0.25), radius: 16.4)
                     .buttonStyle(.plain)
                     .transition(.blurReplace.combined(with: .scale(0.9)))
+                    .accessibilityLabel("Settings")
                 }
             }
             .padding(.horizontal, 28)

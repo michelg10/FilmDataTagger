@@ -154,6 +154,7 @@ private struct CaptureSheetFullContent: View {
                     viewModel.toggleReferencePhotos()
                 }
             }
+            .accessibilityLabel(viewModel.referencePhotosEnabled ? "Hide camera preview" : "Show camera preview")
 
             VStack(alignment: .leading, spacing: 10) {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -200,6 +201,7 @@ private struct CaptureSheetCompactContent: View {
                     playHaptic(.viewfinderToggle)
                     onEyeTapped?()
                 }
+                .accessibilityLabel("Toggle camera preview")
             if lastCaptureDate != nil {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     CompactInfoRow(
@@ -336,6 +338,7 @@ struct CaptureSheet: View {
                     .onTapGesture {
                         settle(on: selectedDetent == .compact ? .full : .compact)
                     }
+                    .accessibilityLabel(selectedDetent == .compact ? "Expand capture details" : "Collapse capture details")
 
                 ZStack(alignment: .top) {
                     CaptureSheetFullContent(

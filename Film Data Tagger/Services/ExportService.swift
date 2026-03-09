@@ -197,6 +197,8 @@ nonisolated struct ExportService {
         return f
     }()
 
+    // Same-day exports intentionally overwrite — the file is temporary and
+    // only needs to live long enough for the share sheet to consume it.
     private static func tempURL(ext: String) -> URL {
         let date = dateFormatter.string(from: Date())
         return FileManager.default.temporaryDirectory

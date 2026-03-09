@@ -297,6 +297,7 @@ private struct DismissButton: View {
         }
         .frame(width: 44, height: 44)
         .glassEffect(.regular.interactive(), in: Circle())
+        .accessibilityLabel("Close")
     }
 }
 
@@ -312,6 +313,7 @@ private struct BackButton: View {
         }
         .frame(width: 44, height: 44)
         .glassEffect(.regular.interactive(), in: Circle())
+        .accessibilityLabel("Back")
     }
 }
 
