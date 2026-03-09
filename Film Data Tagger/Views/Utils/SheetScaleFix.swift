@@ -37,12 +37,15 @@ private struct SheetScaleFixBridge: UIViewRepresentable {
         weak var anchorView: UIView?
         var displayLink: CADisplayLink?
         weak var discoveredPresentedView: UIView?
+        private var trampoline: DisplayLinkTrampoline?
 
         deinit { displayLink?.invalidate() }
 
         func ensureDisplayLink() {
             guard displayLink == nil else { return }
-            displayLink = CADisplayLink(target: self, selector: #selector(tick))
+            let trampoline = DisplayLinkTrampoline { [weak self] in self?.tick() }
+            self.trampoline = trampoline
+            displayLink = CADisplayLink(target: trampoline, selector: #selector(DisplayLinkTrampoline.fire))
             displayLink?.add(to: .main, forMode: .common)
         }
 
@@ -63,7 +66,7 @@ private struct SheetScaleFixBridge: UIViewRepresentable {
             return nil
         }
 
-        @objc private func tick() {
+        private func tick() {
             guard let presentedView = findPresentedView() else { return }
             guard presentedView.subviews.count > 1 else { return }
 

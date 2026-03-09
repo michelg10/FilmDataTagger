@@ -45,7 +45,6 @@ struct FormSheet<Content: View>: View {
         .presentationDetents([.height(CGFloat(sheetScaleCompensationFactor * sheetHeight - bottomSafeAreaInset))])
         .presentationDragIndicator(.hidden)
         .presentationBackgroundInteraction(.disabled)
-        .sheetContentClip(cornerRadius: 35)
         .sheetScaleFix()
     }
 }

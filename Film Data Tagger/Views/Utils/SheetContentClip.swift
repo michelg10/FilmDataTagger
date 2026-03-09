@@ -3,6 +3,7 @@
 //  Film Data Tagger
 //
 //  Forces the sheet's presentedView to clip content to its rounded corners.
+//  Currently unused, but we keep it in case it's needed in the future.
 //
 
 import SwiftUI
@@ -38,16 +39,19 @@ private struct SheetContentClipBridge: UIViewRepresentable {
         var cornerRadius: CGFloat = 35
         var displayLink: CADisplayLink?
         weak var presentedView: UIView?
+        private var trampoline: DisplayLinkTrampoline?
 
         deinit { displayLink?.invalidate() }
 
         func ensureDisplayLink() {
             guard displayLink == nil else { return }
-            displayLink = CADisplayLink(target: self, selector: #selector(tick))
+            let trampoline = DisplayLinkTrampoline { [weak self] in self?.tick() }
+            self.trampoline = trampoline
+            displayLink = CADisplayLink(target: trampoline, selector: #selector(DisplayLinkTrampoline.fire))
             displayLink?.add(to: .main, forMode: .common)
         }
 
-        @objc private func tick() {
+        private func tick() {
             if presentedView == nil || presentedView?.window == nil {
                 guard let anchor = anchorView,
                       let window = anchor.window,

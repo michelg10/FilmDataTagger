@@ -122,6 +122,7 @@ struct ExposureScreen: View {
                     }
                 }
             )
+            // Private API, but widely used across the App Store with no known rejections. Falls back to 50 if unavailable.
             let screenRadius = UIScreen.main.value(forKey: "_displayCornerRadius") as? CGFloat ?? 50
             let captureSheetRectangle = UnevenRoundedRectangle(
                 topLeadingRadius: 35, bottomLeadingRadius: screenRadius - 8, bottomTrailingRadius: screenRadius - 8, topTrailingRadius: 35, style: .continuous)
