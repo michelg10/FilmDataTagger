@@ -87,6 +87,7 @@ final class FilmLogViewModel {
         }
         recordAppLaunch()
         observeRemoteChanges()
+        cleanOrphanedDataIfNeeded()
     }
 
     /// Geocode items logged since the app was last in the foreground
@@ -212,6 +213,54 @@ final class FilmLogViewModel {
             }
         }
         if didRepair { save() }
+    }
+
+    /// Delete orphaned rolls (no camera, no instant film camera) and orphaned exposures (no roll).
+    /// Runs at most once per week to avoid unnecessary work.
+    private func cleanOrphanedDataIfNeeded() {
+        if let lastClean = settings.lastDataCleanDate,
+           Date().timeIntervalSince(lastClean) < 24 * 60 * 60 { return }
+
+        let container = modelContext.container
+        Task.detached {
+            let context = ModelContext(container)
+
+            // Find orphaned rolls: no camera and no instant film camera
+            let orphanedRollDescriptor = FetchDescriptor<Roll>(
+                predicate: #Predicate<Roll> { $0.camera == nil && $0.instantFilmCamera == nil }
+            )
+            let orphanedRollIDs = ((try? context.fetch(orphanedRollDescriptor)) ?? []).map(\.id)
+
+            // Find orphaned exposures: no roll
+            let orphanedItemDescriptor = FetchDescriptor<LogItem>(
+                predicate: #Predicate<LogItem> { $0.roll == nil }
+            )
+            let orphanedItemIDs = ((try? context.fetch(orphanedItemDescriptor)) ?? []).map(\.id)
+
+            guard !orphanedRollIDs.isEmpty || !orphanedItemIDs.isEmpty else {
+                await MainActor.run { AppSettings.shared.lastDataCleanDate = Date() }
+                return
+            }
+
+            await MainActor.run { [orphanedRollIDs, orphanedItemIDs] in
+                Self.logger.info("Data clean: \(orphanedRollIDs.count) orphaned roll(s), \(orphanedItemIDs.count) orphaned exposure(s)")
+
+                for id in orphanedRollIDs {
+                    let descriptor = FetchDescriptor<Roll>(predicate: #Predicate { $0.id == id })
+                    if let roll = try? self.modelContext.fetch(descriptor).first {
+                        self.modelContext.delete(roll)
+                    }
+                }
+                for id in orphanedItemIDs {
+                    let descriptor = FetchDescriptor<LogItem>(predicate: #Predicate { $0.id == id })
+                    if let item = try? self.modelContext.fetch(descriptor).first {
+                        self.modelContext.delete(item)
+                    }
+                }
+                self.save()
+                AppSettings.shared.lastDataCleanDate = Date()
+            }
+        }
     }
 
     private func loadOrCreateActiveRoll() {

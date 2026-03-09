@@ -207,6 +207,10 @@ final class AppSettings {
         didSet { defaults.set(lastForegroundDate, forKey: Keys.lastForegroundDate) }
     }
 
+    var lastDataCleanDate: Date? {
+        didSet { defaults.set(lastDataCleanDate, forKey: Keys.lastDataCleanDate) }
+    }
+
     // MARK: - Private
 
     private let defaults = UserDefaults.standard
@@ -241,6 +245,7 @@ final class AppSettings {
         reduceHaptics = d.bool(forKey: Keys.reduceHaptics)
         lastAppLaunchDate = d.object(forKey: Keys.lastAppLaunchDate) as? Date
         lastForegroundDate = d.object(forKey: Keys.lastForegroundDate) as? Date
+        lastDataCleanDate = d.object(forKey: Keys.lastDataCleanDate) as? Date
     }
 
     private enum Keys {
@@ -257,5 +262,6 @@ final class AppSettings {
         static let reduceHaptics = "reduceHaptics"
         static let lastAppLaunchDate = "lastAppLaunchDate"
         static let lastForegroundDate = "lastForegroundDate"
+        static let lastDataCleanDate = "lastDataCleanDate"
     }
 }
