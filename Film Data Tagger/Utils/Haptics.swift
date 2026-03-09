@@ -48,7 +48,7 @@ private let hapticEngine: CHHapticEngine? = {
     return engine
 }()
 
-func playHaptic(_ haptic: Haptic) {
+@MainActor func playHaptic(_ haptic: Haptic) {
     guard !AppSettings.shared.reduceHaptics, let engine = hapticEngine else { return }
     hapticQueue.async {
         try? engine.start()

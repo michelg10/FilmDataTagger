@@ -147,7 +147,7 @@ enum LocationAccuracy: String, CaseIterable {
     }
 }
 
-@Observable
+@Observable @MainActor
 final class AppSettings {
     static let shared = AppSettings()
 

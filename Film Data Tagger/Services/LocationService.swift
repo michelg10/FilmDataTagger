@@ -78,7 +78,11 @@ final class LocationService {
             geocodingState = .notAuthorized
         } else {
             geocodingState = .locating
-            locationManager.requestPermission()
+            if status == .authorizedWhenInUse || status == .authorizedAlways {
+                locationManager.startUpdating()
+            } else {
+                locationManager.requestPermission()
+            }
             startLiveGeocoding()
         }
     }
