@@ -193,6 +193,7 @@ struct RollListView: View {
     var body: some View {
         ZStack {
             if !rolls.isEmpty {
+                TimelineView(.periodic(from: .now, by: 30)) { _ in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
@@ -272,6 +273,7 @@ struct RollListView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 23)
                     .padding(.bottom, 217 - 20 - bottomSafeAreaInset - 46) // overscroll
+                }
                 }
             } else {
                 VStack(spacing: 13) {

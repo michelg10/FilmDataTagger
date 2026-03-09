@@ -374,15 +374,17 @@ struct CameraListView: View {
             let entries = allEntries
             let orderedIDs = entries.map(\.id)
             if !entries.isEmpty {
-                ScrollView {
-                    cameraScrollContent(entries: entries, orderedIDs: orderedIDs)
-                }
-                .scrollClipDisabled()
-                .padding(.top, 68)
-                .onScrollGeometryChange(for: Bool.self) { geo in
-                    geo.contentOffset.y + geo.contentInsets.top <= 0
-                } action: { _, atTop in
-                    titleVisible = atTop
+                TimelineView(.periodic(from: .now, by: 30)) { _ in
+                    ScrollView {
+                        cameraScrollContent(entries: entries, orderedIDs: orderedIDs)
+                    }
+                    .scrollClipDisabled()
+                    .padding(.top, 68)
+                    .onScrollGeometryChange(for: Bool.self) { geo in
+                        geo.contentOffset.y + geo.contentInsets.top <= 0
+                    } action: { _, atTop in
+                        titleVisible = atTop
+                    }
                 }
             } else {
                 VStack(spacing: 11) {
