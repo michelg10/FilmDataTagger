@@ -150,7 +150,7 @@ struct RollListView: View {
     @State private var rollToEdit: Roll?
 
     private var totalExposures: Int {
-        rolls.flatMap { $0.logItems ?? [] }.count
+        rolls.reduce(0) { $0 + ($1.logItems ?? []).count }
     }
 
     private var maxCapacity: Int {

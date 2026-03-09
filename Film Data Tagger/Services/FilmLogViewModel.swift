@@ -688,9 +688,7 @@ final class FilmLogViewModel {
 
     /// Total shots for a sub-camera across all its packs.
     func totalFrameCount(for camera: InstantFilmCamera) -> Int {
-        (camera.rolls ?? [])
-            .flatMap { $0.logItems ?? [] }
-            .count
+        (camera.rolls ?? []).reduce(0) { $0 + ($1.logItems ?? []).count }
     }
 
     /// Current frame number within the active pack (1-indexed, wraps at pack capacity).
