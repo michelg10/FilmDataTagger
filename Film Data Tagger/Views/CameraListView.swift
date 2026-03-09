@@ -10,11 +10,10 @@ import SwiftData
 import UniformTypeIdentifiers
 
 struct CameraRollProgress: View {
-    let isSelected: Bool
     let isInstantFilm: Bool
     let exposureCount: Int?
     let totalExposureCount: Int?
-    
+
     var exposureProgress: Double? {
         guard let exposureCount = exposureCount, let totalExposureCount = totalExposureCount else {
             return nil
@@ -28,23 +27,23 @@ struct CameraRollProgress: View {
         ZStack {
             if isInstantFilm {
                 Circle()
-                    .stroke(Color.white.opacity(isSelected ? 0.85 : 0.15), lineWidth: 6)
+                    .stroke(Color.white.opacity(0.85), lineWidth: 6)
                     .frame(width: 53, height: 53)
                 
                 Circle()
-                    .stroke(Color.white.opacity(isSelected ? 0.5 : 0.1), lineWidth: 2)
+                    .stroke(Color.white.opacity(0.5), lineWidth: 2)
                     .frame(width: 21, height: 21)
                 
                 Circle()
-                    .stroke(Color.white.opacity(isSelected ? 0.5 : 0.1), lineWidth: 1.5)
+                    .stroke(Color.white.opacity(0.5), lineWidth: 1.5)
                     .frame(width: 7, height: 7)
             } else {
                 RingView(
                     diameter: 53,
                     strokeWidth: 6,
                     progress: exposureProgress ?? 0,
-                    fillColor: Color.init(hex: isSelected ? 0xFFFFFF : 0x8A8A8A),
-                    trackColor: Color.white.opacity(isSelected ? 0.13 : 0.08),
+                    fillColor: Color.white.opacity(0.95),
+                    trackColor: Color.white.opacity(0.13),
                     overflowShadowColor: .black.opacity(0.75),
                     overflowShadowRadius: 2.9
                 )
@@ -52,7 +51,7 @@ struct CameraRollProgress: View {
                     Text(exposureCount > 99 ? "99+" : String(exposureCount))
                         .font(.system(size: 14, weight: .bold, design: .default))
                         .fontWidth(.expanded)
-                        .foregroundStyle(Color.white.opacity(isSelected ? 1.0 : 0.5))
+                        .foregroundStyle(Color.white)
                 } else {
                     Image(systemName: "xmark")
                         .font(.system(size: 18, weight: .bold, design: .default))
@@ -65,12 +64,10 @@ struct CameraRollProgress: View {
 
 struct CameraListRow: View {
     let entry: any CameraListEntry
-    let isSelected: Bool
 
     var body: some View {
         HStack(spacing: 0) {
             CameraRollProgress(
-                isSelected: isSelected,
                 isInstantFilm: entry.isInstantFilm,
                 exposureCount: entry.activeRoll.map { ($0.logItems ?? []).count },
                 totalExposureCount: entry.activeRoll?.totalCapacity
@@ -304,11 +301,8 @@ struct CameraListView: View {
             ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                 NavigationLink(value: entry.id) {
                     CameraListRow(
-                        entry: entry,
-                        isSelected: entry.id == viewModel.openCamera?.id
-                            || entry.id == viewModel.activeInstantFilmGroup?.id
-                    )
-                        .padding(.vertical, 18)
+                        entry: entry
+                    ).padding(.vertical, 18)
                 }
                 .overlay(alignment: .top) {
                     CameraDropIndicatorLine(active: dropTargetIndex == index)
