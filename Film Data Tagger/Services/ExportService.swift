@@ -155,25 +155,37 @@ nonisolated struct ExportService {
             return "\(int)"
         }
         if let double = value as? Double {
+            if double.isNaN || double.isInfinite { return "null" }
             return "\(double)"
         }
         return "null"
     }
 
     private static func escapeString(_ s: String) -> String {
-        let escaped = s
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\n", with: "\\n")
-            .replacingOccurrences(of: "\r", with: "\\r")
-            .replacingOccurrences(of: "\t", with: "\\t")
-        return "\"\(escaped)\""
+        var result = "\""
+        for ch in s.unicodeScalars {
+            switch ch {
+            case "\\": result += "\\\\"
+            case "\"": result += "\\\""
+            case "\n": result += "\\n"
+            case "\r": result += "\\r"
+            case "\t": result += "\\t"
+            default:
+                if ch.value < 0x20 {
+                    result += String(format: "\\u%04X", ch.value)
+                } else {
+                    result += String(ch)
+                }
+            }
+        }
+        result += "\""
+        return result
     }
 
     // MARK: - Helpers
 
     private static func csvEscape(_ value: String) -> String {
-        if value.contains(",") || value.contains("\"") || value.contains("\n") {
+        if value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r") {
             return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
         }
         return value
