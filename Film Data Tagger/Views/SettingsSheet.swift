@@ -172,7 +172,7 @@ private struct SettingsSection<Content: View>: View {
                 content
             }
             .clipShape(RoundedRectangle(cornerRadius: 26))
-            .background(RoundedRectangle(cornerRadius: 26).foregroundStyle(Color(hex: 0x222222)))
+            .background(RoundedRectangle(cornerRadius: 26).foregroundStyle(Color(hex: 0x202020)))
             if let caption {
                 let lines = caption.split(separator: "\n")
                 let styledText = { (text: String) in
