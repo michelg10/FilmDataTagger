@@ -203,6 +203,10 @@ final class AppSettings {
         didSet { defaults.set(lastAppLaunchDate, forKey: Keys.lastAppLaunchDate) }
     }
 
+    var lastForegroundDate: Date? {
+        didSet { defaults.set(lastForegroundDate, forKey: Keys.lastForegroundDate) }
+    }
+
     // MARK: - Private
 
     private let defaults = UserDefaults.standard
@@ -236,6 +240,7 @@ final class AppSettings {
             .flatMap(LocationAccuracy.init) ?? .high
         reduceHaptics = d.bool(forKey: Keys.reduceHaptics)
         lastAppLaunchDate = d.object(forKey: Keys.lastAppLaunchDate) as? Date
+        lastForegroundDate = d.object(forKey: Keys.lastForegroundDate) as? Date
     }
 
     private enum Keys {
@@ -251,5 +256,6 @@ final class AppSettings {
         static let locationAccuracy = "locationAccuracy"
         static let reduceHaptics = "reduceHaptics"
         static let lastAppLaunchDate = "lastAppLaunchDate"
+        static let lastForegroundDate = "lastForegroundDate"
     }
 }

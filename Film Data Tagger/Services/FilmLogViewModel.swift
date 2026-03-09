@@ -10,6 +10,7 @@ import SwiftUI
 import SwiftData
 internal import CoreData
 import CoreLocation
+import os.log
 
 @Observable
 @MainActor
@@ -86,12 +87,20 @@ final class FilmLogViewModel {
         observeRemoteChanges()
     }
 
-    /// Geocode any items from the last hour that are missing place names
+    /// Geocode items logged since the app was last in the foreground
     /// (e.g. exposures logged via Shortcuts while the app was backgrounded).
     func geocodeUngeocodedItems() {
-        let cutoff = Date().addingTimeInterval(-3600)
-        locationService.geocodeRecentItems(container: modelContext.container, since: cutoff)
+        let cutoff = settings.lastForegroundDate ?? Date()
+        settings.lastForegroundDate = Date()
         reloadItems()
+        locationService.geocodeRecentItems(container: modelContext.container, since: cutoff) { [weak self] results in
+            guard let self else { return }
+            for (id, placeName) in results {
+                if let item = self.logItems.first(where: { $0.id == id }) {
+                    item.placeName = placeName
+                }
+            }
+        }
     }
 
     private func observeRemoteChanges() {
@@ -108,12 +117,19 @@ final class FilmLogViewModel {
         }
     }
 
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FilmDataTagger", category: "data")
+
     private func save() {
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            Self.logger.error("SwiftData save failed: \(error)")
+        }
     }
 
     private func recordAppLaunch() {
         settings.lastAppLaunchDate = Date()
+        settings.lastForegroundDate = Date()
     }
 
     private func reloadItems() {

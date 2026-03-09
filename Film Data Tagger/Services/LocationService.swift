@@ -128,7 +128,9 @@ final class LocationService {
     }
 
     /// Backfill place names for recent items that were logged without geocoding.
-    func geocodeRecentItems(container: ModelContainer, since cutoffDate: Date) {
+    /// The `onComplete` callback receives the geocoded (id, placeName) pairs so the caller
+    /// can update its own in-memory objects (background context saves don't auto-refresh the main context).
+    func geocodeRecentItems(container: ModelContainer, since cutoffDate: Date, onComplete: (@MainActor @Sendable ([(UUID, String)]) -> Void)? = nil) {
         Task.detached {
             let context = ModelContext(container)
             let descriptor = FetchDescriptor<LogItem>(
@@ -146,6 +148,7 @@ final class LocationService {
                 return (item.id, CLLocation(latitude: lat, longitude: lon))
             }
 
+            var geocoded: [(UUID, String)] = []
             for (id, location) in pending {
                 guard !Task.isCancelled else { break }
                 let placeName = await Geocoder.placeName(for: location)
@@ -153,9 +156,16 @@ final class LocationService {
                 if let item = try? context.fetch(lookup).first {
                     item.placeName = placeName
                 }
+                if let placeName {
+                    geocoded.append((id, placeName))
+                }
                 try? await Task.sleep(for: .milliseconds(100))
             }
             try? context.save()
+            if let onComplete {
+                let results = geocoded
+                await MainActor.run { onComplete(results) }
+            }
         }
     }
 
