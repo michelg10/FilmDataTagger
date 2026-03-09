@@ -30,7 +30,12 @@ struct PrimaryButton<Label: View>: View {
                 .fontWidth(.expanded)
         }.frame(height: 63)
         .disabled(!enabled)
-        .glassEffectCompat(tint: .white.opacity(enabled ? 0.91 : (isAboveAnotherSheet ? 0.07 : 0.055)), in: Capsule(style: .continuous), interactive: enabled)
+        .glassEffectCompat(
+            tint: .white.opacity(enabled ? 0.91 : (isAboveAnotherSheet ? 0.07 : 0.055)),
+            in: Capsule(style: .continuous),
+            interactive: enabled,
+            fallbackColor: enabled ? Color(hex: 0xE0E0E0) : Color(hex: isAboveAnotherSheet ? 0x333333 : 0x2C2C2C)
+        )
         .shadow(color: .black.opacity(shadowOpacity), radius: isAboveAnotherSheet ? aboveSheetShadowRadius : sheetShadowRadius)
         .contentShape(Capsule())
         .animation(.easeInOut(duration: 0.12), value: enabled)

@@ -49,30 +49,61 @@ extension View {
         }
     }
 
+    #if DEBUG
+    // Set to true to preview pre-iOS 26 fallback appearance
+    private var forceLegacy: Bool { false }
+    #endif
+
     @ViewBuilder
     func lineHeightCompat(points: CGFloat, fallbackSpacing: CGFloat = 0) -> some View {
+        #if DEBUG
+        if #available(iOS 26, *), !forceLegacy {
+            self.lineHeight(.exact(points: points))
+        } else {
+            self.lineSpacing(fallbackSpacing)
+        }
+        #else
         if #available(iOS 26, *) {
             self.lineHeight(.exact(points: points))
         } else {
             self.lineSpacing(fallbackSpacing)
         }
+        #endif
     }
 
     @ViewBuilder
     func glassEffectCompat(in shape: some InsettableShape, interactive: Bool = true) -> some View {
+        #if DEBUG
+        if #available(iOS 26, *), !forceLegacy {
+            self.glassEffect(.regular.interactive(interactive), in: shape)
+        } else {
+            self.background(.ultraThinMaterial, in: shape)
+                .overlay(shape.stroke(.white.opacity(0.16), lineWidth: 1))
+        }
+        #else
         if #available(iOS 26, *) {
             self.glassEffect(.regular.interactive(interactive), in: shape)
         } else {
-            self
+            self.background(.ultraThinMaterial, in: shape)
+                .overlay(shape.stroke(.white.opacity(0.16), lineWidth: 1))
         }
+        #endif
     }
 
     @ViewBuilder
-    func glassEffectCompat(tint: Color, in shape: some InsettableShape, interactive: Bool = true) -> some View {
+    func glassEffectCompat(tint: Color, in shape: some InsettableShape, interactive: Bool = true, fallbackColor: Color) -> some View {
+        #if DEBUG
+        if #available(iOS 26, *), !forceLegacy {
+            self.glassEffect(.regular.tint(tint).interactive(interactive), in: shape)
+        } else {
+            self.background(fallbackColor, in: shape)
+        }
+        #else
         if #available(iOS 26, *) {
             self.glassEffect(.regular.tint(tint).interactive(interactive), in: shape)
         } else {
-            self
+            self.background(fallbackColor, in: shape)
         }
+        #endif
     }
 }
