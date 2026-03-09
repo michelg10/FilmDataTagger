@@ -18,6 +18,7 @@ final class CameraManager: NSObject {
     // Only accessed from sessionQueue — serial queue provides synchronization.
     nonisolated(unsafe) private var isConfigured = false
     private var photoContinuation: CheckedContinuation<Data?, Never>?
+    private var isCaptureInFlight = false
     private var stopTimer: Task<Void, Never>?
     private var _previewView: CameraPreviewUIView?
 
@@ -154,6 +155,9 @@ final class CameraManager: NSObject {
         guard session.isRunning, output.connection(with: .video)?.isActive == true else {
             return nil
         }
+        // Only one capture at a time — flag set before the await so reentrancy can't sneak in
+        guard !isCaptureInFlight else { return nil }
+        isCaptureInFlight = true
 
         let data: Data? = await withCheckedContinuation { continuation in
             self.photoContinuation = continuation
@@ -169,6 +173,7 @@ final class CameraManager: NSObject {
             self.output.capturePhoto(with: photoSettings, delegate: self)
         }
 
+        isCaptureInFlight = false
         guard let data, let maxDimension else { return data }
         return Self.resized(data, maxDimension: maxDimension, quality: compressionQuality)
     }
