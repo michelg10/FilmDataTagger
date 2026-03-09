@@ -49,7 +49,7 @@ final class FilmLogViewModel {
     var isInstantFilmMode: Bool { activeInstantFilmGroup != nil }
 
     // MARK: - Location (proxied from LocationService)
-    var currentPlaceName: String? { locationService.currentPlaceName }
+    var geocodingState: GeocodingState { locationService.geocodingState }
     var currentLocation: CLLocation? { locationService.currentLocation }
 
     init(modelContext: ModelContext) {
@@ -193,7 +193,7 @@ final class FilmLogViewModel {
 
         // Collect data once — shared across all pending taps
         let location = settings.locationEnabled ? locationService.currentLocation : nil
-        let placeName = settings.locationEnabled ? locationService.currentPlaceName : nil
+        let placeName = locationService.geocodingState.persistablePlaceName
         let photoData: Data? = if referencePhotosEnabled {
             await cameraManager.capturePhoto(
                 maxDimension: settings.photoQuality.maxDimension,
@@ -221,7 +221,7 @@ final class FilmLogViewModel {
                 guard let subCamera = activeInstantFilmCamera else { continue }
                 roll = activePackForSubCamera(subCamera)
             } else {
-                guard let openRoll else { return }
+                guard let openRoll else { continue }
                 activateRollIfNeeded(openRoll)
                 roll = openRoll
             }

@@ -9,13 +9,54 @@ import Foundation
 import SwiftData
 import CoreLocation
 
+enum GeocodingState: Equatable {
+    case disabled
+    case notAuthorized
+    case locating
+    case geocoding(CLLocation)
+    case timedOut(CLLocation?)
+    case resolved(String, CLLocation)
+
+    /// The place name to persist to a LogItem, or nil if not ready.
+    var persistablePlaceName: String? {
+        if case .resolved(let name, _) = self { return name }
+        return nil
+    }
+
+    /// Display text for the UI.
+    var displayText: String {
+        switch self {
+        case .disabled: "Disabled"
+        case .notAuthorized: "Disabled"
+        case .locating: "Locating..."
+        case .geocoding: "Locating..."
+        case .timedOut: "Unavailable"
+        case .resolved(let name, _): name
+        }
+    }
+
+    /// Subtitle for the expanded capture sheet.
+    var displaySubtext: String {
+        switch self {
+        case .disabled: "Location off"
+        case .notAuthorized: "Location not allowed"
+        case .locating: "Locating..."
+        case .geocoding(let loc), .resolved(_, let loc):
+            String(format: "%.4f / %.4f", loc.coordinate.latitude, loc.coordinate.longitude)
+        case .timedOut(let loc):
+            loc.map { String(format: "%.4f / %.4f", $0.coordinate.latitude, $0.coordinate.longitude) }
+                ?? "Location unavailable"
+        }
+    }
+}
+
 @Observable @MainActor
 final class LocationService {
     private let locationManager = LocationManager()
     private var lastGeocodedLocation: CLLocation?
     nonisolated(unsafe) private var geocodeTask: Task<Void, Never>?
 
-    var currentPlaceName: String?
+    var geocodingState: GeocodingState = .disabled
     var currentLocation: CLLocation? { locationManager.currentLocation }
 
     deinit {
@@ -23,21 +64,61 @@ final class LocationService {
     }
 
     func setup() {
+        locationManager.onAuthorizationChanged = { [weak self] status in
+            self?.handleAuthorizationChange(status)
+        }
+
+        guard AppSettings.shared.locationEnabled else {
+            geocodingState = .disabled
+            return
+        }
+
+        let status = locationManager.authorizationStatus
+        if status == .denied || status == .restricted {
+            geocodingState = .notAuthorized
+        } else {
+            geocodingState = .locating
+            locationManager.requestPermission()
+            startLiveGeocoding()
+        }
+    }
+
+    private func handleAuthorizationChange(_ status: CLAuthorizationStatus) {
         guard AppSettings.shared.locationEnabled else { return }
-        locationManager.requestPermission()
-        startLiveGeocoding()
+
+        switch status {
+        case .authorizedWhenInUse, .authorizedAlways:
+            locationManager.startUpdating()
+            if case .notAuthorized = geocodingState {
+                geocodingState = .locating
+                startLiveGeocoding()
+            }
+        case .denied, .restricted:
+            geocodeTask?.cancel()
+            geocodeTask = nil
+            locationManager.stopUpdating()
+            geocodingState = .notAuthorized
+        default:
+            break
+        }
     }
 
     func setEnabled(_ enabled: Bool) {
         if enabled {
-            locationManager.requestPermission()
-            locationManager.startUpdating()
-            startLiveGeocoding()
+            let status = locationManager.authorizationStatus
+            if status == .denied || status == .restricted {
+                geocodingState = .notAuthorized
+            } else {
+                geocodingState = .locating
+                locationManager.requestPermission()
+                locationManager.startUpdating()
+                startLiveGeocoding()
+            }
         } else {
             geocodeTask?.cancel()
             geocodeTask = nil
             locationManager.stopUpdating()
-            currentPlaceName = nil
+            geocodingState = .disabled
             lastGeocodedLocation = nil
         }
     }
@@ -82,14 +163,13 @@ final class LocationService {
 
     private func startLiveGeocoding() {
         geocodeTask = Task {
-            // Show "Unknown" after 15s if we still have no location.
-            // Captures the parent task so we can check its cancellation.
+            // Time out after 15s if we still have no location.
             let parentTask = geocodeTask
             Task {
                 try? await Task.sleep(for: .seconds(15))
                 guard parentTask?.isCancelled != true else { return }
-                if currentPlaceName == nil {
-                    currentPlaceName = "Unknown"
+                if case .locating = geocodingState {
+                    geocodingState = .timedOut(nil)
                 }
             }
 
@@ -99,7 +179,12 @@ final class LocationService {
                 // Only re-geocode if moved >50m from last geocoded spot
                 if let last = lastGeocodedLocation, location.distance(from: last) < 50 { continue }
                 lastGeocodedLocation = location
-                currentPlaceName = await Geocoder.placeName(for: location)
+                geocodingState = .geocoding(location)
+                if let name = await Geocoder.placeName(for: location) {
+                    geocodingState = .resolved(name, location)
+                } else {
+                    geocodingState = .timedOut(location)
+                }
             }
         }
     }

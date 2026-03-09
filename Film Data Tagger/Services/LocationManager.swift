@@ -14,6 +14,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
 
     var currentLocation: CLLocation?
     var authorizationStatus: CLAuthorizationStatus = .notDetermined
+    var onAuthorizationChanged: ((CLAuthorizationStatus) -> Void)?
 
     override init() {
         super.init()
@@ -53,9 +54,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         let status = manager.authorizationStatus
         Task { @MainActor in
             self.authorizationStatus = status
-            if status == .authorizedWhenInUse || status == .authorizedAlways {
-                self.manager.startUpdatingLocation()
-            }
+            self.onAuthorizationChanged?(status)
         }
     }
 
