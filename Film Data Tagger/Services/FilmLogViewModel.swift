@@ -76,6 +76,7 @@ final class FilmLogViewModel {
         locationService.setup()
         repairDuplicateActiveRolls()
         loadOrCreateActiveRoll()
+        repairPlaceholderTimestamps()
         let cutoffDate = min(
             Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
             settings.lastAppLaunchDate ?? Date.distantPast
@@ -144,6 +145,40 @@ final class FilmLogViewModel {
                 roll.isActive = false
             }
             didRepair = true
+        }
+        if didRepair { save() }
+    }
+
+    /// Re-interpolate placeholder timestamps between real exposures.
+    /// Repairs precision exhaustion from repeated drag reordering.
+    private func repairPlaceholderTimestamps() {
+        guard let roll = openRoll else { return }
+        let items = (roll.logItems ?? []).sorted { $0.createdAt < $1.createdAt }
+        // Need at least 2 items and at least one real timestamp to anchor against
+        guard items.count >= 2, items.contains(where: \.hasRealCreatedAt) else { return }
+
+        var didRepair = false
+        var i = 0
+        while i < items.count {
+            // Find runs of consecutive placeholders
+            guard !items[i].hasRealCreatedAt else { i += 1; continue }
+            let runStart = i
+            while i < items.count && !items[i].hasRealCreatedAt { i += 1 }
+            let runEnd = i // exclusive
+
+            // Boundaries: real timestamp before and after the run
+            let before = runStart > 0 ? items[runStart - 1].createdAt : items[runEnd < items.count ? runEnd : runStart].createdAt.addingTimeInterval(-Double(runEnd - runStart + 1))
+            let after = runEnd < items.count ? items[runEnd].createdAt : before.addingTimeInterval(Double(runEnd - runStart + 1))
+
+            let count = runEnd - runStart
+            for j in 0..<count {
+                let fraction = Double(j + 1) / Double(count + 1)
+                let newTime = before.addingTimeInterval(after.timeIntervalSince(before) * fraction)
+                if items[runStart + j].createdAt != newTime {
+                    items[runStart + j].createdAt = newTime
+                    didRepair = true
+                }
+            }
         }
         if didRepair { save() }
     }
