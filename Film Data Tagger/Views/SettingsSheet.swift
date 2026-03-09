@@ -546,6 +546,11 @@ struct SettingsSheet: View {
         .task {
             iCloudStatus = try? await CKContainer.default().accountStatus()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .CKAccountChanged)) { _ in
+            Task {
+                iCloudStatus = try? await CKContainer.default().accountStatus()
+            }
+        }
     }
 
 }

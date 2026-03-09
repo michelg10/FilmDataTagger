@@ -42,6 +42,7 @@ struct FinishRollButton: View {
                         }
                     }
             }.glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
+            .accessibilityLabel(isNearBottom ? text : "Scroll to bottom")
         }.frame(maxWidth: .infinity)
         .animation(.easeInOut(duration: 0.25), value: isNearBottom)
     }

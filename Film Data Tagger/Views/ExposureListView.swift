@@ -183,6 +183,8 @@ private struct CameraSwitcherMenu: View {
             .frame(minWidth: 250, maxWidth: UIScreen.currentWidth - 32 - 44 - 12, alignment: .leading)
             .contentShape(Rectangle())
         }
+        .accessibilityLabel("Switch camera")
+        .accessibilityHint("Opens a menu to switch between cameras with active rolls")
     }
 }
 
