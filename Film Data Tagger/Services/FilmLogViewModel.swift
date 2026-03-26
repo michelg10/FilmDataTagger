@@ -377,6 +377,7 @@ final class FilmLogViewModel {
             if let location {
                 item.setLocation(location)
                 item.placeName = placeName
+                AppSettings.shared.cacheShortcutLocation(location)
             }
 
             // Pre-cache so the row displays without decoding

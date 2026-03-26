@@ -145,6 +145,16 @@ enum LocationAccuracy: String, CaseIterable {
         case .maximum: kCLLocationAccuracyBest
         }
     }
+
+    /// How long a cached location remains valid for shortcut use
+    var locationCacheTTL: TimeInterval {
+        switch self {
+        case .low: 600      // 10 minutes
+        case .medium: 60    // 1 minute
+        case .high: 30      // 30 seconds
+        case .maximum: 10   // 10 seconds
+        }
+    }
 }
 
 @Observable @MainActor
@@ -154,61 +164,104 @@ final class AppSettings {
     // MARK: - Active state
 
     var openRollId: UUID? {
-        didSet { defaults.set(openRollId?.uuidString, forKey: Keys.openRollId) }
+        didSet { defaults.set(openRollId?.uuidString, forKey: AppSettingsKeys.openRollId) }
     }
 
     var openCameraId: UUID? {
-        didSet { defaults.set(openCameraId?.uuidString, forKey: Keys.openCameraId) }
+        didSet { defaults.set(openCameraId?.uuidString, forKey: AppSettingsKeys.openCameraId) }
     }
 
     var activeInstantFilmGroupId: UUID? {
-        didSet { defaults.set(activeInstantFilmGroupId?.uuidString, forKey: Keys.activeInstantFilmGroupId) }
+        didSet { defaults.set(activeInstantFilmGroupId?.uuidString, forKey: AppSettingsKeys.activeInstantFilmGroupId) }
     }
 
     var activeInstantFilmCameraId: UUID? {
-        didSet { defaults.set(activeInstantFilmCameraId?.uuidString, forKey: Keys.activeInstantFilmCameraId) }
+        didSet { defaults.set(activeInstantFilmCameraId?.uuidString, forKey: AppSettingsKeys.activeInstantFilmCameraId) }
     }
 
     // MARK: - Preferences
 
     var referencePhotosEnabled: Bool {
-        didSet { defaults.set(referencePhotosEnabled, forKey: Keys.referencePhotosEnabled) }
+        didSet { defaults.set(referencePhotosEnabled, forKey: AppSettingsKeys.referencePhotosEnabled) }
     }
 
     var referencePhotoStartup: ReferencePhotoStartup {
-        didSet { defaults.set(referencePhotoStartup.rawValue, forKey: Keys.referencePhotoStartup) }
+        didSet { defaults.set(referencePhotoStartup.rawValue, forKey: AppSettingsKeys.referencePhotoStartup) }
     }
 
     var photoQuality: PhotoQuality {
-        didSet { defaults.set(photoQuality.rawValue, forKey: Keys.photoQuality) }
+        didSet { defaults.set(photoQuality.rawValue, forKey: AppSettingsKeys.photoQuality) }
     }
 
     var preferredCamera: PreferredCamera {
-        didSet { defaults.set(preferredCamera.rawValue, forKey: Keys.preferredCamera) }
+        didSet { defaults.set(preferredCamera.rawValue, forKey: AppSettingsKeys.preferredCamera) }
     }
 
     var locationEnabled: Bool {
-        didSet { defaults.set(locationEnabled, forKey: Keys.locationEnabled) }
+        didSet { defaults.set(locationEnabled, forKey: AppSettingsKeys.locationEnabled) }
     }
 
     var locationAccuracy: LocationAccuracy {
-        didSet { defaults.set(locationAccuracy.rawValue, forKey: Keys.locationAccuracy) }
+        didSet { defaults.set(locationAccuracy.rawValue, forKey: AppSettingsKeys.locationAccuracy) }
     }
 
     var reduceHaptics: Bool {
-        didSet { defaults.set(reduceHaptics, forKey: Keys.reduceHaptics) }
+        didSet { defaults.set(reduceHaptics, forKey: AppSettingsKeys.reduceHaptics) }
     }
 
     var lastAppLaunchDate: Date? {
-        didSet { defaults.set(lastAppLaunchDate, forKey: Keys.lastAppLaunchDate) }
+        didSet { defaults.set(lastAppLaunchDate, forKey: AppSettingsKeys.lastAppLaunchDate) }
     }
 
     var lastForegroundDate: Date? {
-        didSet { defaults.set(lastForegroundDate, forKey: Keys.lastForegroundDate) }
+        didSet { defaults.set(lastForegroundDate, forKey: AppSettingsKeys.lastForegroundDate) }
     }
 
     var lastDataCleanDate: Date? {
-        didSet { defaults.set(lastDataCleanDate, forKey: Keys.lastDataCleanDate) }
+        didSet { defaults.set(lastDataCleanDate, forKey: AppSettingsKeys.lastDataCleanDate) }
+    }
+
+    // MARK: - Location cache (for accelerating consecutive Shortcut triggers)
+
+    /// Returns a cached location if one exists within the TTL for the current accuracy setting, otherwise nil.
+    nonisolated func shortcutCachedLocation() -> CLLocation? {
+        let d = UserDefaults.standard
+        guard let lat = d.object(forKey: AppSettingsKeys.shortcutCachedLocationLat) as? Double,
+              let lon = d.object(forKey: AppSettingsKeys.shortcutCachedLocationLon) as? Double,
+              let timestamp = d.object(forKey: AppSettingsKeys.shortcutCachedLocationTimestamp) as? Date else { return nil }
+        let accuracy = d.string(forKey: AppSettingsKeys.locationAccuracy)
+            .flatMap(LocationAccuracy.init) ?? .high
+        let ttl: TimeInterval = switch accuracy {
+        case .low: 600; case .medium: 60; case .high: 30; case .maximum: 10
+        }
+        guard Date().timeIntervalSince(timestamp) <= ttl else { return nil }
+        let alt = d.object(forKey: AppSettingsKeys.shortcutCachedLocationAlt) as? Double ?? 0
+        let hAcc = d.object(forKey: AppSettingsKeys.shortcutCachedLocationHAcc) as? Double ?? -1
+        let vAcc = d.object(forKey: AppSettingsKeys.shortcutCachedLocationVAcc) as? Double ?? -1
+        let course = d.object(forKey: AppSettingsKeys.shortcutCachedLocationCourse) as? Double ?? -1
+        let speed = d.object(forKey: AppSettingsKeys.shortcutCachedLocationSpeed) as? Double ?? -1
+        return CLLocation(
+            coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon),
+            altitude: alt,
+            horizontalAccuracy: hAcc,
+            verticalAccuracy: vAcc,
+            course: course,
+            speed: speed,
+            timestamp: timestamp
+        )
+    }
+
+    /// Persist a location for use by subsequent Shortcut invocations.
+    nonisolated func cacheShortcutLocation(_ location: CLLocation) {
+        let d = UserDefaults.standard
+        d.set(location.coordinate.latitude, forKey: AppSettingsKeys.shortcutCachedLocationLat)
+        d.set(location.coordinate.longitude, forKey: AppSettingsKeys.shortcutCachedLocationLon)
+        d.set(location.altitude, forKey: AppSettingsKeys.shortcutCachedLocationAlt)
+        d.set(location.horizontalAccuracy, forKey: AppSettingsKeys.shortcutCachedLocationHAcc)
+        d.set(location.verticalAccuracy, forKey: AppSettingsKeys.shortcutCachedLocationVAcc)
+        d.set(location.course, forKey: AppSettingsKeys.shortcutCachedLocationCourse)
+        d.set(location.speed, forKey: AppSettingsKeys.shortcutCachedLocationSpeed)
+        d.set(location.timestamp, forKey: AppSettingsKeys.shortcutCachedLocationTimestamp)
     }
 
     // MARK: - Private
@@ -218,18 +271,18 @@ final class AppSettings {
     private init() {
         let d = UserDefaults.standard
 
-        openRollId = d.string(forKey: Keys.openRollId).flatMap(UUID.init)
-        openCameraId = d.string(forKey: Keys.openCameraId).flatMap(UUID.init)
-        activeInstantFilmGroupId = d.string(forKey: Keys.activeInstantFilmGroupId).flatMap(UUID.init)
-        activeInstantFilmCameraId = d.string(forKey: Keys.activeInstantFilmCameraId).flatMap(UUID.init)
+        openRollId = d.string(forKey: AppSettingsKeys.openRollId).flatMap(UUID.init)
+        openCameraId = d.string(forKey: AppSettingsKeys.openCameraId).flatMap(UUID.init)
+        activeInstantFilmGroupId = d.string(forKey: AppSettingsKeys.activeInstantFilmGroupId).flatMap(UUID.init)
+        activeInstantFilmCameraId = d.string(forKey: AppSettingsKeys.activeInstantFilmCameraId).flatMap(UUID.init)
 
-        referencePhotosEnabled = d.object(forKey: Keys.referencePhotosEnabled) == nil
-            ? true : d.bool(forKey: Keys.referencePhotosEnabled)
-        referencePhotoStartup = d.string(forKey: Keys.referencePhotoStartup)
+        referencePhotosEnabled = d.object(forKey: AppSettingsKeys.referencePhotosEnabled) == nil
+            ? true : d.bool(forKey: AppSettingsKeys.referencePhotosEnabled)
+        referencePhotoStartup = d.string(forKey: AppSettingsKeys.referencePhotoStartup)
             .flatMap(ReferencePhotoStartup.init) ?? .preserveLast
-        photoQuality = d.string(forKey: Keys.photoQuality)
+        photoQuality = d.string(forKey: AppSettingsKeys.photoQuality)
             .flatMap(PhotoQuality.init) ?? .high
-        let savedCamera = d.string(forKey: Keys.preferredCamera).flatMap(PreferredCamera.init)
+        let savedCamera = d.string(forKey: AppSettingsKeys.preferredCamera).flatMap(PreferredCamera.init)
         let available = PreferredCamera.available
         preferredCamera = if let savedCamera, available.contains(savedCamera) {
             savedCamera
@@ -238,30 +291,39 @@ final class AppSettings {
         } else {
             available.first ?? .wide
         }
-        locationEnabled = d.object(forKey: Keys.locationEnabled) == nil
-            ? true : d.bool(forKey: Keys.locationEnabled)
-        locationAccuracy = d.string(forKey: Keys.locationAccuracy)
+        locationEnabled = d.object(forKey: AppSettingsKeys.locationEnabled) == nil
+            ? true : d.bool(forKey: AppSettingsKeys.locationEnabled)
+        locationAccuracy = d.string(forKey: AppSettingsKeys.locationAccuracy)
             .flatMap(LocationAccuracy.init) ?? .high
-        reduceHaptics = d.bool(forKey: Keys.reduceHaptics)
-        lastAppLaunchDate = d.object(forKey: Keys.lastAppLaunchDate) as? Date
-        lastForegroundDate = d.object(forKey: Keys.lastForegroundDate) as? Date
-        lastDataCleanDate = d.object(forKey: Keys.lastDataCleanDate) as? Date
+        reduceHaptics = d.bool(forKey: AppSettingsKeys.reduceHaptics)
+        lastAppLaunchDate = d.object(forKey: AppSettingsKeys.lastAppLaunchDate) as? Date
+        lastForegroundDate = d.object(forKey: AppSettingsKeys.lastForegroundDate) as? Date
+        lastDataCleanDate = d.object(forKey: AppSettingsKeys.lastDataCleanDate) as? Date
     }
 
-    private enum Keys {
-        static let openRollId = "openRollId"
-        static let openCameraId = "openCameraId"
-        static let activeInstantFilmGroupId = "activeInstantFilmGroupId"
-        static let activeInstantFilmCameraId = "activeInstantFilmCameraId"
-        static let referencePhotosEnabled = "referencePhotosEnabled"
-        static let referencePhotoStartup = "referencePhotoStartup"
-        static let photoQuality = "photoQuality"
-        static let preferredCamera = "preferredCamera"
-        static let locationEnabled = "locationEnabled"
-        static let locationAccuracy = "locationAccuracy"
-        static let reduceHaptics = "reduceHaptics"
-        static let lastAppLaunchDate = "lastAppLaunchDate"
-        static let lastForegroundDate = "lastForegroundDate"
-        static let lastDataCleanDate = "lastDataCleanDate"
-    }
+}
+
+private nonisolated enum AppSettingsKeys {
+    static let openRollId = "openRollId"
+    static let openCameraId = "openCameraId"
+    static let activeInstantFilmGroupId = "activeInstantFilmGroupId"
+    static let activeInstantFilmCameraId = "activeInstantFilmCameraId"
+    static let referencePhotosEnabled = "referencePhotosEnabled"
+    static let referencePhotoStartup = "referencePhotoStartup"
+    static let photoQuality = "photoQuality"
+    static let preferredCamera = "preferredCamera"
+    static let locationEnabled = "locationEnabled"
+    static let locationAccuracy = "locationAccuracy"
+    static let reduceHaptics = "reduceHaptics"
+    static let lastAppLaunchDate = "lastAppLaunchDate"
+    static let lastForegroundDate = "lastForegroundDate"
+    static let lastDataCleanDate = "lastDataCleanDate"
+    static let shortcutCachedLocationLat = "shortcutCachedLocationLat"
+    static let shortcutCachedLocationLon = "shortcutCachedLocationLon"
+    static let shortcutCachedLocationAlt = "shortcutCachedLocationAlt"
+    static let shortcutCachedLocationHAcc = "shortcutCachedLocationHAcc"
+    static let shortcutCachedLocationVAcc = "shortcutCachedLocationVAcc"
+    static let shortcutCachedLocationCourse = "shortcutCachedLocationCourse"
+    static let shortcutCachedLocationSpeed = "shortcutCachedLocationSpeed"
+    static let shortcutCachedLocationTimestamp = "shortcutCachedLocationTimestamp"
 }
