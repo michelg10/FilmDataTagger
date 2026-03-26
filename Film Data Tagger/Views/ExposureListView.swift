@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 
-private let exposureItemHeight: CGFloat = 76
+private let exposureItemHeight: CGFloat = 78
 
 private struct ExposureDropIndicatorLine: View {
     let active: Bool
@@ -249,7 +249,7 @@ struct ExposureListView: View {
         }
         .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))
         .padding(.horizontal, 16)
-        .padding(.top, 119)
+        .padding(.top, 116)
 
         // Overscroll / drop zone for moving placeholders to end of list
         Color.clear
