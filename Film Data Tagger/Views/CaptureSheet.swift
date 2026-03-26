@@ -73,12 +73,11 @@ private struct LocationInfoRow: View {
     let viewModel: FilmLogViewModel
 
     var body: some View {
-        let state = viewModel.geocodingState
         FullInfoRow(
             icon: Image(systemName: "location.fill")
                 .font(.system(size: 17, weight: .semibold, design: .default)),
-            text: state.displayText,
-            subtext: state.displaySubtext,
+            text: viewModel.displayLocationText,
+            subtext: viewModel.geocodingState.displaySubtext,
             textSubtextPadding: 3.0
         )
     }
@@ -178,7 +177,7 @@ private struct CaptureSheetCompactContent: View {
     let referencePhotosEnabled: Bool
     let cameraUnavailable: Bool
     let permissionDenied: Bool
-    let geocodingState: GeocodingState
+    let locationText: String
     let lastCaptureDate: Date?
     let onEyeTapped: (() -> Void)?
 
@@ -215,7 +214,7 @@ private struct CaptureSheetCompactContent: View {
             CompactInfoRow(
                 icon: Image(systemName: "location.fill")
                     .font(.system(size: 15, weight: .semibold, design: .default)),
-                text: geocodingState.displayText
+                text: locationText
             ).padding(.trailing, 15)
             .padding(.vertical, 4)
         }.padding(.horizontal, 27 - 15)
@@ -356,7 +355,7 @@ struct CaptureSheet: View {
                         referencePhotosEnabled: viewModel.referencePhotosEnabled,
                         cameraUnavailable: viewModel.cameraManager.cameraUnavailable,
                         permissionDenied: viewModel.cameraManager.permissionDenied,
-                        geocodingState: viewModel.geocodingState,
+                        locationText: viewModel.displayLocationText,
                         lastCaptureDate: lastCaptureDate,
                         onEyeTapped: {
                             if viewModel.cameraManager.cameraUnavailable {

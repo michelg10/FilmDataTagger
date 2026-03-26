@@ -52,6 +52,10 @@ final class FilmLogViewModel {
     // MARK: - Location (proxied from LocationService)
     var geocodingState: GeocodingState { locationService.geocodingState }
     var currentLocation: CLLocation? { locationService.currentLocation }
+    /// Display-friendly location text that avoids flashing "Locating..." during re-geocoding.
+    var displayLocationText: String {
+        locationService.displayPlaceName ?? geocodingState.displayText
+    }
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext

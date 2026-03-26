@@ -65,6 +65,15 @@ final class LocationService {
     var geocodingState: GeocodingState = .disabled
     var currentLocation: CLLocation? { locationManager.currentLocation }
 
+    /// Brief fallback to prevent "Locating..." flash during re-geocoding.
+    private(set) var fallbackPlaceName: String?
+    private var fallbackID: UUID?
+
+    /// Display-friendly place name: uses the real geocoded result, falling back briefly to the previous result during re-geocoding.
+    var displayPlaceName: String? {
+        geocodingState.persistablePlaceName ?? fallbackPlaceName
+    }
+
     deinit {
         geocodeTask?.cancel()
     }
@@ -191,6 +200,21 @@ final class LocationService {
                 // Only re-geocode if moved >50m from last geocoded spot
                 if let last = lastGeocodedLocation, location.distance(from: last) < 50 { continue }
                 lastGeocodedLocation = location
+
+                // Stash current place name as fallback to prevent UI flash during re-geocode
+                if let currentName = geocodingState.persistablePlaceName {
+                    let id = UUID()
+                    fallbackPlaceName = currentName
+                    fallbackID = id
+                    Task {
+                        try? await Task.sleep(for: .seconds(1))
+                        if self.fallbackID == id {
+                            self.fallbackPlaceName = nil
+                            self.fallbackID = nil
+                        }
+                    }
+                }
+
                 geocodingState = .geocoding(location)
                 let geo = await Geocoder.geocode(location)
                 if let name = geo.placeName {
@@ -198,6 +222,9 @@ final class LocationService {
                 } else {
                     geocodingState = .timedOut(location)
                 }
+                // Clear fallback once we have a real result
+                fallbackPlaceName = nil
+                fallbackID = nil
             }
         }
     }
