@@ -11,20 +11,18 @@ import SwiftData
 enum SharedModelContainer {
     @MainActor
     static let shared: ModelContainer = {
-        let schema = Schema([
-            Camera.self,
-            Roll.self,
-            LogItem.self,
-            InstantFilmGroup.self,
-            InstantFilmCamera.self,
-        ])
+        let schema = Schema(versionedSchema: SchemaV1.self)
         let config = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
             cloudKitDatabase: .automatic
         )
         do {
-            return try ModelContainer(for: schema, configurations: [config])
+            return try ModelContainer(
+                for: schema,
+                migrationPlan: FilmDataTaggerMigrationPlan.self,
+                configurations: [config]
+            )
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
