@@ -128,6 +128,7 @@ private struct ExposureRow: View, Equatable {
     let exposureNumber: Int?
     var isPreFrame: Bool = false
     var onDelete: ((LogItem) -> Void)?
+    var onMove: ((LogItem, Roll) -> Void)?
     var onCycleExtraExposures: (() -> Void)?
 
     static func == (lhs: ExposureRow, rhs: ExposureRow) -> Bool {
@@ -141,12 +142,77 @@ private struct ExposureRow: View, Equatable {
             .frame(height: exposureItemHeight, alignment: .center)
             .contentShape(Rectangle())
             .contextMenu {
+                if let onMove {
+                    Menu {
+                        MoveToRollMenu(item: item, onMove: onMove)
+                    } label: {
+                        Label("Move", systemImage: "rectangle.portrait.and.arrow.forward")
+                    }
+                }
                 Button(role: .destructive) {
                     onDelete?(item)
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
+            }.frame(height: exposureItemHeight)
+    }
+}
+
+/// Context menu content for moving an exposure to another roll.
+/// Owns `@Query` so camera/roll data doesn't cause parent re-renders.
+private struct MoveToRollMenu: View {
+    let item: LogItem
+    let onMove: (LogItem, Roll) -> Void
+    @Query private var cameras: [Camera]
+
+    private var currentRoll: Roll? { item.roll }
+    private var currentCamera: Camera? { currentRoll?.camera }
+
+    private func rollSubtitle(_ roll: Roll) -> String {
+        let count = (roll.logItems ?? []).count
+        let capacity = roll.totalCapacity
+        var parts = "\(count) / \(capacity)"
+        if let lastDate = roll.lastExposureDate {
+            let ago = relativeTimeString(from: lastDate, suffix: true)
+            parts += " · \(ago)"
+        }
+        return parts
+    }
+
+    var body: some View {
+        // Other cameras with active rolls
+        let otherCameras = cameras.filter { $0.id != currentCamera?.id && $0.activeRoll != nil }
+        ForEach(otherCameras) { camera in
+            if let roll = camera.activeRoll {
+                Button {
+                    onMove(item, roll)
+                } label: {
+                    Text(camera.name)
+                    Text(roll.filmStock)
+                }
             }
+        }
+
+        // Current camera's rolls
+        if let currentCamera {
+            let otherRolls = (currentCamera.rolls ?? [])
+                .filter { $0.id != currentRoll?.id }
+                .sorted { ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt) }
+            if !otherRolls.isEmpty {
+                Menu {
+                    ForEach(otherRolls) { roll in
+                        Button {
+                            onMove(item, roll)
+                        } label: {
+                            Text(roll.filmStock)
+                            Text(rollSubtitle(roll))
+                        }
+                    }
+                } label: {
+                    Text(currentCamera.name)
+                }
+            }
+        }
     }
 }
 
@@ -203,6 +269,7 @@ struct ExposureListView: View {
     var extraExposures: Int = 0
     var scrollContextID: UUID? = nil
     var onDelete: ((LogItem) -> Void)?
+    var onMoveToRoll: ((LogItem, Roll) -> Void)?
     var onMovePlaceholderBefore: ((LogItem, LogItem) -> Void)?
     var onMovePlaceholderAfter: ((LogItem, LogItem) -> Void)?
     var onMovePlaceholderToEnd: ((LogItem) -> Void)?
@@ -225,6 +292,7 @@ struct ExposureListView: View {
                     exposureNumber: frameNumber,
                     isPreFrame: isPreFrame,
                     onDelete: onDelete,
+                    onMove: onMoveToRoll,
                     onCycleExtraExposures: onCycleExtraExposures
                 )
                 .equatable()

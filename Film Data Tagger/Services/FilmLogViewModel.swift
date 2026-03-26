@@ -477,6 +477,31 @@ final class FilmLogViewModel {
         save()
     }
 
+    /// Move an exposure to a different roll, removing it from the current view.
+    func moveItem(_ item: LogItem, to targetRoll: Roll) {
+        guard item.roll?.id != targetRoll.id else { return }
+        let oldRoll = item.roll
+
+        // Remove from old roll
+        if let oldRoll {
+            oldRoll.logItems = (oldRoll.logItems ?? []).filter { $0.id != item.id }
+            recomputeLastExposureDate(for: oldRoll, excluding: item.id)
+        }
+
+        // Add to new roll
+        item.roll = targetRoll
+        targetRoll.logItems = (targetRoll.logItems ?? []) + [item]
+        if let date = item.hasRealCreatedAt ? item.createdAt : nil {
+            if targetRoll.lastExposureDate == nil || date > targetRoll.lastExposureDate! {
+                targetRoll.lastExposureDate = date
+            }
+        }
+
+        // Switch to the target roll
+        save()
+        switchToRoll(targetRoll)
+    }
+
     /// Move a placeholder to just before the target item.
     func movePlaceholder(_ item: LogItem, before target: LogItem) {
         guard item.isPlaceholder, item.id != target.id else { return }

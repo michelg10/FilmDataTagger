@@ -57,17 +57,7 @@ struct CameraEntityQuery: EntityQuery {
         let extraExposures = roll.extraExposures
         var result = "Frame \(count - extraExposures + 1)" // show the current frame counter
         if let lastDate = roll.lastExposureDate {
-            let seconds = Int(Date().timeIntervalSince(lastDate))
-            let ago: String
-            if seconds < 60 {
-                ago = "now"
-            } else if seconds < 3600 {
-                ago = "\(seconds / 60)m ago"
-            } else if seconds < 86400 {
-                ago = "\(seconds / 3600)h ago"
-            } else {
-                ago = "\(seconds / 86400)d ago"
-            }
+            let ago = relativeTimeString(from: lastDate, suffix: true)
             result += " • \(ago)"
         }
         return result

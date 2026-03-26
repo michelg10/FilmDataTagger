@@ -105,6 +105,12 @@ struct ExposureScreen: View {
                 extraExposures: viewModel.openRoll?.extraExposures ?? 0,
                 scrollContextID: viewModel.openRoll?.id ?? viewModel.openCamera?.id,
                 onDelete: { viewModel.deleteItem($0) },
+                onMoveToRoll: { item, roll in
+                    viewModel.moveItem(item, to: roll)
+                    if let camera = roll.camera {
+                        onCameraSwitched?(camera)
+                    }
+                },
                 onMovePlaceholderBefore: { viewModel.movePlaceholder($0, before: $1) },
                 onMovePlaceholderAfter: { viewModel.movePlaceholder($0, after: $1) },
                 onMovePlaceholderToEnd: { viewModel.movePlaceholderToEnd($0) },

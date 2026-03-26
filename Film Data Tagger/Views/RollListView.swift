@@ -96,21 +96,8 @@ struct RollListRow: View {
         return f
     }()
 
-    private var lastUsedText: String? {
-        let lastDate = roll.lastExposureDate ?? roll.createdAt
-        let interval = Date().timeIntervalSince(lastDate)
-        let minutes = Int(interval / 60)
-        let hours = Int(interval / 3600)
-        let days = Int(interval / 86400)
-        if days > 0 {
-            return "\(days)d"
-        } else if hours > 0 {
-            return "\(hours)h"
-        } else if minutes >= 1 {
-            return "\(minutes)m"
-        } else {
-            return nil
-        }
+    private var lastUsedText: String {
+        relativeTimeString(from: roll.lastExposureDate ?? roll.createdAt, suffix: true)
     }
 
     var body: some View {
@@ -145,8 +132,8 @@ struct RollListRow: View {
                 Spacer(minLength: 0)
                 
                 TimelineView(.periodic(from: .now, by: 30)) { _ in
-                    let usedAgoTime = Text(lastUsedText ?? "now").foregroundStyle(Color.white.opacity(0.9))
-                    Text("used \(usedAgoTime)\(lastUsedText == nil ? "" : " ago")")
+                    let usedAgoTime = Text(lastUsedText).foregroundStyle(Color.white.opacity(0.9))
+                    Text("used \(usedAgoTime)")
                         .foregroundStyle(Color.white.opacity(0.5))
                 }
             }.font(.system(size: 15, weight: .medium, design: .default))
