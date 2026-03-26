@@ -355,7 +355,8 @@ struct CameraListView: View {
         Group {
             let entries = allEntries
             let orderedIDs = entries.map(\.id)
-            if !entries.isEmpty {
+            let forceOnboarding = false // debug: set to true to preview onboarding text
+            if !entries.isEmpty && !forceOnboarding {
                 ScrollView {
                     cameraScrollContent(entries: entries, orderedIDs: orderedIDs)
                 }
@@ -372,13 +373,14 @@ struct CameraListView: View {
                         .font(.system(size: 22, weight: .bold, design: .default))
                         .fontWidth(.expanded)
                     Text("Add a camera to get started")
-                        .font(.system(size: 17, weight: .semibold, design: .default))
+                        .font(.system(size: 17, weight: .medium, design: .default))
                         .fontWidth(.expanded)
                         .multilineTextAlignment(.center)
                         .lineHeightCompat(points: 21, fallbackSpacing: 0.7)
                         .foregroundStyle(Color.white.opacity(0.5))
-                        .frame(width: 189)
-                }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                }.padding(.horizontal, 16)
+                .padding(.bottom, 36)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
