@@ -131,6 +131,24 @@ final class FilmLogViewModel {
             Task { @MainActor in
                 self.repairDuplicateActiveRolls()
                 self.reloadItems()
+                self.geocodeUngeocodedVisibleItems()
+            }
+        }
+    }
+
+    /// Geocode any visible items that have a location but no place name (e.g., items logged via Shortcuts).
+    private func geocodeUngeocodedVisibleItems() {
+        let pending = logItems.filter { $0.placeName == nil && $0.latitude != nil && $0.longitude != nil }
+        for item in pending {
+            guard let lat = item.latitude, let lon = item.longitude else { continue }
+            let itemID = item.id
+            let location = CLLocation(latitude: lat, longitude: lon)
+            Task { [weak self] in
+                let result = await Geocoder.geocode(location)
+                guard let self, let item = self.logItems.first(where: { $0.id == itemID }) else { return }
+                if let placeName = result.placeName { item.placeName = placeName }
+                if let city = result.cityName { item.cityName = city }
+                self.save()
             }
         }
     }
