@@ -9,52 +9,68 @@ import Foundation
 import CoreLocation
 import MapKit
 
+struct GeocodingResult {
+    let placeName: String?
+    let cityName: String?
+}
+
 @available(iOS 26, *)
 private enum Geocoder_iOS26 {
-    static func placeName(for location: CLLocation) async -> String? {
+    static func geocode(_ location: CLLocation) async -> GeocodingResult {
         guard let request = MKReverseGeocodingRequest(location: location) else {
-            return nil
+            return GeocodingResult(placeName: nil, cityName: nil)
         }
         do {
             let mapItems = try await request.mapItems
-            guard let mapItem = mapItems.first else { return nil }
-            if let name = mapItem.name, !name.isEmpty {
-                return name
+            guard let mapItem = mapItems.first else { return GeocodingResult(placeName: nil, cityName: nil) }
+            let placeName: String? = if let name = mapItem.name, !name.isEmpty {
+                name
+            } else {
+                mapItem.address?.shortAddress
             }
-            return mapItem.address?.shortAddress
+            let cityName = mapItem.addressRepresentations?.cityName?.nilIfEmpty
+            return GeocodingResult(placeName: placeName, cityName: cityName)
         } catch {
             print("Geocoding error: \(error.localizedDescription)")
-            return nil
+            return GeocodingResult(placeName: nil, cityName: nil)
         }
     }
 }
 
 private enum Geocoder_Legacy {
-    static func placeName(for location: CLLocation) async -> String? {
+    static func geocode(_ location: CLLocation) async -> GeocodingResult {
         do {
             let placemarks = try await CLGeocoder().reverseGeocodeLocation(location)
-            guard let placemark = placemarks.first else { return nil }
-            if let name = placemark.name, !name.isEmpty {
-                return name
+            guard let placemark = placemarks.first else { return GeocodingResult(placeName: nil, cityName: nil) }
+            let placeName: String? = if let name = placemark.name, !name.isEmpty {
+                name
+            } else {
+                [placemark.locality, placemark.administrativeArea]
+                    .compactMap { $0 }
+                    .joined(separator: ", ")
+                    .nilIfEmpty
             }
-            return [placemark.locality, placemark.administrativeArea]
-                .compactMap { $0 }
-                .joined(separator: ", ")
-                .nilIfEmpty
+            let cityName = placemark.locality?.nilIfEmpty
+            return GeocodingResult(placeName: placeName, cityName: cityName)
         } catch {
             print("Geocoding error: \(error.localizedDescription)")
-            return nil
+            return GeocodingResult(placeName: nil, cityName: nil)
         }
     }
 }
 
 enum Geocoder {
-    static func placeName(for location: CLLocation) async -> String? {
+    static func geocode(_ location: CLLocation) async -> GeocodingResult {
         if #available(iOS 26, *) {
-            return await Geocoder_iOS26.placeName(for: location)
+            return await Geocoder_iOS26.geocode(location)
         } else {
-            return await Geocoder_Legacy.placeName(for: location)
+            return await Geocoder_Legacy.geocode(location)
         }
+    }
+
+    /// Convenience for callers that only need the place name
+    static func placeName(for location: CLLocation) async -> String? {
+        await geocode(location).placeName
     }
 }
 

@@ -15,11 +15,17 @@ enum GeocodingState: Equatable {
     case locating
     case geocoding(CLLocation)
     case timedOut(CLLocation?)
-    case resolved(String, CLLocation)
+    case resolved(String, String?, CLLocation)
 
     /// The place name to persist to a LogItem, or nil if not ready.
     var persistablePlaceName: String? {
-        if case .resolved(let name, _) = self { return name }
+        if case .resolved(let name, _, _) = self { return name }
+        return nil
+    }
+
+    /// The city name to persist to a LogItem, or nil if not ready.
+    var persistableCityName: String? {
+        if case .resolved(_, let city, _) = self { return city }
         return nil
     }
 
@@ -31,7 +37,7 @@ enum GeocodingState: Equatable {
         case .locating: "Locating..."
         case .geocoding: "Locating..."
         case .timedOut: "Unavailable"
-        case .resolved(let name, _): name
+        case .resolved(let name, _, _): name
         }
     }
 
@@ -41,7 +47,7 @@ enum GeocodingState: Equatable {
         case .disabled: "Location off"
         case .notAuthorized: "Location not allowed"
         case .locating: "Locating..."
-        case .geocoding(let loc), .resolved(_, let loc):
+        case .geocoding(let loc), .resolved(_, _, let loc):
             String(format: "%.4f / %.4f", loc.coordinate.latitude, loc.coordinate.longitude)
         case .timedOut(let loc):
             loc.map { String(format: "%.4f / %.4f", $0.coordinate.latitude, $0.coordinate.longitude) }
@@ -133,7 +139,7 @@ final class LocationService {
 
     /// Backfill place names for recent items that were logged without geocoding.
     /// Geocoding runs off-main; results are delivered via callback for the caller to write to its own context.
-    func geocodeRecentItems(container: ModelContainer, since cutoffDate: Date, onComplete: @MainActor @Sendable @escaping ([(UUID, String)]) -> Void) {
+    func geocodeRecentItems(container: ModelContainer, since cutoffDate: Date, onComplete: @MainActor @Sendable @escaping ([(UUID, GeocodingResult)]) -> Void) {
         Task.detached {
             let context = ModelContext(container)
             let descriptor = FetchDescriptor<LogItem>(
@@ -151,13 +157,14 @@ final class LocationService {
                 return (item.id, CLLocation(latitude: lat, longitude: lon))
             }
 
-            var geocoded: [(UUID, String)] = []
+            var geocoded: [(UUID, GeocodingResult)] = []
             for (id, location) in pending {
                 guard !Task.isCancelled else { break }
-                if let placeName = await Geocoder.placeName(for: location) {
-                    geocoded.append((id, placeName))
+                let result = await Geocoder.geocode(location)
+                if result.placeName != nil || result.cityName != nil {
+                    geocoded.append((id, result))
                 }
-                try? await Task.sleep(for: .milliseconds(100))
+                try? await Task.sleep(for: .milliseconds(20))
             }
             let results = geocoded
             await MainActor.run { onComplete(results) }
@@ -185,8 +192,9 @@ final class LocationService {
                 if let last = lastGeocodedLocation, location.distance(from: last) < 50 { continue }
                 lastGeocodedLocation = location
                 geocodingState = .geocoding(location)
-                if let name = await Geocoder.placeName(for: location) {
-                    geocodingState = .resolved(name, location)
+                let geo = await Geocoder.geocode(location)
+                if let name = geo.placeName {
+                    geocodingState = .resolved(name, geo.cityName, location)
                 } else {
                     geocodingState = .timedOut(location)
                 }

@@ -74,7 +74,7 @@ struct ExposureLogItemView: View {
         guard item.hasRealCreatedAt else { return nil }
         if hasDifferentTimeZone {
             let dateStr = showingLocalTime ? item.formattedDateLocal : item.formattedDateForeignTZ
-            let tzLabel = showingLocalTime ? "Local" : cityName(from: item.timeZoneIdentifier ?? "")
+            let tzLabel = showingLocalTime ? "Local" : (item.cityName ?? cityName(from: item.timeZoneIdentifier ?? ""))
             return Text("\(dateStr) · \(tzLabel)")
         }
         return Text(item.formattedDate)

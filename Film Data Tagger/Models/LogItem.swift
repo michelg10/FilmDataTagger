@@ -36,6 +36,9 @@ final class LogItem {
     /// Human-readable place name from reverse geocoding (e.g., "Dockweiler State Beach")
     var placeName: String?
 
+    /// Geocoded city/locality name (e.g., "Los Angeles"), used for time zone display
+    var cityName: String?
+
     /// The time zone identifier at the time of capture (e.g., "America/Los_Angeles")
     var timeZoneIdentifier: String?
 

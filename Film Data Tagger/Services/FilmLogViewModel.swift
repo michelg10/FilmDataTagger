@@ -102,18 +102,20 @@ final class FilmLogViewModel {
     }
 
     /// Apply geocoded place names to items on the main context and save.
-    private func applyGeocodingResults(_ results: [(UUID, String)]) {
+    private func applyGeocodingResults(_ results: [(UUID, GeocodingResult)]) {
         guard !results.isEmpty else { return }
-        for (id, placeName) in results {
+        for (id, result) in results {
             // Check in-memory logItems first (fast path)
-            if let item = logItems.first(where: { $0.id == id }) {
-                item.placeName = placeName
+            let item: LogItem?
+            if let found = logItems.first(where: { $0.id == id }) {
+                item = found
             } else {
-                // Item not in current view — fetch from main context
                 let descriptor = FetchDescriptor<LogItem>(predicate: #Predicate { $0.id == id })
-                if let item = try? modelContext.fetch(descriptor).first {
-                    item.placeName = placeName
-                }
+                item = try? modelContext.fetch(descriptor).first
+            }
+            if let item {
+                if let placeName = result.placeName { item.placeName = placeName }
+                if let cityName = result.cityName { item.cityName = cityName }
             }
         }
         save()
@@ -336,6 +338,7 @@ final class FilmLogViewModel {
         // Collect data once — shared across all pending taps
         let location = settings.locationEnabled ? locationService.currentLocation : nil
         let placeName = locationService.geocodingState.persistablePlaceName
+        let cityName = locationService.geocodingState.persistableCityName
         // If the camera isn't ready yet, capturePhoto returns nil — that's fine,
         // the exposure still logs timestamp + location. Speed of capture matters more than blocking for a photo.
         let photoData: Data? = if referencePhotosEnabled {
@@ -377,6 +380,7 @@ final class FilmLogViewModel {
             if let location {
                 item.setLocation(location)
                 item.placeName = placeName
+                item.cityName = cityName
                 AppSettings.shared.cacheShortcutLocation(location)
             }
 
@@ -394,10 +398,11 @@ final class FilmLogViewModel {
             if item.placeName == nil, let location {
                 let itemID = item.id
                 Task { [weak self] in
-                    let placeName = await Geocoder.placeName(for: location)
+                    let result = await Geocoder.geocode(location)
                     // Only write if the item still exists in the current view
                     if let item = self?.logItems.first(where: { $0.id == itemID }) {
-                        item.placeName = placeName
+                        if let placeName = result.placeName { item.placeName = placeName }
+                        if let city = result.cityName { item.cityName = city }
                     }
                 }
             }
