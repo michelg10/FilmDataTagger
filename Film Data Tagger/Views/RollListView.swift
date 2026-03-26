@@ -131,14 +131,13 @@ struct RollListRow: View {
                 Text("\(exposureCountText)\(totalExposureText)")
                     .font(.system(size: 15, weight: .semibold, design: .default))
                     .fontWidth(.expanded)
-                    .opacity(roll.isActive ? 1 : 0.9)
             }
             
             BlockProgressBar(
                 exposureCount: exposureCount,
                 totalCapacity: roll.totalCapacity,
                 maxCapacity: maxCapacity,
-                isActive: roll.isActive
+                isActive: true
             )
             
             HStack(alignment: .firstTextBaseline, spacing: 0) {
@@ -153,9 +152,8 @@ struct RollListRow: View {
                     Text("used \(usedAgoTime)\(lastUsedText == nil ? "" : " ago")")
                         .foregroundStyle(Color.white.opacity(0.5))
                 }
-            }.font(.system(size: 13, weight: .semibold, design: .default))
+            }.font(.system(size: 13, weight: .medium, design: .default))
             .fontWidth(.expanded)
-            .opacity(roll.isActive ? 1 : 0.8)
         }
     }
 }
@@ -210,7 +208,7 @@ struct RollListView: View {
                                     onRollSelected?(activeRoll)
                                 } label: {
                                     RollListRow(roll: activeRoll, maxCapacity: maxCapacity)
-                                        .padding(.vertical, 20)
+                                        .padding(.vertical, 25)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
@@ -249,7 +247,7 @@ struct RollListView: View {
                                     onRollSelected?(roll)
                                 } label: {
                                     RollListRow(roll: roll, maxCapacity: maxCapacity)
-                                        .padding(.vertical, 20)
+                                        .padding(.vertical, 25)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)

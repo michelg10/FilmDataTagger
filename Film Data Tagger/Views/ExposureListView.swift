@@ -176,7 +176,7 @@ private struct CameraSwitcherMenu: View {
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
                 Text(filmStock)
-                    .font(.system(size: 13, weight: .bold, design: .default))
+                    .font(.system(size: 13, weight: .semibold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color(hex: 0xAAAAAA))
             }.padding(.vertical, 2)

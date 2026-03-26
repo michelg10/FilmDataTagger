@@ -63,7 +63,7 @@ private struct SettingsNavRow<Destination: View>: View {
             SettingsRow(text: text) {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 16, weight: .semibold, design: .default))
-                    .foregroundStyle(Color.white.opacity(0.5))
+                    .foregroundStyle(Color.white.opacity(0.3))
             }
         }.buttonStyle(SettingsButtonStyle())
     }

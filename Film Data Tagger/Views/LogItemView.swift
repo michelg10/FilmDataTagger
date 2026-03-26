@@ -31,7 +31,7 @@ struct LogItemView: View {
                     .onTapGesture { onFrameNumberTapped?() }
             } else if let exposureNumber = exposureNumber {
                 Text(String(format: "%02d", exposureNumber % 100))
-                    .font(.system(size: 20, weight: .bold, design: .default))
+                    .font(.system(size: 17, weight: .bold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
                     .frame(width: 38, alignment: .center)
@@ -81,15 +81,9 @@ struct LogItemView: View {
                 .frame(width: 17, height: 14, alignment: .center)
                 .opacity(0.6)
                 .padding(.trailing, 5)
-            Group {
-                main
-                    .opacity(0.9)
-                if let secondary {
-                    Text(" ")
-                    secondary
-                        .opacity(0.5)
-                }
-            }.font(.system(size: 12, weight: .bold))
+            Text("\(main.foregroundStyle(Color.white.opacity(0.9))) \(secondary == nil ? Text("") : secondary!.foregroundStyle(Color.white.opacity(0.5)))")
+                .lineLimit(1)
+                .font(.system(size: 12, weight: .semibold))
         }
     }
 }

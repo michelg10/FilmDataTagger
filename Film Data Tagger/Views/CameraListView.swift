@@ -10,7 +10,6 @@ import SwiftData
 import UniformTypeIdentifiers
 
 struct CameraRollProgress: View {
-    let isInstantFilm: Bool
     let exposureCount: Int?
     let totalExposureCount: Int?
     let size: CGFloat = 60
@@ -26,38 +25,24 @@ struct CameraRollProgress: View {
     
     var body: some View {
         ZStack {
-            if isInstantFilm {
-                Circle()
-                    .stroke(Color.white.opacity(0.85), lineWidth: 6)
-                    .frame(width: size - 6, height: size - 6)
-
-                Circle()
-                    .stroke(Color.white.opacity(0.5), lineWidth: 2)
-                    .frame(width: 21, height: 21)
-
-                Circle()
-                    .stroke(Color.white.opacity(0.5), lineWidth: 1.5)
-                    .frame(width: 7, height: 7)
+            RingView(
+                diameter: size - 6,
+                strokeWidth: 6,
+                progress: exposureProgress ?? 0,
+                fillColor: Color.white.opacity(0.95),
+                trackColor: Color.white.opacity(0.13),
+                overflowShadowColor: .black.opacity(0.75),
+                overflowShadowRadius: 2.9
+            )
+            if let exposureCount = exposureCount {
+                Text(exposureCount > 99 ? "99+" : String(exposureCount))
+                    .font(.system(size: 14, weight: .semibold, design: .default))
+                    .fontWidth(.expanded)
+                    .foregroundStyle(Color.white)
             } else {
-                RingView(
-                    diameter: size - 6,
-                    strokeWidth: 6,
-                    progress: exposureProgress ?? 0,
-                    fillColor: Color.white.opacity(0.95),
-                    trackColor: Color.white.opacity(0.13),
-                    overflowShadowColor: .black.opacity(0.75),
-                    overflowShadowRadius: 2.9
-                )
-                if let exposureCount = exposureCount {
-                    Text(exposureCount > 99 ? "99+" : String(exposureCount))
-                        .font(.system(size: 14, weight: .bold, design: .default))
-                        .fontWidth(.expanded)
-                        .foregroundStyle(Color.white)
-                } else {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 18, weight: .bold, design: .default))
-                        .foregroundStyle(Color.white.opacity(0.5))
-                }
+                Image(systemName: "xmark")
+                    .font(.system(size: 18, weight: .bold, design: .default))
+                    .foregroundStyle(Color.white.opacity(0.5))
             }
         }.frame(width: size, height: size)
     }
@@ -65,24 +50,22 @@ struct CameraRollProgress: View {
 
 struct CameraListRow: View {
     let entry: any CameraListEntry
-
     var body: some View {
         HStack(spacing: 0) {
             CameraRollProgress(
-                isInstantFilm: entry.isInstantFilm,
                 exposureCount: entry.activeRoll.map { ($0.logItems ?? []).count },
                 totalExposureCount: entry.activeRoll?.totalCapacity
             ).padding(.trailing, 17)
             VStack(alignment: .leading, spacing: 0) {
                 Text(entry.displayName)
-                    .font(.system(size: 22, weight: .semibold, design: .default))
+                    .font(.system(size: 20, weight: .bold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
-                    .padding(.bottom, 6)
+                    .padding(.bottom, 7)
                     .lineLimit(1)
                 if !entry.isInstantFilm {
                     Text(entry.filmStockLabel ?? "No roll loaded")
-                        .font(.system(size: 15, weight: .semibold, design: .default))
+                        .font(.system(size: 17, weight: .medium, design: .default))
                         .fontWidth(.expanded)
                         .foregroundStyle(Color.white)
                         .opacity(0.6)
@@ -92,10 +75,10 @@ struct CameraListRow: View {
                     if !entry.isInstantFilm {
                         HStack(spacing: 7) {
                             Image(systemName: "film.stack")
-                                .font(.system(size: 15, weight: .semibold, design: .default))
+                                .font(.system(size: 17, weight: .medium, design: .default))
                                 .foregroundStyle(Color.white.opacity(0.4))
                             Text(entry.rollCount.formatted())
-                                .font(.system(size: 15, weight: .semibold, design: .default))
+                                .font(.system(size: 17, weight: .medium, design: .default))
                                 .fontWidth(.expanded)
                                 .foregroundStyle(Color.white.opacity(0.7))
                         }
@@ -103,14 +86,14 @@ struct CameraListRow: View {
 
                     HStack(spacing: 7) {
                         Image(systemName: "rectangle.stack.fill")
-                            .font(.system(size: 15, weight: .semibold, design: .default))
+                            .font(.system(size: 17, weight: .medium, design: .default))
                             .foregroundStyle(Color.white.opacity(0.4))
                         Text(entry.totalExposureCount.formatted())
-                            .font(.system(size: 15, weight: .semibold, design: .default))
+                            .font(.system(size: 17, weight: .medium, design: .default))
                             .fontWidth(.expanded)
                             .foregroundStyle(Color.white.opacity(0.7))
                     }
-                }.frame(height: 18)
+                }
                 .padding(.top, 8)
             }
             Spacer(minLength: 20)
@@ -118,14 +101,16 @@ struct CameraListRow: View {
                 TimelineView(.periodic(from: .now, by: 30)) { _ in
                     if let lastUsed = entry.lastUsedCompact {
                         Text(lastUsed)
-                            .font(.system(size: 15, weight: .semibold, design: .default))
+                            .font(.system(size: 15, weight: .medium, design: .default))
                             .fontWidth(.expanded)
+                            .foregroundStyle(Color.white.opacity(0.5))
                     }
                 }
                 Image(systemName: "chevron.right")
                     .font(.system(size: 17, weight: .bold, design: .default))
-            }.foregroundStyle(Color.white.opacity(0.5))
-        }.frame(height: 75)
+                    .foregroundStyle(Color.white.opacity(0.3))
+            }
+        }.frame(height: 124)
     }
 }
 
@@ -303,7 +288,7 @@ struct CameraListView: View {
                 NavigationLink(value: entry.id) {
                     CameraListRow(
                         entry: entry
-                    ).frame(height: 118)
+                    )
                 }
                 .overlay(alignment: .top) {
                     CameraDropIndicatorLine(active: dropTargetIndex == index)
@@ -375,7 +360,7 @@ struct CameraListView: View {
                     cameraScrollContent(entries: entries, orderedIDs: orderedIDs)
                 }
                 .scrollClipDisabled()
-                .padding(.top, 68)
+                .padding(.top, 64)
                 .onScrollGeometryChange(for: Bool.self) { geo in
                     geo.contentOffset.y + geo.contentInsets.top <= 0
                 } action: { _, atTop in

@@ -227,6 +227,7 @@ private struct CaptureButton: View {
     let hasRoll: Bool
     let frameCount: Int
     let rollCapacity: Int
+    let frameNumber: Int
     let onCapture: () -> Void
     let onAddPlaceholder: () -> Void
 
@@ -237,8 +238,8 @@ private struct CaptureButton: View {
         }, showShadow: false) {
             if hasRoll {
                 HStack(spacing: 0) {
-                    Text("\(frameCount + 1) / \(rollCapacity) •")
-                        .opacity(0.46)   
+                    Text("\(frameNumber) •")
+                        .opacity(0.5)
                     Text(" Capture")
                 }
             } else {
@@ -281,6 +282,7 @@ struct CaptureSheet: View {
     let viewModel: FilmLogViewModel
 
     private var frameCount: Int { viewModel.logItems.count }
+    private var frameNumber: Int { viewModel.logItems.count - (viewModel.openRoll?.extraExposures ?? 0) + 1}
     private var rollCapacity: Int { viewModel.openRoll?.totalCapacity ?? 0 }
     private var lastCaptureDate: Date? { viewModel.logItems.last(where: { $0.hasRealCreatedAt })?.createdAt }
 
@@ -385,6 +387,7 @@ struct CaptureSheet: View {
                 hasRoll: viewModel.openRoll != nil,
                 frameCount: frameCount,
                 rollCapacity: rollCapacity,
+                frameNumber: frameNumber,
                 onCapture: { Task { await viewModel.logExposure() } },
                 onAddPlaceholder: {
                     playHaptic(.addPlaceholder)
