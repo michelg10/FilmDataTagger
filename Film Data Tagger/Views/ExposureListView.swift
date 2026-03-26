@@ -170,15 +170,15 @@ private struct CameraSwitcherMenu: View {
                 }
             }
         } label: {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(cameraName)
                     .font(.system(size: 18, weight: .bold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
                 Text(filmStock)
-                    .font(.system(size: 13, weight: .semibold, design: .default))
+                    .font(.system(size: 15, weight: .medium, design: .default))
                     .fontWidth(.expanded)
-                    .foregroundStyle(Color(hex: 0xAAAAAA))
+                    .foregroundStyle(Color.white.opacity(0.6))
             }.padding(.vertical, 2)
             .frame(height: 44, alignment: .leading)
             .frame(minWidth: 250, maxWidth: UIScreen.currentWidth - 32 - 44 - 12, alignment: .leading)

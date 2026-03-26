@@ -12,7 +12,6 @@ private struct BlockProgressBar: View {
     let exposureCount: Int
     let totalCapacity: Int
     let maxCapacity: Int
-    let isActive: Bool
 
     // Max gap between blocks for capacities 1–24, linearly interpolated from anchors:
     // 1–8 → 11.0, 12 → 8.0, 15 → 7.0, 24 → 5.0. Beyond 24, no cap.
@@ -60,12 +59,11 @@ private struct BlockProgressBar: View {
             let gap: CGFloat = 2
             let mainY = notchH + gap
             let mainH = max(size.height - 2 * (notchH + gap), 0)
-            let baseAlpha: Double = isActive ? 1 : 0.75
 
             for i in 0..<min(totalCapacity, n) {
                 let x = CGFloat(i) * stride
                 let filled = i < exposureCount
-                let alpha = (filled ? 1.0 : 0.15) * 0.95 * baseAlpha
+                let alpha = (filled ? 1.0 : 0.15) * 0.95
                 let notchAlpha = alpha * 0.25
 
                 context.fill(Path(CGRect(x: x, y: 0, width: elemW, height: notchH)),
@@ -125,7 +123,7 @@ struct RollListRow: View {
                     .multilineTextAlignment(.leading)
                     .lineHeightCompat(points: 24)
                     .foregroundStyle(Color.white)
-                Spacer(minLength: 20)
+                Spacer(minLength: 15)
                 let exposureCountText = Text(exposureCountDisplay).foregroundStyle(Color.white.opacity(0.9))
                 let totalExposureText = Text(" / \(roll.totalCapacity)").foregroundStyle(Color.white.opacity(0.5))
                 Text("\(exposureCountText)\(totalExposureText)")
@@ -136,8 +134,7 @@ struct RollListRow: View {
             BlockProgressBar(
                 exposureCount: exposureCount,
                 totalCapacity: roll.totalCapacity,
-                maxCapacity: maxCapacity,
-                isActive: true
+                maxCapacity: maxCapacity
             )
             
             HStack(alignment: .firstTextBaseline, spacing: 0) {
@@ -145,14 +142,14 @@ struct RollListRow: View {
                 let dateLoadedText = Text(Self.loadedDateFormatter.string(from: roll.createdAt)).foregroundStyle(Color.white.opacity(0.9))
                 Text("\(loadedText) \(dateLoadedText)")
                 
-                Spacer(minLength: 20)
+                Spacer(minLength: 0)
                 
                 TimelineView(.periodic(from: .now, by: 30)) { _ in
                     let usedAgoTime = Text(lastUsedText ?? "now").foregroundStyle(Color.white.opacity(0.9))
                     Text("used \(usedAgoTime)\(lastUsedText == nil ? "" : " ago")")
                         .foregroundStyle(Color.white.opacity(0.5))
                 }
-            }.font(.system(size: 13, weight: .medium, design: .default))
+            }.font(.system(size: 15, weight: .medium, design: .default))
             .fontWidth(.expanded)
         }
     }
@@ -208,7 +205,8 @@ struct RollListView: View {
                                     onRollSelected?(activeRoll)
                                 } label: {
                                     RollListRow(roll: activeRoll, maxCapacity: maxCapacity)
-                                        .padding(.vertical, 25)
+                                        .padding(.vertical, 24)
+                                        .padding(.top, -6)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
@@ -224,7 +222,7 @@ struct RollListView: View {
                                         Label("Delete", systemImage: "trash")
                                     }
                                 }
-                            }.padding(.bottom, 20)
+                            }.padding(.bottom, 17)
                             .transition(.opacity)
                         }
 
@@ -236,7 +234,7 @@ struct RollListView: View {
 
                             ForEach(Array(pastRolls.enumerated()), id: \.element.id) { index, roll in
                                 if index > 0 {
-                                    Color.white.opacity(0.13)
+                                    Color.white.opacity(0.1)
                                         .frame(height: 1)
                                         .padding(.horizontal, 8)
                                 }
@@ -247,7 +245,8 @@ struct RollListView: View {
                                     onRollSelected?(roll)
                                 } label: {
                                     RollListRow(roll: roll, maxCapacity: maxCapacity)
-                                        .padding(.vertical, 25)
+                                        .padding(.vertical, 24)
+                                        .padding(.top, index == 0 ? -6 : 0)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
@@ -270,7 +269,7 @@ struct RollListView: View {
                     }.animation(.easeOut(duration: 0.25), value: activeRoll?.id)
                     .animation(.easeOut(duration: 0.25), value: pastRolls.map(\.id))
                     .padding(.horizontal, 16)
-                    .padding(.top, 23)
+                    .padding(.top, 17)
                     .padding(.bottom, 217 - 20 - bottomSafeAreaInset - 46) // overscroll
                 }
             } else {
@@ -339,16 +338,16 @@ struct RollListView: View {
                     }.frame(width: 44, height: 44)
                     .glassEffectCompat(in: Circle())
                     .accessibilityLabel("Back")
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 3) {
                         Text(camera.name)
                             .font(.system(size: 18, weight: .bold, design: .default))
                             .fontWidth(.expanded)
                             .foregroundStyle(Color.white)
-                        let exposureTextAndSeparator = Text(" exposure\(totalExposures == 1 ? "" : "s") •").foregroundStyle(Color.white.opacity(0.6))
-                        let rollTextAndSeparator = Text(" roll\(rolls.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.6))
+                        let exposureTextAndSeparator = Text(" exposure\(totalExposures == 1 ? "" : "s") •").foregroundStyle(Color.white.opacity(0.5))
+                        let rollTextAndSeparator = Text(" roll\(rolls.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5))
                         Text("\(totalExposures.formatted())\(exposureTextAndSeparator) \(rolls.count.formatted())\(rollTextAndSeparator)")
                             .foregroundStyle(Color.white)
-                            .font(.system(size: 13, weight: .semibold, design: .default))
+                            .font(.system(size: 15, weight: .medium, design: .default))
                             .fontWidth(.expanded)
                     }
                 }.frame(width: UIScreen.currentWidth - 32, height: 44, alignment: .leading)

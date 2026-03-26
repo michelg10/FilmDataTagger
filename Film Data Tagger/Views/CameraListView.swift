@@ -324,7 +324,7 @@ struct CameraListView: View {
                 .transition(.asymmetric(insertion: .opacity, removal: index == entries.count - 1 ? .opacity : .identity))
                 if index < entries.count - 1 {
                     Rectangle()
-                        .fill(Color.white.opacity(0.13))
+                        .fill(Color.white.opacity(0.1))
                         .frame(height: 1)
                         .padding(.leading, 68)
                 }
