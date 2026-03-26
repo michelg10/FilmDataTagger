@@ -9,6 +9,28 @@ import Foundation
 import SwiftData
 import CoreLocation
 
+nonisolated enum ExposureSource: Equatable {
+    case app
+    case shortcut
+    case unknown(String)
+
+    var rawValue: String {
+        switch self {
+        case .app: "app"
+        case .shortcut: "shortcut"
+        case .unknown(let value): value
+        }
+    }
+
+    init(_ rawValue: String) {
+        switch rawValue {
+        case "app": self = .app
+        case "shortcut": self = .shortcut
+        default: self = .unknown(rawValue)
+        }
+    }
+}
+
 @Model
 final class LogItem {
     var id: UUID = UUID()
@@ -44,6 +66,15 @@ final class LogItem {
 
     /// When true, this item is a placeholder with no captured metadata
     var isPlaceholder: Bool = false
+
+    /// How this exposure was created (raw storage for ExposureSource enum)
+    var source: String?
+
+    /// Typed accessor for `source`
+    @Transient var exposureSource: ExposureSource {
+        get { source.map(ExposureSource.init) ?? .app }
+        set { source = newValue.rawValue }
+    }
 
     /// Reference photo captured at time of logging (HEIC data, stored externally by SwiftData)
     @Attribute(.externalStorage) var photoData: Data?

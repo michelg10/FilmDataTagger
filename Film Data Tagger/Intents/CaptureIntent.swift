@@ -93,6 +93,7 @@ struct LogExposureIntent: AppIntent {
 
         // Create the log item
         let item = LogItem(roll: roll)
+        item.exposureSource = .shortcut
 
         // Try cached location first, then fall back to a fresh request. No geocoding, happens on next app launch
         let location: CLLocation?

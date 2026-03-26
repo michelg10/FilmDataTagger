@@ -396,6 +396,7 @@ final class FilmLogViewModel {
             }
 
             let item = LogItem(roll: roll)
+            item.exposureSource = .app
             item.photoData = photoData
             item.thumbnailData = thumbnailData
 

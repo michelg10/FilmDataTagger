@@ -37,6 +37,7 @@ struct ExposureLogItemView: View {
             isPreFrame: isPreFrame,
             onFrameNumberTapped: (isPreFrame || exposureNumber == 1) ? onCycleExtraExposures : nil,
             previewImage: decodedImage.map { Image(uiImage: $0) },
+            isFromShortcut: item.exposureSource == .shortcut,
             timeText: timeText,
             timeSecondaryText: timeSecondaryText,
             onTimeTapped: hasDifferentTimeZone ? { showingLocalTime.toggle() } : nil,

@@ -13,6 +13,7 @@ struct LogItemView: View {
     var isPreFrame: Bool = false
     var onFrameNumberTapped: (() -> Void)?
     let previewImage: Image?
+    var isFromShortcut: Bool = false
     let timeText: Text
     let timeSecondaryText: Text?
     var onTimeTapped: (() -> Void)?
@@ -48,6 +49,13 @@ struct LogItemView: View {
                     previewImage
                         .resizable()
                         .aspectRatio(contentMode: .fill)
+                } else if isFromShortcut {
+                    ZStack {
+                        Rectangle()
+                            .foregroundStyle(Color(hex: 0x313131))
+                        Image("shortcuts-symbol")
+                            .frame(width: 60, height: 60)
+                    }
                 } else {
                     ZStack {
                         Rectangle()

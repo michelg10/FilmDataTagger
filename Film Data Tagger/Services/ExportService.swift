@@ -86,7 +86,9 @@ nonisolated struct ExportService {
         if let speed = e.speed { obj.append(("speed", speed)) }
         if let ts = e.locationTimestamp { obj.append(("locationTimestamp", iso8601.string(from: ts))) }
         if let place = e.placeName { obj.append(("placeName", place)) }
+        if let city = e.cityName { obj.append(("cityName", city)) }
         if let tz = e.timeZoneIdentifier { obj.append(("timeZoneIdentifier", tz)) }
+        if let source = e.source { obj.append(("source", source)) }
         return obj
     }
 
@@ -98,7 +100,7 @@ nonisolated struct ExportService {
 
         var csv = "id,rollId,cameraId,cameraName,filmStock,createdAt,isPlaceholder,notes,"
         csv += "latitude,longitude,altitude,horizontalAccuracy,verticalAccuracy,"
-        csv += "course,speed,locationTimestamp,placeName,timeZoneIdentifier\n"
+        csv += "course,speed,locationTimestamp,placeName,cityName,timeZoneIdentifier,source\n"
 
         for e in exposures {
             var row = [String]()
@@ -119,7 +121,9 @@ nonisolated struct ExportService {
             row.append(e.speed.map { "\($0)" } ?? "")
             row.append(e.locationTimestamp.map { iso8601.string(from: $0) } ?? "")
             row.append(csvEscape(e.placeName ?? ""))
+            row.append(csvEscape(e.cityName ?? ""))
             row.append(csvEscape(e.timeZoneIdentifier ?? ""))
+            row.append(csvEscape(e.source ?? ""))
             csv += row.joined(separator: ",") + "\n"
         }
 
