@@ -79,4 +79,92 @@ final class LogItem {
     var hasLocation: Bool {
         latitude != nil && longitude != nil
     }
+
+    // MARK: - Cached formatted strings (not persisted)
+
+    @Transient private var _formattedTime: String?
+    @Transient private var _formattedDate: String?
+    @Transient private var _formattedTimeForeignTZ: String?
+    @Transient private var _formattedDateForeignTZ: String?
+    @Transient private var _formattedTimeLocal: String?
+    @Transient private var _formattedDateLocal: String?
+    @Transient private var _cachedCreatedAt: Date?
+    @Transient private var _cachedTZIdentifier: String?
+
+    private func invalidateCacheIfNeeded() {
+        if _cachedCreatedAt != createdAt || _cachedTZIdentifier != timeZoneIdentifier {
+            _formattedTime = nil
+            _formattedDate = nil
+            _formattedTimeForeignTZ = nil
+            _formattedDateForeignTZ = nil
+            _formattedTimeLocal = nil
+            _formattedDateLocal = nil
+            _cachedCreatedAt = createdAt
+            _cachedTZIdentifier = timeZoneIdentifier
+        }
+    }
+
+    /// Time formatted in the current device timezone
+    var formattedTime: String {
+        invalidateCacheIfNeeded()
+        if let cached = _formattedTime { return cached }
+        let result = createdAt.formatted(.dateTime.hour().minute())
+        _formattedTime = result
+        return result
+    }
+
+    /// Date formatted in the current device timezone
+    var formattedDate: String {
+        invalidateCacheIfNeeded()
+        if let cached = _formattedDate { return cached }
+        let result = createdAt.formatted(.dateTime.month().day().year())
+        _formattedDate = result
+        return result
+    }
+
+    /// Time formatted in the item's capture timezone
+    var formattedTimeForeignTZ: String {
+        invalidateCacheIfNeeded()
+        if let cached = _formattedTimeForeignTZ { return cached }
+        let tz = timeZoneIdentifier.flatMap { TimeZone(identifier: $0) } ?? .current
+        var fmt = Date.FormatStyle.dateTime.hour().minute()
+        fmt.timeZone = tz
+        let result = createdAt.formatted(fmt)
+        _formattedTimeForeignTZ = result
+        return result
+    }
+
+    /// Date formatted in the item's capture timezone
+    var formattedDateForeignTZ: String {
+        invalidateCacheIfNeeded()
+        if let cached = _formattedDateForeignTZ { return cached }
+        let tz = timeZoneIdentifier.flatMap { TimeZone(identifier: $0) } ?? .current
+        var fmt = Date.FormatStyle.dateTime.month().day().year()
+        fmt.timeZone = tz
+        let result = createdAt.formatted(fmt)
+        _formattedDateForeignTZ = result
+        return result
+    }
+
+    /// Time formatted in the device's local timezone (for foreign-TZ items shown in local mode)
+    var formattedTimeLocal: String {
+        invalidateCacheIfNeeded()
+        if let cached = _formattedTimeLocal { return cached }
+        var fmt = Date.FormatStyle.dateTime.hour().minute()
+        fmt.timeZone = .current
+        let result = createdAt.formatted(fmt)
+        _formattedTimeLocal = result
+        return result
+    }
+
+    /// Date formatted in the device's local timezone (for foreign-TZ items shown in local mode)
+    var formattedDateLocal: String {
+        invalidateCacheIfNeeded()
+        if let cached = _formattedDateLocal { return cached }
+        var fmt = Date.FormatStyle.dateTime.month().day().year()
+        fmt.timeZone = .current
+        let result = createdAt.formatted(fmt)
+        _formattedDateLocal = result
+        return result
+    }
 }
