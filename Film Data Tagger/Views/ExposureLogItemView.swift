@@ -15,6 +15,36 @@ private func cityName(from timeZoneIdentifier: String) -> String {
     return last.replacingOccurrences(of: "_", with: " ")
 }
 
+/// In-memory cache for formatted date strings so we don't run DateFormatter in every body evaluation.
+private final class DateStringCache {
+    static let shared = DateStringCache()
+    private var cache: [UUID: Entry] = [:]
+
+    struct Entry {
+        let timeMain: String
+        let timeSecondary: String?
+        let createdAt: Date
+        let showingLocalTime: Bool
+        let tzIdentifier: String?
+    }
+
+    func entry(for id: UUID, createdAt: Date, showingLocalTime: Bool, tzIdentifier: String?) -> Entry? {
+        guard let e = cache[id],
+              e.createdAt == createdAt,
+              e.showingLocalTime == showingLocalTime,
+              e.tzIdentifier == tzIdentifier else { return nil }
+        return e
+    }
+
+    func store(_ entry: Entry, for id: UUID) {
+        cache[id] = entry
+    }
+
+    func remove(_ id: UUID) {
+        cache.removeValue(forKey: id)
+    }
+}
+
 /// Bridges a LogItem model to LogItemView
 struct ExposureLogItemView: View {
     let item: LogItem
@@ -22,6 +52,7 @@ struct ExposureLogItemView: View {
     var isPreFrame: Bool = false
     var onCycleExtraExposures: (() -> Void)?
     @State private var showingLocalTime = false
+    @State private var decodedImage: UIImage?
 
     /// Whether the item was captured in a different time zone than the user's current one
     private var hasDifferentTimeZone: Bool {
@@ -34,38 +65,66 @@ struct ExposureLogItemView: View {
             exposureNumber: exposureNumber,
             isPreFrame: isPreFrame,
             onFrameNumberTapped: (isPreFrame || exposureNumber == 1) ? onCycleExtraExposures : nil,
-            previewImage: ImageCache.shared.image(for: item.id, thumbnailData: item.thumbnailData)
-                .map { Image(uiImage: $0) },
+            previewImage: decodedImage.map { Image(uiImage: $0) },
             timeText: timeText,
             timeSecondaryText: timeSecondaryText,
             onTimeTapped: hasDifferentTimeZone ? { showingLocalTime.toggle() } : nil,
             locationText: locationText,
         )
+        .task(id: item.id) {
+            // Fast path: already cached (no decode needed)
+            if let cached = ImageCache.shared.cachedImage(for: item.id) {
+                decodedImage = cached
+                return
+            }
+            // Slow path: decode off main thread
+            guard let data = item.thumbnailData else { return }
+            let id = item.id
+            let image = await Task.detached {
+                ImageCache.shared.image(for: id, thumbnailData: data)
+            }.value
+            if !Task.isCancelled {
+                decodedImage = image
+            }
+        }
     }
 
     // MARK: - Computed text
 
-    private var timeText: Text {
-        guard item.hasRealCreatedAt else { return Text("Unknown") }
-        if hasDifferentTimeZone {
-            let tz = displayTimeZone
-            var fmt = Date.FormatStyle.dateTime.hour().minute()
-            fmt.timeZone = tz
-            return Text(item.createdAt.formatted(fmt))
+    private var cachedDateStrings: DateStringCache.Entry {
+        let cache = DateStringCache.shared
+        if let entry = cache.entry(for: item.id, createdAt: item.createdAt, showingLocalTime: showingLocalTime, tzIdentifier: item.timeZoneIdentifier) {
+            return entry
         }
-        return Text(item.createdAt, format: .dateTime.hour().minute())
+        let main: String
+        let secondary: String?
+        if !item.hasRealCreatedAt {
+            main = "Unknown"
+            secondary = nil
+        } else if hasDifferentTimeZone {
+            let tz = displayTimeZone
+            var timeFmt = Date.FormatStyle.dateTime.hour().minute()
+            timeFmt.timeZone = tz
+            main = item.createdAt.formatted(timeFmt)
+            var dateFmt = Date.FormatStyle.dateTime.month().day().year()
+            dateFmt.timeZone = tz
+            let tzLabel = showingLocalTime ? "Local" : cityName(from: item.timeZoneIdentifier ?? "")
+            secondary = "\(item.createdAt.formatted(dateFmt)) · \(tzLabel)"
+        } else {
+            main = item.createdAt.formatted(.dateTime.hour().minute())
+            secondary = item.createdAt.formatted(.dateTime.month().day().year())
+        }
+        let entry = DateStringCache.Entry(timeMain: main, timeSecondary: secondary, createdAt: item.createdAt, showingLocalTime: showingLocalTime, tzIdentifier: item.timeZoneIdentifier)
+        cache.store(entry, for: item.id)
+        return entry
+    }
+
+    private var timeText: Text {
+        Text(cachedDateStrings.timeMain)
     }
 
     private var timeSecondaryText: Text? {
-        guard item.hasRealCreatedAt else { return nil }
-        if hasDifferentTimeZone {
-            let tz = displayTimeZone
-            let tzLabel = showingLocalTime ? "Local" : cityName(from: item.timeZoneIdentifier ?? "")
-            var fmt = Date.FormatStyle.dateTime.month().day().year()
-            fmt.timeZone = tz
-            return Text("\(item.createdAt.formatted(fmt)) · \(tzLabel)")
-        }
-        return Text(item.createdAt, format: .dateTime.month().day().year())
+        cachedDateStrings.timeSecondary.map { Text($0) }
     }
 
     private var locationText: Text {

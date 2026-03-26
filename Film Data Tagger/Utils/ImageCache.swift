@@ -13,6 +13,10 @@ final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
     private let cache = NSCache<NSUUID, UIImage>()
 
+    func cachedImage(for id: UUID) -> UIImage? {
+        cache.object(forKey: id as NSUUID)
+    }
+
     func image(for id: UUID, thumbnailData: Data?) -> UIImage? {
         let key = id as NSUUID
         if let cached = cache.object(forKey: key) {

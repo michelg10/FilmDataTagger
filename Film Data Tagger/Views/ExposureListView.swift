@@ -123,12 +123,18 @@ private struct ExposureEndDropDelegate: DropDelegate {
     }
 }
 
-private struct ExposureRow: View {
+private struct ExposureRow: View, Equatable {
     let item: LogItem
     let exposureNumber: Int?
     var isPreFrame: Bool = false
     var onDelete: ((LogItem) -> Void)?
     var onCycleExtraExposures: (() -> Void)?
+
+    static func == (lhs: ExposureRow, rhs: ExposureRow) -> Bool {
+        lhs.item.id == rhs.item.id &&
+        lhs.exposureNumber == rhs.exposureNumber &&
+        lhs.isPreFrame == rhs.isPreFrame
+    }
 
     var body: some View {
         ExposureLogItemView(item: item, exposureNumber: exposureNumber, isPreFrame: isPreFrame, onCycleExtraExposures: onCycleExtraExposures)
@@ -221,6 +227,7 @@ struct ExposureListView: View {
                     onDelete: onDelete,
                     onCycleExtraExposures: onCycleExtraExposures
                 )
+                .equatable()
                 .transition(.asymmetric(insertion: .opacity, removal: .identity))
                 .contentShape(Rectangle())
                 .id(item.id)
