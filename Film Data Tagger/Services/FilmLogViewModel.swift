@@ -78,8 +78,8 @@ final class FilmLogViewModel {
         case .off: referencePhotosEnabled = false
         }
         locationService.setup()
-        repairDuplicateActiveRolls()
         loadOrCreateActiveRoll()
+        scheduleRemoteChangeMaintenance() // deferred: repairDuplicateActiveRolls + geocode backfill
         repairPlaceholderTimestamps()
         let cutoffDate = min(
             Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
