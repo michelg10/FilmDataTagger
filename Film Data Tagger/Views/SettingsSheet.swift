@@ -320,6 +320,7 @@ private struct BackButton: View {
 
 private struct ReferencePhotoPage: View {
     @Bindable private var settings = AppSettings.shared
+    @State private var availableCameras: [PreferredCamera] = []
 
     var body: some View {
         SettingsDetailPage(title: "Reference photo") {
@@ -336,13 +337,13 @@ private struct ReferencePhotoPage: View {
                 }
             }
             SettingsSection(header: "Preferred camera") {
-                let available = PreferredCamera.available
-                ForEach(available, id: \.self) { option in
-                    if option != available.first { SettingsSeparator() }
+                ForEach(availableCameras, id: \.self) { option in
+                    if option != availableCameras.first { SettingsSeparator() }
                     SettingsOptionRow(text: option.label, value: option, selection: $settings.preferredCamera)
                 }
             }
         }
+        .onAppear { availableCameras = PreferredCamera.available }
     }
 }
 
