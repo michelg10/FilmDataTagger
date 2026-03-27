@@ -216,8 +216,16 @@ final class LocationService {
                     }
                 }
 
-                geocodingState = .geocoding(location)
+                // Only show "Locating..." if the geocode takes longer than 0.3s,
+                // to avoid flashing when retrying quickly (e.g., no internet).
+                let geocodingIndicator = Task {
+                    try? await Task.sleep(for: .seconds(0.3))
+                    if !Task.isCancelled {
+                        self.geocodingState = .geocoding(location)
+                    }
+                }
                 let geo = await Geocoder.geocode(location)
+                geocodingIndicator.cancel()
                 if let name = geo.placeName {
                     lastGeocodedLocation = location
                     geocodingState = .resolved(name, geo.cityName, location)
