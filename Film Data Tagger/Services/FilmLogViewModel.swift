@@ -410,20 +410,28 @@ final class FilmLogViewModel {
         let cityName = locationService.geocodingState.persistableCityName
         // If the camera isn't ready yet, capturePhoto returns nil — that's fine,
         // the exposure still logs timestamp + location. Speed of capture matters more than blocking for a photo.
-        let photoData: Data? = if referencePhotosEnabled {
-            await cameraManager.capturePhoto(
-                maxDimension: settings.photoQuality.maxDimension,
-                compressionQuality: settings.photoQuality.compressionQuality
-            )
+        let maxDimension = settings.photoQuality.maxDimension
+        let compressionQuality = settings.photoQuality.compressionQuality
+        let rawPhotoData: Data? = if referencePhotosEnabled {
+            await cameraManager.capturePhoto()
         } else {
             nil
         }
 
-        // Generate thumbnail off-main, pre-cache for each item in the loop
-        let thumbnailData: Data? = if let photoData {
-            await Task.detached { CameraManager.generateThumbnail(from: photoData) }.value
+        // Resize + generate thumbnail off-main so the main thread stays responsive.
+        // We await the result so the row appears with its image — no flicker.
+        let (photoData, thumbnailData): (Data?, Data?) = if let rawPhotoData {
+            await Task.detached {
+                let resized: Data? = if let maxDimension {
+                    CameraManager.resized(rawPhotoData, maxDimension: maxDimension, quality: compressionQuality)
+                } else {
+                    rawPhotoData
+                }
+                let thumb = resized.flatMap { CameraManager.generateThumbnail(from: $0) }
+                return (resized, thumb)
+            }.value
         } else {
-            nil
+            (nil, nil)
         }
 
         // Drain the counter — any taps during the await are included

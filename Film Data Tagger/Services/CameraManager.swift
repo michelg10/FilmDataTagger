@@ -167,7 +167,7 @@ final class CameraManager: NSObject {
     /// This is safe because all three dispatch via `Task { @MainActor in }`, which
     /// serializes on the main actor — whichever runs first nils out the continuation,
     /// and the others no-op via optional chaining (`?.resume`).
-    func capturePhoto(maxDimension: CGFloat? = nil, compressionQuality: CGFloat = 0.8) async -> Data? {
+    func capturePhoto() async -> Data? {
         guard isRunning else { return nil }
         // Only one capture at a time — flag set before the await so reentrancy can't sneak in
         guard !isCaptureInFlight else { return nil }
@@ -203,11 +203,10 @@ final class CameraManager: NSObject {
         }
 
         isCaptureInFlight = false
-        guard let data, let maxDimension else { return data }
-        return Self.resized(data, maxDimension: maxDimension, quality: compressionQuality)
+        return data
     }
 
-    nonisolated private static func resized(_ data: Data, maxDimension: CGFloat, quality: CGFloat) -> Data? {
+    nonisolated static func resized(_ data: Data, maxDimension: CGFloat, quality: CGFloat) -> Data? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                   kCGImageSourceThumbnailMaxPixelSize: maxDimension,
