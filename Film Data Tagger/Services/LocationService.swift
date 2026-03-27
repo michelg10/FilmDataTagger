@@ -116,6 +116,7 @@ final class LocationService {
             geocodeTask?.cancel()
             geocodeTask = nil
             locationManager.stopUpdating()
+            lastGeocodedLocation = nil
             geocodingState = .notAuthorized
         default:
             break
