@@ -72,9 +72,9 @@ extension Camera: CameraListEntry {
     var allRolls: [Roll] { rolls ?? [] }
 
     var activeRoll: Roll? {
-        // Use cached film stock as a proxy for "has active roll" — avoids faulting rolls.
-        // The actual Roll object is not needed by view bodies; they read cached fields instead.
-        nil
+        // This faults the rolls relationship — avoid calling from view bodies.
+        // View bodies should use cachedActiveExposureCount/cachedActiveCapacity instead.
+        allRolls.first(where: \.isActive)
     }
 
     var rollCount: Int { cachedRollCount }
