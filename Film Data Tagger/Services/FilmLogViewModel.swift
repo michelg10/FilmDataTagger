@@ -134,6 +134,7 @@ final class FilmLogViewModel {
             guard let self else { return }
             Task { @MainActor in
                 self.repairDuplicateActiveRolls()
+                self.validateOpenState()
                 self.reloadItems()
                 self.geocodeUngeocodedVisibleItems()
             }
@@ -183,6 +184,37 @@ final class FilmLogViewModel {
             logItems = (openRoll?.logItems ?? [] as [LogItem])
                 .sorted { $0.createdAt < $1.createdAt }
         }
+    }
+
+    /// Verify that all in-memory references to persisted objects are still valid.
+    /// Clears stale references caused by remote (iCloud) changes.
+    private func validateOpenState() {
+        if let roll = openRoll {
+            let rollId = roll.id
+            let descriptor = FetchDescriptor<Roll>(predicate: #Predicate { $0.id == rollId })
+            let freshRoll = try? modelContext.fetch(descriptor).first
+            if freshRoll == nil {
+                // Roll was deleted remotely
+                openRoll = nil
+                logItems = []
+            } else if freshRoll?.camera == nil {
+                // Roll's camera was deleted (cascade should prevent this, but be safe)
+                Self.logger.error("Unexpected: open roll exists but its camera is nil — cascade delete may have failed")
+                openRoll = nil
+                openCamera = nil
+                logItems = []
+            } else if !roll.isActive {
+                // Roll was deactivated on another device (e.g., finished)
+                // Stay on the roll so the user can see it, but clear won't surprise them
+            }
+        }
+        if let cameraId = openCamera?.id {
+            let descriptor = FetchDescriptor<Camera>(predicate: #Predicate { $0.id == cameraId })
+            if (try? modelContext.fetch(descriptor).first) == nil {
+                openCamera = nil
+            }
+        }
+        // TODO: validate activeInstantFilmGroup and activeInstantFilmCamera when instant film is implemented
     }
 
     /// Ensure each camera has at most one active roll.
