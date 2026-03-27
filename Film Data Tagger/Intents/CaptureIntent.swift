@@ -95,13 +95,18 @@ struct LogExposureIntent: AppIntent {
         let item = LogItem(roll: roll)
         item.exposureSource = .shortcut
 
-        // Try cached location first, then fall back to a fresh request. No geocoding, happens on next app launch
+        // Respect the user's location setting. No geocoding — happens on next app launch.
+        // Try cached location first, then fall back to a fresh request.
         let location: CLLocation?
-        if let cached = AppSettings.shared.shortcutCachedLocation() {
-            location = cached
+        if AppSettings.shared.locationEnabled {
+            if let cached = AppSettings.shared.shortcutCachedLocation() {
+                location = cached
+            } else {
+                location = await getCurrentLocation()
+                if let location { AppSettings.shared.cacheShortcutLocation(location) }
+            }
         } else {
-            location = await getCurrentLocation()
-            if let location { AppSettings.shared.cacheShortcutLocation(location) }
+            location = nil
         }
         if let location {
             item.setLocation(location)

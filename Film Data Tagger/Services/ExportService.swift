@@ -192,10 +192,10 @@ nonisolated struct ExportService {
     private static func csvEscape(_ value: String) -> String {
         // Prevent spreadsheet formula injection — prefix before quoting
         var sanitized = value
-        if let first = sanitized.first, "=+−-@".contains(first) {
+        if let first = sanitized.first, "=+−-@|".contains(first) {
             sanitized = "'" + sanitized
         }
-        if sanitized.contains(",") || sanitized.contains("\"") || sanitized.contains("\n") || sanitized.contains("\r") {
+        if sanitized.contains(",") || sanitized.contains("\"") || sanitized.contains("\n") || sanitized.contains("\r") || sanitized.contains("\t") {
             return "\"" + sanitized.replacingOccurrences(of: "\"", with: "\"\"") + "\""
         }
         return sanitized

@@ -232,9 +232,10 @@ struct ContentView: View {
                 }
                 .navigationDestination(for: ExposureMarker.self) { _ in
                     ExposureScreen(viewModel: viewModel) { camera in
-                        path = NavigationPath()
-                        path.append(camera.id)
-                        path.append(ExposureMarker())
+                        var newPath = NavigationPath()
+                        newPath.append(camera.id)
+                        newPath.append(ExposureMarker())
+                        path = newPath
                         selectedCamera = camera
                     }
                 }
