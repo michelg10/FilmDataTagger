@@ -67,11 +67,6 @@ enum Geocoder {
             return await Geocoder_Legacy.geocode(location)
         }
     }
-
-    /// Convenience for callers that only need the place name
-    static func placeName(for location: CLLocation) async -> String? {
-        await geocode(location).placeName
-    }
 }
 
 private extension String {

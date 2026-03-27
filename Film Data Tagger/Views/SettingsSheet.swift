@@ -481,7 +481,6 @@ struct SettingsSheet: View {
     let viewModel: FilmLogViewModel
     @Environment(\.dismiss) private var dismiss
     @Bindable private var settings = AppSettings.shared
-    @State private var showResetAlert = false
     @State private var iCloudStatus: CKAccountStatus?
 
     private var iCloudStatusLabel: String {

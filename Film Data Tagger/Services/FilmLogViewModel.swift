@@ -732,24 +732,6 @@ final class FilmLogViewModel {
         save()
     }
 
-    /// All cameras and instant film groups for the camera list, sorted by user-defined order.
-    func allCameraListEntries() -> [any CameraListEntry] {
-        let cameras: [Camera] = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
-        let groups: [InstantFilmGroup] = (try? modelContext.fetch(FetchDescriptor<InstantFilmGroup>())) ?? []
-
-        let entries: [any CameraListEntry] = cameras + groups
-
-        return entries.sorted { a, b in
-            if a.listOrder != b.listOrder {
-                return a.listOrder < b.listOrder
-            }
-            if a.createdAt != b.createdAt {
-                return a.createdAt < b.createdAt
-            }
-            return a.id.uuidString < b.id.uuidString
-        }
-    }
-
     func reorderCameraListEntries(_ orderedIDs: [UUID]) {
         let cameras: [Camera] = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
         let groups: [InstantFilmGroup] = (try? modelContext.fetch(FetchDescriptor<InstantFilmGroup>())) ?? []
