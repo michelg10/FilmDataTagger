@@ -21,6 +21,15 @@ final class Camera {
     @Relationship(deleteRule: .cascade, inverse: \Roll.camera)
     var rolls: [Roll]?
 
+    // MARK: - Cached summaries (maintained by ViewModel to avoid faulting `rolls` in view bodies)
+
+    var cachedRollCount: Int = 0
+    var cachedTotalExposureCount: Int = 0
+    var cachedLastUsedDate: Date?
+    var cachedActiveFilmStock: String?
+    var cachedActiveExposureCount: Int?
+    var cachedActiveCapacity: Int?
+
     init(name: String, listOrder: Double = 0) {
         self.id = UUID()
         self.name = name

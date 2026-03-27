@@ -198,9 +198,23 @@ final class FilmLogViewModel {
         } else {
             let items = openRoll?.logItems ?? [] as [LogItem]
             logItems = items.sorted { $0.createdAt < $1.createdAt }
-            // Sync cached count while we have the data faulted
+            // Sync cached counts while we have the data faulted
             openRoll?.exposureCount = items.count
+            if let camera = openCamera { syncCameraCache(camera) }
         }
+    }
+
+    /// Sync cached summary fields on a Camera from its rolls.
+    /// Call after any mutation that changes roll count, exposure count, or active roll.
+    private func syncCameraCache(_ camera: Camera) {
+        let rolls = camera.rolls ?? []
+        let active = rolls.first(where: \.isActive)
+        camera.cachedRollCount = rolls.count
+        camera.cachedTotalExposureCount = rolls.reduce(0) { $0 + $1.exposureCount }
+        camera.cachedLastUsedDate = rolls.compactMap { $0.lastExposureDate ?? ($0.exposureCount > 0 ? $0.createdAt : nil) }.max()
+        camera.cachedActiveFilmStock = active?.filmStock
+        camera.cachedActiveExposureCount = active?.exposureCount
+        camera.cachedActiveCapacity = active?.totalCapacity
     }
 
     /// Verify that all in-memory references to persisted objects are still valid.
@@ -500,6 +514,7 @@ final class FilmLogViewModel {
                 }
             }
         }
+        if let camera = openCamera { syncCameraCache(camera) }
         save()
     }
 
@@ -544,6 +559,7 @@ final class FilmLogViewModel {
         modelContext.insert(item)
         roll.exposureCount += 1
         logItems.append(item)
+        if let camera = roll.camera { syncCameraCache(camera) }
         save()
     }
 
@@ -555,6 +571,7 @@ final class FilmLogViewModel {
         if let roll {
             roll.exposureCount = max(0, roll.exposureCount - 1)
             recomputeLastExposureDate(for: roll, excluding: deletedID)
+            if let camera = roll.camera { syncCameraCache(camera) }
         }
         save()
     }
@@ -577,6 +594,9 @@ final class FilmLogViewModel {
                 targetRoll.lastExposureDate = date
             }
         }
+
+        if let camera = oldRoll?.camera { syncCameraCache(camera) }
+        if let camera = targetRoll.camera, camera.id != oldRoll?.camera?.id { syncCameraCache(camera) }
 
         // Switch to the target roll
         save()
@@ -677,6 +697,7 @@ final class FilmLogViewModel {
         let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity)
         modelContext.insert(roll)
 
+        syncCameraCache(camera)
         switchToRoll(roll)
         save()
         return roll
@@ -698,6 +719,7 @@ final class FilmLogViewModel {
     func editRoll(_ roll: Roll, filmStock: String, capacity: Int) {
         roll.filmStock = filmStock
         roll.capacity = capacity
+        if let camera = roll.camera { syncCameraCache(camera) }
         reloadItems()
         save()
     }
@@ -721,11 +743,11 @@ final class FilmLogViewModel {
 
     func cycleExtraExposures() {
         guard let roll = openRoll else { return }
-        let itemCount = (roll.logItems ?? []).count
-        let maxExtra = min(4, itemCount)
+        let maxExtra = min(4, roll.exposureCount)
         let next = roll.extraExposures + 1
         roll.extraExposures = next > maxExtra ? 0 : next
         playHaptic(.cycleExtraExposures)
+        if let camera = roll.camera { syncCameraCache(camera) }
         reloadItems()
         save()
     }
@@ -738,6 +760,7 @@ final class FilmLogViewModel {
             logItems = []
             openCamera = camera
         }
+        if let camera { syncCameraCache(camera) }
         save()
     }
 
