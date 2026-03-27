@@ -53,7 +53,7 @@ struct CameraEntityQuery: EntityQuery {
     }
 
     private static func subtitle(for roll: Roll) -> String {
-        let count = (roll.logItems ?? []).count
+        let count = roll.exposureCount
         let extraExposures = roll.extraExposures
         var result = "Frame \(count - extraExposures + 1)" // show the current frame counter
         if let lastDate = roll.lastExposureDate {
@@ -116,10 +116,11 @@ struct LogExposureIntent: AppIntent {
         // appends to roll.logItems on insert. No manual array overwrite needed.
         context.insert(item)
         roll.lastExposureDate = item.createdAt
+        roll.exposureCount += 1
 
         try context.save()
 
-        let exposureCount = (roll.logItems ?? []).count
+        let exposureCount = roll.exposureCount
 
         return .result(value: "Logged exposure \(exposureCount) on \(dbCamera.name) with roll \(roll.filmStock)")
     }

@@ -37,7 +37,7 @@ extension CameraListEntry {
     var rollCount: Int { allRolls.count }
 
     var totalExposureCount: Int {
-        allRolls.reduce(0) { $0 + ($1.logItems ?? []).count }
+        allRolls.reduce(0) { $0 + $1.exposureCount }
     }
 
     var lastUsedCompact: String? {

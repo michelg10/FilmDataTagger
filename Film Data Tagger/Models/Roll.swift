@@ -38,6 +38,10 @@ final class Roll {
     /// Maintained by the ViewModel; nil if the roll has no real exposures yet.
     var lastExposureDate: Date?
 
+    /// Cached count of logItems. Maintained by the ViewModel to avoid faulting
+    /// the logItems relationship just to get a count (expensive in view bodies).
+    var exposureCount: Int = 0
+
     /// The log items (frames) in this roll
     @Relationship(deleteRule: .cascade, inverse: \LogItem.roll)
     var logItems: [LogItem]?

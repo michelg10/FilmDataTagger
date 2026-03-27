@@ -53,7 +53,7 @@ struct CameraListRow: View {
     var body: some View {
         HStack(spacing: 0) {
             CameraRollProgress(
-                exposureCount: entry.activeRoll.map { ($0.logItems ?? []).count },
+                exposureCount: entry.activeRoll?.exposureCount,
                 totalExposureCount: entry.activeRoll?.totalCapacity
             ).padding(.trailing, 17)
             VStack(alignment: .leading, spacing: 0) {

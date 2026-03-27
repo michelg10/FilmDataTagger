@@ -187,13 +187,19 @@ final class FilmLogViewModel {
     private func reloadItems() {
         if let group = activeInstantFilmGroup {
             // Instant film: aggregate all logItems across all rolls of all sub-cameras
-            logItems = (group.cameras ?? [])
-                .flatMap { $0.rolls ?? [] }
+            let allRolls = (group.cameras ?? []).flatMap { $0.rolls ?? [] }
+            logItems = allRolls
                 .flatMap { $0.logItems ?? [] }
                 .sorted { $0.createdAt < $1.createdAt }
+            // Sync cached counts while we have the data faulted
+            for roll in allRolls {
+                roll.exposureCount = (roll.logItems ?? []).count
+            }
         } else {
-            logItems = (openRoll?.logItems ?? [] as [LogItem])
-                .sorted { $0.createdAt < $1.createdAt }
+            let items = openRoll?.logItems ?? [] as [LogItem]
+            logItems = items.sorted { $0.createdAt < $1.createdAt }
+            // Sync cached count while we have the data faulted
+            openRoll?.exposureCount = items.count
         }
     }
 
@@ -482,6 +488,7 @@ final class FilmLogViewModel {
             // automatically appends it to roll.logItems. No manual array overwrite needed.
             modelContext.insert(item)
             roll.lastExposureDate = item.createdAt
+            roll.exposureCount += 1
             logItems.append(item)
 
             // If we don't have a geocode yet, do it in the background
@@ -535,6 +542,7 @@ final class FilmLogViewModel {
         }
         let item = LogItem.placeholder(roll: roll)
         modelContext.insert(item)
+        roll.exposureCount += 1
         logItems.append(item)
         save()
     }
@@ -545,6 +553,7 @@ final class FilmLogViewModel {
         modelContext.delete(item)
         logItems.removeAll { $0.id == deletedID }
         if let roll {
+            roll.exposureCount = max(0, roll.exposureCount - 1)
             recomputeLastExposureDate(for: roll, excluding: deletedID)
         }
         save()
@@ -559,8 +568,10 @@ final class FilmLogViewModel {
         item.roll = targetRoll
 
         if let oldRoll {
+            oldRoll.exposureCount = max(0, oldRoll.exposureCount - 1)
             recomputeLastExposureDate(for: oldRoll, excluding: item.id)
         }
+        targetRoll.exposureCount += 1
         if let date = item.hasRealCreatedAt ? item.createdAt : nil {
             if targetRoll.lastExposureDate == nil || date > targetRoll.lastExposureDate! {
                 targetRoll.lastExposureDate = date

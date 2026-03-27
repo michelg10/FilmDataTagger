@@ -83,7 +83,7 @@ struct RollListRow: View {
     var maxCapacity: Int = 36
 
     private var exposureCount: Int {
-        (roll.logItems ?? []).count
+        roll.exposureCount
     }
 
     private var exposureCountDisplay: String {
@@ -167,7 +167,7 @@ struct RollListView: View {
     @State private var rollToEdit: Roll?
 
     private var totalExposures: Int {
-        rolls.reduce(0) { $0 + ($1.logItems ?? []).count }
+        rolls.reduce(0) { $0 + $1.exposureCount }
     }
 
     private var maxCapacity: Int {
