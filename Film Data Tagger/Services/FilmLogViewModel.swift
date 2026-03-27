@@ -198,8 +198,8 @@ final class FilmLogViewModel {
                 openRoll = nil
                 logItems = []
             } else if freshRoll?.camera == nil {
-                // Roll's camera was deleted (cascade should prevent this, but be safe)
-                Self.logger.error("Unexpected: open roll exists but its camera is nil — cascade delete may have failed")
+                // A roll's camera is constant — if the camera is gone, the roll is about to be
+                // cascade-deleted too, we just haven't received that sync yet. Clear state now.
                 openRoll = nil
                 openCamera = nil
                 logItems = []
@@ -371,16 +371,7 @@ final class FilmLogViewModel {
             }
         }
 
-        // 4. Fallback: find any active regular roll
-        let activeDescriptor = FetchDescriptor<Roll>(
-            predicate: #Predicate<Roll> { $0.isActive == true },
-            sortBy: [SortDescriptor(\.lastExposureDate, order: .reverse)]
-        )
-        if let roll = try? modelContext.fetch(activeDescriptor).first {
-            openRoll = roll
-            reloadItems()
-            return
-        }
+        // 4. No persisted state matched — drop user at the root CameraListView.
     }
 
     // MARK: - Logging
