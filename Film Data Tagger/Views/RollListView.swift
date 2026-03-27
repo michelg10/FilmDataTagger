@@ -301,7 +301,7 @@ struct RollListView: View {
                 rollToDelete = nil
             }
         } message: {
-            let count = (rollToDelete?.logItems ?? []).count
+            let count = rollToDelete?.exposureCount ?? 0
             Text("This will permanently delete \"\(rollToDelete?.filmStock ?? "")\" and its \(count.formatted()) logged exposure\(count == 1 ? "" : "s") from all your devices. Data saved to Photos or exported files won't be affected.")
         }
         .navigationBarBackButtonHidden()

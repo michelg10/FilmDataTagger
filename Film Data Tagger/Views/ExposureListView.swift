@@ -171,7 +171,7 @@ private struct MoveToRollMenu: View {
     private var currentCamera: Camera? { currentRoll?.camera }
 
     private func rollSubtitle(_ roll: Roll) -> String {
-        let count = (roll.logItems ?? []).count
+        let count = roll.exposureCount
         let capacity = roll.totalCapacity
         var parts = "\(count) / \(capacity)"
         if let lastDate = roll.lastExposureDate {
