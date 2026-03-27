@@ -146,6 +146,16 @@ enum LocationAccuracy: String, CaseIterable {
         }
     }
 
+    /// Minimum distance (meters) before re-geocoding the user's location
+    var geocodeDistanceThreshold: CLLocationDistance {
+        switch self {
+        case .low: 500
+        case .medium: 100
+        case .high: 20
+        case .maximum: 5
+        }
+    }
+
     /// How long a cached location remains valid for shortcut use
     var locationCacheTTL: TimeInterval {
         switch self {

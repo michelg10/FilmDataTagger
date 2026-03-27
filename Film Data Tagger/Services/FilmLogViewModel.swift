@@ -273,11 +273,11 @@ final class FilmLogViewModel {
 
     /// Delete orphaned rolls (no camera, no instant film camera) and orphaned exposures (no roll).
     /// Uses a two-strike approach: orphans detected on one run are only deleted if they're still
-    /// orphaned on the next run (36h+ later). This prevents deleting valid CloudKit data that
+    /// orphaned on the next run (72h+ later). This prevents deleting valid CloudKit data that
     /// arrived out of order (children before parents).
     private func cleanOrphanedDataIfNeeded() {
         if let lastClean = settings.lastDataCleanDate,
-           Date().timeIntervalSince(lastClean) < 36 * 60 * 60 { return }
+           Date().timeIntervalSince(lastClean) < 72 * 60 * 60 { return }
 
         let defaults = UserDefaults.standard
         let previousRollIDs = Set(defaults.stringArray(forKey: AppSettingsKeys.pendingOrphanRollIDs) ?? [])
@@ -653,6 +653,7 @@ final class FilmLogViewModel {
         openRoll = roll
 
         reloadItems()
+        geocodeUngeocodedVisibleItems()
     }
 
     func editRoll(_ roll: Roll, filmStock: String, capacity: Int) {

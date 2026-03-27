@@ -198,8 +198,9 @@ final class LocationService {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(3))
                 guard let location = locationManager.currentLocation else { continue }
-                // Only re-geocode if moved >50m from last geocoded spot
-                if let last = lastGeocodedLocation, location.distance(from: last) < 50 { continue }
+                // Only re-geocode if moved beyond the accuracy-based threshold
+                let threshold = AppSettings.shared.locationAccuracy.geocodeDistanceThreshold
+                if let last = lastGeocodedLocation, location.distance(from: last) < threshold { continue }
                 lastGeocodedLocation = location
 
                 // Stash current place name as fallback to prevent UI flash during re-geocode
