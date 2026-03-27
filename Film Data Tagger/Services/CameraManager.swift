@@ -102,6 +102,7 @@ final class CameraManager: NSObject {
         guard let device,
               let input = try? AVCaptureDeviceInput(device: device) else {
             session.commitConfiguration()
+            self.isConfigured = false
             Task { @MainActor in self.cameraUnavailable = true }
             return
         }

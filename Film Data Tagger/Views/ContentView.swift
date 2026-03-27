@@ -107,8 +107,9 @@ struct ExposureScreen: View {
                 scrollContextID: viewModel.openRoll?.id ?? viewModel.openCamera?.id,
                 onDelete: { viewModel.deleteItem($0) },
                 onMoveToRoll: { item, roll in
+                    let previousCamera = viewModel.openCamera
                     viewModel.moveItem(item, to: roll)
-                    if let camera = roll.camera {
+                    if let camera = roll.camera, camera.id != previousCamera?.id {
                         onCameraSwitched?(camera)
                     }
                 },
