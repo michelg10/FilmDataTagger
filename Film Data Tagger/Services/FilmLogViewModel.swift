@@ -208,26 +208,48 @@ final class FilmLogViewModel {
 
     /// Rebuild cached summary fields on all cameras and rolls.
     /// Heavy work (relationship faulting) runs on a background context to keep main thread free.
+    /// Only saves if any cached values actually changed, to avoid triggering a feedback loop
+    /// with NSPersistentStoreRemoteChange notifications.
     private func syncAllCameraCaches() {
         let container = modelContext.container
         Task.detached(priority: .utility) {
             let context = ModelContext(container)
             let cameras = (try? context.fetch(FetchDescriptor<Camera>())) ?? []
+            var didChange = false
             for camera in cameras {
-                // Sync roll exposure counts first — camera cache depends on them
                 let rolls = camera.rolls ?? []
+                // Sync roll exposure counts first — camera cache depends on them
                 for roll in rolls {
-                    roll.exposureCount = (roll.logItems ?? []).count
+                    let actual = (roll.logItems ?? []).count
+                    if roll.exposureCount != actual {
+                        roll.exposureCount = actual
+                        didChange = true
+                    }
                 }
                 let active = rolls.first(where: \.isActive)
-                camera.cachedRollCount = rolls.count
-                camera.cachedTotalExposureCount = rolls.reduce(0) { $0 + $1.exposureCount }
-                camera.cachedLastUsedDate = rolls.compactMap { $0.lastExposureDate ?? ($0.exposureCount > 0 ? $0.createdAt : nil) }.max()
-                camera.cachedActiveFilmStock = active?.filmStock
-                camera.cachedActiveExposureCount = active?.exposureCount
-                camera.cachedActiveCapacity = active?.totalCapacity
+                let newRollCount = rolls.count
+                let newTotalExposureCount = rolls.reduce(0) { $0 + $1.exposureCount }
+                let newLastUsedDate = rolls.compactMap { $0.lastExposureDate ?? ($0.exposureCount > 0 ? $0.createdAt : nil) }.max()
+                let newActiveFilmStock = active?.filmStock
+                let newActiveExposureCount = active?.exposureCount
+                let newActiveCapacity = active?.totalCapacity
+
+                if camera.cachedRollCount != newRollCount ||
+                   camera.cachedTotalExposureCount != newTotalExposureCount ||
+                   camera.cachedLastUsedDate != newLastUsedDate ||
+                   camera.cachedActiveFilmStock != newActiveFilmStock ||
+                   camera.cachedActiveExposureCount != newActiveExposureCount ||
+                   camera.cachedActiveCapacity != newActiveCapacity {
+                    camera.cachedRollCount = newRollCount
+                    camera.cachedTotalExposureCount = newTotalExposureCount
+                    camera.cachedLastUsedDate = newLastUsedDate
+                    camera.cachedActiveFilmStock = newActiveFilmStock
+                    camera.cachedActiveExposureCount = newActiveExposureCount
+                    camera.cachedActiveCapacity = newActiveCapacity
+                    didChange = true
+                }
             }
-            try? context.save()
+            if didChange { try? context.save() }
         }
     }
 
