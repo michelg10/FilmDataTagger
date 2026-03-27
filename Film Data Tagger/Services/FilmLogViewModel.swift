@@ -367,7 +367,7 @@ final class FilmLogViewModel {
         let previousItemIDs = Set(defaults.stringArray(forKey: AppSettingsKeys.pendingOrphanItemIDs) ?? [])
 
         let container = modelContext.container
-        Task.detached {
+        Task.detached(priority: .utility) {
             let context = ModelContext(container)
 
             // Find current orphan candidates on the background context
@@ -501,7 +501,7 @@ final class FilmLogViewModel {
         // Resize + generate thumbnail off-main so the main thread stays responsive.
         // We await the result so the row appears with its image — no flicker.
         let (photoData, thumbnailData): (Data?, Data?) = if let rawPhotoData {
-            await Task.detached {
+            await Task.detached(priority: .userInitiated) {
                 let resized: Data? = if let maxDimension {
                     CameraManager.resized(rawPhotoData, maxDimension: maxDimension, quality: compressionQuality)
                 } else {
@@ -571,7 +571,7 @@ final class FilmLogViewModel {
 
     func exportJSON() async -> URL? {
         let container = modelContext.container
-        return await Task.detached {
+        return await Task.detached(priority: .userInitiated) {
             let context = ModelContext(container)
             do {
                 return try ExportService.exportJSON(context: context)
@@ -584,7 +584,7 @@ final class FilmLogViewModel {
 
     func exportCSV() async -> URL? {
         let container = modelContext.container
-        return await Task.detached {
+        return await Task.detached(priority: .userInitiated) {
             let context = ModelContext(container)
             do {
                 return try ExportService.exportCSV(context: context)

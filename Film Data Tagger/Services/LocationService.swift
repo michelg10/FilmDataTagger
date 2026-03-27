@@ -150,7 +150,7 @@ final class LocationService {
     /// Backfill place names for recent items that were logged without geocoding.
     /// Geocoding runs off-main; results are delivered via callback for the caller to write to its own context.
     func geocodeRecentItems(container: ModelContainer, since cutoffDate: Date, onComplete: @MainActor @Sendable @escaping ([(UUID, GeocodingResult)]) -> Void) {
-        Task.detached {
+        Task.detached(priority: .utility) {
             let context = ModelContext(container)
             let descriptor = FetchDescriptor<LogItem>(
                 predicate: #Predicate<LogItem> {

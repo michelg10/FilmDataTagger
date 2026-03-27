@@ -52,7 +52,7 @@ struct ExposureLogItemView: View {
             // Slow path: decode off main thread
             guard let data = item.thumbnailData else { return }
             let id = item.id
-            let image = await Task.detached {
+            let image = await Task.detached(priority: .utility) {
                 await ImageCache.shared.image(for: id, thumbnailData: data)
             }.value
             if !Task.isCancelled {
