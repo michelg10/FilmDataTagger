@@ -196,12 +196,21 @@ final class CameraManager: NSObject {
                   kCGImageSourceThumbnailMaxPixelSize: maxDimension,
                   kCGImageSourceCreateThumbnailFromImageAlways: true,
                   kCGImageSourceCreateThumbnailWithTransform: true,
-              ] as CFDictionary) else { return data }
+              ] as CFDictionary) else {
+            print("CameraManager: resize failed — could not create thumbnail, returning full-size data")
+            return data
+        }
 
-        guard let opaqueImage = stripAlpha(thumbnail) else { return data }
+        guard let opaqueImage = stripAlpha(thumbnail) else {
+            print("CameraManager: resize failed — could not strip alpha, returning full-size data")
+            return data
+        }
 
         let heifData = NSMutableData()
-        guard let dest = CGImageDestinationCreateWithData(heifData, "public.heic" as CFString, 1, nil) else { return data }
+        guard let dest = CGImageDestinationCreateWithData(heifData, "public.heic" as CFString, 1, nil) else {
+            print("CameraManager: resize failed — could not create HEIC destination, returning full-size data")
+            return data
+        }
         CGImageDestinationAddImage(dest, opaqueImage, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
         CGImageDestinationFinalize(dest)
         return heifData as Data
