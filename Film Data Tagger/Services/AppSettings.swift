@@ -157,7 +157,7 @@ enum LocationAccuracy: String, CaseIterable {
     }
 
     /// How long a cached location remains valid for shortcut use
-    var locationCacheTTL: TimeInterval {
+    nonisolated var locationCacheTTL: TimeInterval {
         switch self {
         case .low: 600      // 10 minutes
         case .medium: 60    // 1 minute
@@ -241,10 +241,7 @@ final class AppSettings {
               let timestamp = d.object(forKey: AppSettingsKeys.shortcutCachedLocationTimestamp) as? Date else { return nil }
         let accuracy = d.string(forKey: AppSettingsKeys.locationAccuracy)
             .flatMap(LocationAccuracy.init) ?? .high
-        let ttl: TimeInterval = switch accuracy {
-        case .low: 600; case .medium: 60; case .high: 30; case .maximum: 10
-        }
-        guard Date().timeIntervalSince(timestamp) <= ttl else { return nil }
+        guard Date().timeIntervalSince(timestamp) <= accuracy.locationCacheTTL else { return nil }
         let alt = d.object(forKey: AppSettingsKeys.shortcutCachedLocationAlt) as? Double ?? 0
         let hAcc = d.object(forKey: AppSettingsKeys.shortcutCachedLocationHAcc) as? Double ?? -1
         let vAcc = d.object(forKey: AppSettingsKeys.shortcutCachedLocationVAcc) as? Double ?? -1
