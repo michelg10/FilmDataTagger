@@ -112,8 +112,9 @@ struct LogExposureIntent: AppIntent {
             item.setLocation(location)
         }
 
+        // SwiftData maintains the inverse: item.roll = roll (set in init) automatically
+        // appends to roll.logItems on insert. No manual array overwrite needed.
         context.insert(item)
-        roll.logItems = (roll.logItems ?? []) + [item]
         roll.lastExposureDate = item.createdAt
 
         try context.save()

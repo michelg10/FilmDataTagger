@@ -51,7 +51,6 @@ enum PreviewSampleData {
             item.placeName = exposure.placeName
             item.notes = exposure.notes
             context.insert(item)
-            roll.logItems = (roll.logItems ?? []) + [item]
         }
 
         return container

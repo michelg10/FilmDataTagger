@@ -272,7 +272,7 @@ final class FilmLogViewModel {
     }
 
     /// Delete orphaned rolls (no camera, no instant film camera) and orphaned exposures (no roll).
-    /// Runs at most once per week to avoid unnecessary work.
+    /// Runs at most once per day to avoid unnecessary work.
     private func cleanOrphanedDataIfNeeded() {
         if let lastClean = settings.lastDataCleanDate,
            Date().timeIntervalSince(lastClean) < 24 * 60 * 60 { return }
@@ -281,39 +281,48 @@ final class FilmLogViewModel {
         Task.detached {
             let context = ModelContext(container)
 
-            // Find orphaned rolls: no camera and no instant film camera
+            // Find candidate orphans on the background context
             let orphanedRollDescriptor = FetchDescriptor<Roll>(
                 predicate: #Predicate<Roll> { $0.camera == nil && $0.instantFilmCamera == nil }
             )
-            let orphanedRollIDs = ((try? context.fetch(orphanedRollDescriptor)) ?? []).map(\.id)
+            let candidateRollIDs = ((try? context.fetch(orphanedRollDescriptor)) ?? []).map(\.id)
 
-            // Find orphaned exposures: no roll
             let orphanedItemDescriptor = FetchDescriptor<LogItem>(
                 predicate: #Predicate<LogItem> { $0.roll == nil }
             )
-            let orphanedItemIDs = ((try? context.fetch(orphanedItemDescriptor)) ?? []).map(\.id)
+            let candidateItemIDs = ((try? context.fetch(orphanedItemDescriptor)) ?? []).map(\.id)
 
-            guard !orphanedRollIDs.isEmpty || !orphanedItemIDs.isEmpty else {
+            guard !candidateRollIDs.isEmpty || !candidateItemIDs.isEmpty else {
                 await MainActor.run { AppSettings.shared.lastDataCleanDate = Date() }
                 return
             }
 
-            await MainActor.run { [orphanedRollIDs, orphanedItemIDs] in
-                Self.logger.info("Data clean: \(orphanedRollIDs.count) orphaned roll(s), \(orphanedItemIDs.count) orphaned exposure(s)")
-
-                for id in orphanedRollIDs {
+            await MainActor.run { [candidateRollIDs, candidateItemIDs] in
+                // Re-check on the main context that each object is still orphaned.
+                // A CloudKit sync could have assigned a parent between the background
+                // scan and now (e.g., a roll arriving before its camera).
+                var deletedRolls = 0
+                for id in candidateRollIDs {
                     let descriptor = FetchDescriptor<Roll>(predicate: #Predicate { $0.id == id })
-                    if let roll = try? self.modelContext.fetch(descriptor).first {
+                    if let roll = try? self.modelContext.fetch(descriptor).first,
+                       roll.camera == nil && roll.instantFilmCamera == nil {
                         self.modelContext.delete(roll)
+                        deletedRolls += 1
                     }
                 }
-                for id in orphanedItemIDs {
+                var deletedItems = 0
+                for id in candidateItemIDs {
                     let descriptor = FetchDescriptor<LogItem>(predicate: #Predicate { $0.id == id })
-                    if let item = try? self.modelContext.fetch(descriptor).first {
+                    if let item = try? self.modelContext.fetch(descriptor).first,
+                       item.roll == nil {
                         self.modelContext.delete(item)
+                        deletedItems += 1
                     }
                 }
-                self.save()
+                if deletedRolls > 0 || deletedItems > 0 {
+                    Self.logger.info("Data clean: \(deletedRolls) orphaned roll(s), \(deletedItems) orphaned exposure(s)")
+                    self.save()
+                }
                 AppSettings.shared.lastDataCleanDate = Date()
             }
         }
@@ -444,8 +453,9 @@ final class FilmLogViewModel {
                 ImageCache.shared.preload(for: item.id, data: thumbnailData)
             }
 
+            // SwiftData maintains the inverse: inserting an item with item.roll = roll
+            // automatically appends it to roll.logItems. No manual array overwrite needed.
             modelContext.insert(item)
-            roll.logItems = (roll.logItems ?? []) + [item]
             roll.lastExposureDate = item.createdAt
             logItems.append(item)
 
@@ -494,7 +504,6 @@ final class FilmLogViewModel {
         }
         let item = LogItem.placeholder(roll: roll)
         modelContext.insert(item)
-        roll.logItems = (roll.logItems ?? []) + [item]
         logItems.append(item)
         save()
     }
@@ -515,15 +524,12 @@ final class FilmLogViewModel {
         guard item.roll?.id != targetRoll.id else { return }
         let oldRoll = item.roll
 
-        // Remove from old roll
+        // Reassigning the to-one side automatically removes from old roll and adds to new.
+        item.roll = targetRoll
+
         if let oldRoll {
-            oldRoll.logItems = (oldRoll.logItems ?? []).filter { $0.id != item.id }
             recomputeLastExposureDate(for: oldRoll, excluding: item.id)
         }
-
-        // Add to new roll
-        item.roll = targetRoll
-        targetRoll.logItems = (targetRoll.logItems ?? []) + [item]
         if let date = item.hasRealCreatedAt ? item.createdAt : nil {
             if targetRoll.lastExposureDate == nil || date > targetRoll.lastExposureDate! {
                 targetRoll.lastExposureDate = date
@@ -628,7 +634,6 @@ final class FilmLogViewModel {
 
         let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity)
         modelContext.insert(roll)
-        camera.rolls = (camera.rolls ?? []) + [roll]
 
         switchToRoll(roll)
         save()
@@ -797,13 +802,11 @@ final class FilmLogViewModel {
     func addInstantFilmCamera(to group: InstantFilmGroup, name: String, packCapacity: Int) -> InstantFilmCamera {
         let camera = InstantFilmCamera(name: name, packCapacity: packCapacity, group: group)
         modelContext.insert(camera)
-        group.cameras = (group.cameras ?? []) + [camera]
 
         // Create the first pack (roll) for this camera
         let pack = Roll(filmStock: group.name, capacity: packCapacity)
         pack.instantFilmCamera = camera
         modelContext.insert(pack)
-        camera.rolls = (camera.rolls ?? []) + [pack]
 
         return camera
     }
@@ -857,7 +860,6 @@ final class FilmLogViewModel {
         let newPack = Roll(filmStock: activeInstantFilmGroup?.name ?? "", capacity: camera.packCapacity)
         newPack.instantFilmCamera = camera
         modelContext.insert(newPack)
-        camera.rolls = (camera.rolls ?? []) + [newPack]
         return newPack
     }
 

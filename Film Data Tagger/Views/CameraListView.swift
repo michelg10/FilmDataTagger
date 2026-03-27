@@ -452,7 +452,6 @@ struct CameraListView: View {
         container.mainContext.insert(camera2)
         let roll2 = Roll(filmStock: "Fuji Superia 400", camera: camera2)
         container.mainContext.insert(roll2)
-        camera2.rolls = [roll2]
 
         return vm
     }()
