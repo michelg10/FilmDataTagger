@@ -225,7 +225,6 @@ private struct CaptureSheetCompactContent: View {
 private struct CaptureButton: View {
     let hasRoll: Bool
     let frameCount: Int
-    let rollCapacity: Int
     let frameNumber: Int
     let onCapture: () -> Void
     let onAddPlaceholder: () -> Void
