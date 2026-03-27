@@ -539,7 +539,6 @@ struct SettingsSheet: View {
         }
         .environment(\.dismissSheet, { dismiss() })
         .background(Color(hex: 0x121212))
-        .navigationBarBackButtonHidden()
         .onChange(of: settings.preferredCamera) { viewModel.cameraManager.reconfigure() }
         .onChange(of: settings.photoQuality) { viewModel.cameraManager.reconfigure() }
         .onChange(of: settings.locationEnabled) { viewModel.locationService.setEnabled(settings.locationEnabled) }

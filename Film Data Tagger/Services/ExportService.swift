@@ -201,16 +201,15 @@ nonisolated struct ExportService {
         return sanitized
     }
 
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
-
     // Same-day exports intentionally overwrite — the file is temporary and
     // only needs to live long enough for the share sheet to consume it.
     private static func tempURL(ext: String) -> URL {
-        let date = dateFormatter.string(from: Date())
+        let now = Date()
+        let cal = Calendar.current
+        let date = String(format: "%04d-%02d-%02d",
+                          cal.component(.year, from: now),
+                          cal.component(.month, from: now),
+                          cal.component(.day, from: now))
         return FileManager.default.temporaryDirectory
             .appendingPathComponent("sprokbook-export-\(date).\(ext)")
     }
