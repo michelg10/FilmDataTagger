@@ -796,6 +796,7 @@ final class FilmLogViewModel {
             logItems = []
         }
         modelContext.delete(group)
+        save()
     }
 
     @discardableResult
@@ -869,6 +870,7 @@ final class FilmLogViewModel {
     }
 
     /// Current frame number within the active pack (1-indexed, wraps at pack capacity).
+    // TODO: returns 0 when pack is exactly full (e.g., 8 % 8 == 0). Should return packCapacity instead.
     func packFrameDisplay(for camera: InstantFilmCamera) -> Int {
         let total = totalFrameCount(for: camera)
         guard camera.packCapacity > 0 else { return total }

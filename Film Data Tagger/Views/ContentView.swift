@@ -346,8 +346,9 @@ struct ContentView: View {
         }
         // If on exposure screen, verify the open roll still exists
         if isOnExposureList, viewModel.openRoll == nil {
-            path = NavigationPath()
-            path.append(selectedCamera.id)
+            var newPath = NavigationPath()
+            newPath.append(selectedCamera.id)
+            path = newPath
         }
     }
 }
