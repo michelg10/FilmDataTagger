@@ -127,6 +127,7 @@ private struct ExposureRow: View, Equatable {
     let item: LogItem
     let exposureNumber: Int?
     var isPreFrame: Bool = false
+    var canCycleExtraExposures: Bool = false
     var onDelete: ((LogItem) -> Void)?
     var onMove: ((LogItem, Roll) -> Void)?
     var onCycleExtraExposures: (() -> Void)?
@@ -138,7 +139,7 @@ private struct ExposureRow: View, Equatable {
     }
 
     var body: some View {
-        ExposureLogItemView(item: item, exposureNumber: exposureNumber, isPreFrame: isPreFrame, onCycleExtraExposures: onCycleExtraExposures)
+        ExposureLogItemView(item: item, exposureNumber: exposureNumber, isPreFrame: isPreFrame, onCycleExtraExposures: canCycleExtraExposures ? onCycleExtraExposures : nil)
             .frame(height: exposureItemHeight, alignment: .center)
             .contentShape(Rectangle())
             .contextMenu {
@@ -293,6 +294,7 @@ struct ExposureListView: View {
                     item: item,
                     exposureNumber: frameNumber,
                     isPreFrame: isPreFrame,
+                    canCycleExtraExposures: index < 4,
                     onDelete: onDelete,
                     onMove: onMoveToRoll,
                     onCycleExtraExposures: onCycleExtraExposures

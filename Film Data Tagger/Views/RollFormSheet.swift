@@ -135,7 +135,7 @@ struct RollFormSheet: View {
                     ).keyboardType(.numberPad)
                     .textFieldStyle(FormTextFieldStyle(formIsAboveAnotherSheet: formIsAboveAnotherSheet))
                     if extraExposures > 0 {
-                        Text("+\(extraExposures) exposures")
+                        Text("+ \(extraExposures) exposures")
                             .font(.system(size: 17, weight: .semibold, design: .default))
                             .foregroundStyle(Color.white.opacity(0.55))
                     } else {

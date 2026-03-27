@@ -35,7 +35,7 @@ struct ExposureLogItemView: View {
         LogItemView(
             exposureNumber: exposureNumber,
             isPreFrame: isPreFrame,
-            onFrameNumberTapped: (isPreFrame || exposureNumber == 1) ? onCycleExtraExposures : nil,
+            onFrameNumberTapped: onCycleExtraExposures,
             previewImage: decodedImage.map { Image(uiImage: $0) },
             isFromShortcut: item.exposureSource == .shortcut,
             timeText: timeText,
