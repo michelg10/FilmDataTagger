@@ -10,6 +10,8 @@ import SwiftData
 
 @Model
 final class InstantFilmGroup {
+    #Index<InstantFilmGroup>([\.id])
+
     var id: UUID = UUID()
     var name: String = "SystemReserved:DataError"
     var createdAt: Date = Date.distantPast

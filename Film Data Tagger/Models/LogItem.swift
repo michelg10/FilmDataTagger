@@ -33,6 +33,8 @@ nonisolated enum ExposureSource: Equatable {
 
 @Model
 final class LogItem {
+    #Index<LogItem>([\.id], [\.createdAt])
+
     var id: UUID = UUID()
 
     /// The roll this item belongs to

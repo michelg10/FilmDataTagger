@@ -124,6 +124,8 @@ final class FilmLogViewModel {
         save()
     }
 
+    private var remoteMaintenanceTask: Task<Void, Never>?
+
     private func observeRemoteChanges() {
         remoteChangeObserver = NotificationCenter.default.addObserver(
             forName: .NSPersistentStoreRemoteChange,
@@ -132,11 +134,24 @@ final class FilmLogViewModel {
         ) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
-                self.repairDuplicateActiveRolls()
+                debugLog("Remote change notification received")
+                // Immediate — UI correctness
                 self.validateOpenState()
                 self.reloadItems()
-                self.geocodeUngeocodedVisibleItems()
+
+                // Debounced — expensive maintenance that doesn't need to run per-notification
+                self.scheduleRemoteChangeMaintenance()
             }
+        }
+    }
+
+    private func scheduleRemoteChangeMaintenance() {
+        remoteMaintenanceTask?.cancel()
+        remoteMaintenanceTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            self.repairDuplicateActiveRolls()
+            self.geocodeUngeocodedVisibleItems()
         }
     }
 

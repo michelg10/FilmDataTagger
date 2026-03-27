@@ -10,6 +10,8 @@ import SwiftData
 
 @Model
 final class Roll {
+    #Index<Roll>([\.id])
+
     var id: UUID = UUID()
 
     /// The camera this roll is loaded in (nil for instant film packs)
