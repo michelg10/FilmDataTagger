@@ -49,7 +49,6 @@ private func randomCameraPlaceholder(instantFilm: Bool) -> String {
 }
 
 struct NewCameraSheet: View {
-    // The NewCameraSheet is only ever presented above another sheet
     let viewModel: FilmLogViewModel
     var editingEntry: (any CameraListEntry)? = nil
     var onCameraCreated: ((UUID) -> Void)? = nil

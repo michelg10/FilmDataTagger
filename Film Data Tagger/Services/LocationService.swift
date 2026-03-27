@@ -201,7 +201,6 @@ final class LocationService {
                 // Only re-geocode if moved beyond the accuracy-based threshold
                 let threshold = AppSettings.shared.locationAccuracy.geocodeDistanceThreshold
                 if let last = lastGeocodedLocation, location.distance(from: last) < threshold { continue }
-                lastGeocodedLocation = location
 
                 // Stash current place name as fallback to prevent UI flash during re-geocode
                 if let currentName = geocodingState.persistablePlaceName {
@@ -220,6 +219,7 @@ final class LocationService {
                 geocodingState = .geocoding(location)
                 let geo = await Geocoder.geocode(location)
                 if let name = geo.placeName {
+                    lastGeocodedLocation = location
                     geocodingState = .resolved(name, geo.cityName, location)
                 } else {
                     geocodingState = .timedOut(location)
