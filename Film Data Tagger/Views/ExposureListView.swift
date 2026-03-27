@@ -135,7 +135,8 @@ private struct ExposureRow: View, Equatable {
     static func == (lhs: ExposureRow, rhs: ExposureRow) -> Bool {
         lhs.item.id == rhs.item.id &&
         lhs.exposureNumber == rhs.exposureNumber &&
-        lhs.isPreFrame == rhs.isPreFrame
+        lhs.isPreFrame == rhs.isPreFrame &&
+        lhs.canCycleExtraExposures == rhs.canCycleExtraExposures
     }
 
     var body: some View {

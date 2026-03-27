@@ -110,11 +110,11 @@ struct CameraListRow: View {
                     .font(.system(size: 17, weight: .bold, design: .default))
                     .foregroundStyle(Color.white.opacity(0.3))
             }
-        }.frame(height: 124)
+        }.frame(height: cameraRowHeight)
     }
 }
 
-private let cameraRowHeight: CGFloat = 111
+private let cameraRowHeight: CGFloat = 124
 
 private struct CameraDropIndicatorLine: View {
     let active: Bool
