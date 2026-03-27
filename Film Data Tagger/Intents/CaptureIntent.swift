@@ -40,7 +40,8 @@ struct CameraEntityQuery: EntityQuery {
     @MainActor
     func suggestedEntities() async throws -> [CameraEntity] {
         let context = Self.makeContext()
-        let cameras = try context.fetch(FetchDescriptor<Camera>())
+        let descriptor = FetchDescriptor<Camera>(sortBy: [SortDescriptor(\.listOrder)])
+        let cameras = try context.fetch(descriptor)
         return cameras.compactMap { camera in
             guard let roll = camera.activeRoll else { return nil }
             return CameraEntity(id: camera.id, name: camera.name, subtitle: Self.subtitle(for: roll))
