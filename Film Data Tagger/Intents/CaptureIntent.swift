@@ -118,6 +118,11 @@ struct LogExposureIntent: AppIntent {
         roll.lastExposureDate = item.createdAt
         roll.exposureCount += 1
 
+        // Update camera caches so CameraListView shows fresh data
+        dbCamera.cachedTotalExposureCount += 1
+        dbCamera.cachedActiveExposureCount = roll.exposureCount
+        dbCamera.cachedLastUsedDate = item.createdAt
+
         try context.save()
 
         let exposureCount = roll.exposureCount

@@ -78,6 +78,7 @@ final class FilmLogViewModel {
         case .off: referencePhotosEnabled = false
         }
         locationService.setup()
+        syncAllCameraCaches()
         loadOrCreateActiveRoll()
         scheduleRemoteChangeMaintenance() // deferred: repairDuplicateActiveRolls + geocode backfill
         repairPlaceholderTimestamps()
@@ -151,6 +152,7 @@ final class FilmLogViewModel {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             self.repairDuplicateActiveRolls()
+            self.syncAllCameraCaches()
             self.geocodeUngeocodedVisibleItems()
         }
     }
@@ -201,6 +203,31 @@ final class FilmLogViewModel {
             // Sync cached counts while we have the data faulted
             openRoll?.exposureCount = items.count
             if let camera = openCamera { syncCameraCache(camera) }
+        }
+    }
+
+    /// Rebuild cached summary fields on all cameras and rolls.
+    /// Heavy work (relationship faulting) runs on a background context to keep main thread free.
+    private func syncAllCameraCaches() {
+        let container = modelContext.container
+        Task.detached(priority: .utility) {
+            let context = ModelContext(container)
+            let cameras = (try? context.fetch(FetchDescriptor<Camera>())) ?? []
+            for camera in cameras {
+                // Sync roll exposure counts first — camera cache depends on them
+                let rolls = camera.rolls ?? []
+                for roll in rolls {
+                    roll.exposureCount = (roll.logItems ?? []).count
+                }
+                let active = rolls.first(where: \.isActive)
+                camera.cachedRollCount = rolls.count
+                camera.cachedTotalExposureCount = rolls.reduce(0) { $0 + $1.exposureCount }
+                camera.cachedLastUsedDate = rolls.compactMap { $0.lastExposureDate ?? ($0.exposureCount > 0 ? $0.createdAt : nil) }.max()
+                camera.cachedActiveFilmStock = active?.filmStock
+                camera.cachedActiveExposureCount = active?.exposureCount
+                camera.cachedActiveCapacity = active?.totalCapacity
+            }
+            try? context.save()
         }
     }
 

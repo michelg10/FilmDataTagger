@@ -428,9 +428,10 @@ private struct ExportPage: View {
 private struct AboutPage: View {
     @State private var showBuildNumber = false
     @Query private var cameras: [Camera]
-    @Query private var rolls: [Roll]
-    @Query private var exposures: [LogItem]
     // TODO: count InstantFilmGroups once instant film is wired up
+
+    private var totalRolls: Int { cameras.reduce(0) { $0 + $1.cachedRollCount } }
+    private var totalExposures: Int { cameras.reduce(0) { $0 + $1.cachedTotalExposureCount } }
 
     private static let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
     private static let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
@@ -459,8 +460,8 @@ private struct AboutPage: View {
                     .padding(.bottom, 44)
                 VStack(spacing: 14) {
                     Text("\(cameras.count)\(Text(" camera\(cameras.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5)))")
-                    Text("\(rolls.count)\(Text(" roll\(rolls.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5)))")
-                    Text("\(exposures.count)\(Text(" exposure\(exposures.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5)))")
+                    Text("\(totalRolls)\(Text(" roll\(totalRolls == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5)))")
+                    Text("\(totalExposures)\(Text(" exposure\(totalExposures == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5)))")
                 }.foregroundStyle(Color.white)
                 .font(.system(size: 20, weight: .semibold, design: .default))
                 .fontWidth(.expanded)
