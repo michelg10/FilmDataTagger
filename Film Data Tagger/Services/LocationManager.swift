@@ -60,6 +60,6 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("Location error: \(error.localizedDescription)")
+        debugLog("Location error: \(error.localizedDescription)")
     }
 }

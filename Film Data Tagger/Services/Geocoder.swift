@@ -31,7 +31,7 @@ private enum Geocoder_iOS26 {
             let cityName = mapItem.addressRepresentations?.cityName?.nilIfEmpty
             return GeocodingResult(placeName: placeName, cityName: cityName)
         } catch {
-            print("Geocoding error: \(error.localizedDescription)")
+            debugLog("Geocoding error: \(error.localizedDescription)")
             return GeocodingResult(placeName: nil, cityName: nil)
         }
     }
@@ -53,7 +53,7 @@ private enum Geocoder_Legacy {
             let cityName = placemark.locality?.nilIfEmpty
             return GeocodingResult(placeName: placeName, cityName: cityName)
         } catch {
-            print("Geocoding error: \(error.localizedDescription)")
+            debugLog("Geocoding error: \(error.localizedDescription)")
             return GeocodingResult(placeName: nil, cityName: nil)
         }
     }

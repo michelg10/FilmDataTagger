@@ -103,6 +103,7 @@ final class CameraManager: NSObject {
               let input = try? AVCaptureDeviceInput(device: device) else {
             session.commitConfiguration()
             self.isConfigured = false
+            debugLog("CameraManager: configureSession failed — no camera device available")
             Task { @MainActor in self.cameraUnavailable = true }
             return
         }
@@ -180,6 +181,9 @@ final class CameraManager: NSObject {
             Task { @MainActor in
                 try? await Task.sleep(for: .seconds(5))
                 guard self.captureGeneration == generation else { return }
+                if self.photoContinuation != nil {
+                    debugLog("CameraManager: photo capture timed out after 5s")
+                }
                 self.photoContinuation?.resume(returning: nil)
                 self.photoContinuation = nil
             }
@@ -197,18 +201,18 @@ final class CameraManager: NSObject {
                   kCGImageSourceCreateThumbnailFromImageAlways: true,
                   kCGImageSourceCreateThumbnailWithTransform: true,
               ] as CFDictionary) else {
-            print("CameraManager: resize failed — could not create thumbnail, returning full-size data")
+            debugLog("CameraManager: resize failed — could not create thumbnail, returning full-size data")
             return data
         }
 
         guard let opaqueImage = stripAlpha(thumbnail) else {
-            print("CameraManager: resize failed — could not strip alpha, returning full-size data")
+            debugLog("CameraManager: resize failed — could not strip alpha, returning full-size data")
             return data
         }
 
         let heifData = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(heifData, "public.heic" as CFString, 1, nil) else {
-            print("CameraManager: resize failed — could not create HEIC destination, returning full-size data")
+            debugLog("CameraManager: resize failed — could not create HEIC destination, returning full-size data")
             return data
         }
         CGImageDestinationAddImage(dest, opaqueImage, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)

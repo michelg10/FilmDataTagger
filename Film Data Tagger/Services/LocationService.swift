@@ -191,6 +191,7 @@ final class LocationService {
                 try? await Task.sleep(for: .seconds(15))
                 guard parentTask?.isCancelled != true else { return }
                 if case .locating = geocodingState {
+                    debugLog("Location timed out after 15s — no location received")
                     geocodingState = .timedOut(nil)
                 }
             }
@@ -230,6 +231,7 @@ final class LocationService {
                     lastGeocodedLocation = location
                     geocodingState = .resolved(name, geo.cityName, location)
                 } else {
+                    debugLog("Geocoding returned nil for \(String(format: "%.4f, %.4f", location.coordinate.latitude, location.coordinate.longitude))")
                     geocodingState = .timedOut(location)
                 }
                 // Clear fallback once we have a real result

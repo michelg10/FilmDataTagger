@@ -164,6 +164,7 @@ private class OneTimeLocationDelegate: NSObject, CLLocationManagerDelegate {
     func timeout() {
         guard !hasCompleted else { return }
         hasCompleted = true
+        debugLog("CaptureIntent location request timed out after 10s")
         completion(nil)
     }
 
@@ -180,6 +181,7 @@ private class OneTimeLocationDelegate: NSObject, CLLocationManagerDelegate {
         Task { @MainActor in
             guard !self.hasCompleted else { return }
             self.hasCompleted = true
+            debugLog("CaptureIntent location failed: \(error.localizedDescription)")
             self.completion(nil)
         }
     }

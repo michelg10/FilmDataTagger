@@ -164,6 +164,7 @@ final class FilmLogViewModel {
             try modelContext.save()
         } catch {
             Self.logger.error("SwiftData save failed: \(error)")
+            debugLog("SwiftData save failed: \(error)")
         }
     }
 
