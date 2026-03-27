@@ -160,6 +160,13 @@ final class CameraManager: NSObject {
         }
     }
 
+    /// Capture a photo and return the image data (or nil on failure/timeout).
+    ///
+    /// Three code paths can resume `photoContinuation`: `didFinishProcessingPhoto`,
+    /// `didFinishCaptureFor` (Apple's terminal callback), and a 5-second safety timeout.
+    /// This is safe because all three dispatch via `Task { @MainActor in }`, which
+    /// serializes on the main actor — whichever runs first nils out the continuation,
+    /// and the others no-op via optional chaining (`?.resume`).
     func capturePhoto(maxDimension: CGFloat? = nil, compressionQuality: CGFloat = 0.8) async -> Data? {
         guard isRunning else { return nil }
         // Only one capture at a time — flag set before the await so reentrancy can't sneak in

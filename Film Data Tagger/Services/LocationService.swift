@@ -183,6 +183,10 @@ final class LocationService {
 
     // MARK: - Live Geocoding
 
+    /// Start the live geocoding loop. Spawns child tasks (timeout, fallback clear,
+    /// geocoding indicator) that are not explicitly cancelled when `geocodeTask` is cancelled.
+    /// This is safe: the timeout checks parent cancellation + `.locating` state, the fallback
+    /// clear uses a UUID generation guard, and the indicator is cancelled after each await.
     private func startLiveGeocoding() {
         geocodeTask = Task {
             // Time out after 15s if we still have no location.
