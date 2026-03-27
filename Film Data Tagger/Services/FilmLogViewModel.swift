@@ -272,37 +272,48 @@ final class FilmLogViewModel {
     }
 
     /// Delete orphaned rolls (no camera, no instant film camera) and orphaned exposures (no roll).
-    /// Runs at most once per day to avoid unnecessary work.
+    /// Uses a two-strike approach: orphans detected on one run are only deleted if they're still
+    /// orphaned on the next run (36h+ later). This prevents deleting valid CloudKit data that
+    /// arrived out of order (children before parents).
     private func cleanOrphanedDataIfNeeded() {
         if let lastClean = settings.lastDataCleanDate,
-           Date().timeIntervalSince(lastClean) < 24 * 60 * 60 { return }
+           Date().timeIntervalSince(lastClean) < 36 * 60 * 60 { return }
+
+        let defaults = UserDefaults.standard
+        let previousRollIDs = Set(defaults.stringArray(forKey: AppSettingsKeys.pendingOrphanRollIDs) ?? [])
+        let previousItemIDs = Set(defaults.stringArray(forKey: AppSettingsKeys.pendingOrphanItemIDs) ?? [])
 
         let container = modelContext.container
         Task.detached {
             let context = ModelContext(container)
 
-            // Find candidate orphans on the background context
+            // Find current orphan candidates on the background context
             let orphanedRollDescriptor = FetchDescriptor<Roll>(
-                predicate: #Predicate<Roll> { $0.camera == nil && $0.instantFilmCamera == nil }
+                predicate: #Predicate<Roll> {
+                    $0.camera == nil && $0.instantFilmCamera == nil
+                }
             )
-            let candidateRollIDs = ((try? context.fetch(orphanedRollDescriptor)) ?? []).map(\.id)
+            let orphanedRolls = (try? context.fetch(orphanedRollDescriptor)) ?? []
+            let candidateRollIDs = orphanedRolls.map { $0.id.uuidString }
 
             let orphanedItemDescriptor = FetchDescriptor<LogItem>(
                 predicate: #Predicate<LogItem> { $0.roll == nil }
             )
-            let candidateItemIDs = ((try? context.fetch(orphanedItemDescriptor)) ?? []).map(\.id)
+            let candidateItemIDs = ((try? context.fetch(orphanedItemDescriptor)) ?? []).map { $0.id.uuidString }
 
-            guard !candidateRollIDs.isEmpty || !candidateItemIDs.isEmpty else {
-                await MainActor.run { AppSettings.shared.lastDataCleanDate = Date() }
-                return
-            }
+            // Two-strike: only delete IDs that were also flagged on the previous run
+            let confirmedRollIDs = Set(candidateRollIDs).intersection(previousRollIDs)
+            let confirmedItemIDs = Set(candidateItemIDs).intersection(previousItemIDs)
 
-            await MainActor.run { [candidateRollIDs, candidateItemIDs] in
-                // Re-check on the main context that each object is still orphaned.
-                // A CloudKit sync could have assigned a parent between the background
-                // scan and now (e.g., a roll arriving before its camera).
+            await MainActor.run { [candidateRollIDs, candidateItemIDs, confirmedRollIDs, confirmedItemIDs] in
+                // Persist current candidates for the next run's comparison
+                defaults.set(candidateRollIDs, forKey: AppSettingsKeys.pendingOrphanRollIDs)
+                defaults.set(candidateItemIDs, forKey: AppSettingsKeys.pendingOrphanItemIDs)
+
+                // Delete only confirmed (two-strike) orphans, re-checking on main context
                 var deletedRolls = 0
-                for id in candidateRollIDs {
+                for idString in confirmedRollIDs {
+                    guard let id = UUID(uuidString: idString) else { continue }
                     let descriptor = FetchDescriptor<Roll>(predicate: #Predicate { $0.id == id })
                     if let roll = try? self.modelContext.fetch(descriptor).first,
                        roll.camera == nil && roll.instantFilmCamera == nil {
@@ -311,7 +322,8 @@ final class FilmLogViewModel {
                     }
                 }
                 var deletedItems = 0
-                for id in candidateItemIDs {
+                for idString in confirmedItemIDs {
+                    guard let id = UUID(uuidString: idString) else { continue }
                     let descriptor = FetchDescriptor<LogItem>(predicate: #Predicate { $0.id == id })
                     if let item = try? self.modelContext.fetch(descriptor).first,
                        item.roll == nil {

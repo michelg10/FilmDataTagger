@@ -303,7 +303,7 @@ final class AppSettings {
 
 }
 
-private nonisolated enum AppSettingsKeys {
+nonisolated enum AppSettingsKeys {
     static let openRollId = "openRollId"
     static let openCameraId = "openCameraId"
     static let activeInstantFilmGroupId = "activeInstantFilmGroupId"
@@ -326,4 +326,6 @@ private nonisolated enum AppSettingsKeys {
     static let shortcutCachedLocationCourse = "shortcutCachedLocationCourse"
     static let shortcutCachedLocationSpeed = "shortcutCachedLocationSpeed"
     static let shortcutCachedLocationTimestamp = "shortcutCachedLocationTimestamp"
+    static let pendingOrphanRollIDs = "pendingOrphanRollIDs"
+    static let pendingOrphanItemIDs = "pendingOrphanItemIDs"
 }
