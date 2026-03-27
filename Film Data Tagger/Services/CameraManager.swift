@@ -110,9 +110,13 @@ final class CameraManager: NSObject {
 
         if session.canAddInput(input) {
             session.addInput(input)
+        } else {
+            debugLog("CameraManager: could not add input to session")
         }
         if session.canAddOutput(output) {
             session.addOutput(output)
+        } else {
+            debugLog("CameraManager: could not add output to session")
         }
 
         session.commitConfiguration()
@@ -148,6 +152,8 @@ final class CameraManager: NSObject {
                 if self.session.canAddInput(newInput) {
                     self.session.addInput(newInput)
                 }
+            } else {
+                debugLog("CameraManager: reconfigure failed for requested device")
             }
 
             self.session.commitConfiguration()
@@ -226,7 +232,10 @@ final class CameraManager: NSObject {
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let fullW = properties[kCGImagePropertyPixelWidth] as? Int,
               let fullH = properties[kCGImagePropertyPixelHeight] as? Int,
-              fullW > 0, fullH > 0 else { return nil }
+              fullW > 0, fullH > 0 else {
+            debugLog("CameraManager: generateThumbnail failed — could not read image source or properties")
+            return nil
+        }
 
         // Decode so the short edge == size (scale-to-fill)
         let shortEdge = min(fullW, fullH)
@@ -237,7 +246,10 @@ final class CameraManager: NSObject {
                   kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
                   kCGImageSourceCreateThumbnailFromImageAlways: true,
                   kCGImageSourceCreateThumbnailWithTransform: true,
-              ] as CFDictionary) else { return nil }
+              ] as CFDictionary) else {
+            debugLog("CameraManager: generateThumbnail failed — could not decode thumbnail at index")
+            return nil
+        }
 
         // Center crop to square
         let w = decoded.width, h = decoded.height
@@ -247,7 +259,10 @@ final class CameraManager: NSObject {
             CGRect(x: 0, y: (h - w) / 2, width: w, height: w)
         }
         guard let cropped = decoded.cropping(to: cropRect),
-              let opaque = stripAlpha(cropped) else { return nil }
+              let opaque = stripAlpha(cropped) else {
+            debugLog("CameraManager: generateThumbnail failed — crop or strip alpha failed")
+            return nil
+        }
         return UIImage(cgImage: opaque).jpegData(compressionQuality: 0.7)
     }
 
@@ -272,6 +287,9 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
         didFinishProcessingPhoto photo: AVCapturePhoto,
         error: Error?
     ) {
+        if let error {
+            debugLog("CameraManager: photoOutput error: \(error.localizedDescription)")
+        }
         let data = photo.fileDataRepresentation()
         Task { @MainActor in
             self.photoContinuation?.resume(returning: data)
@@ -286,6 +304,9 @@ extension CameraManager: AVCapturePhotoCaptureDelegate {
         didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings,
         error: Error?
     ) {
+        if let error {
+            debugLog("CameraManager: didFinishCapture error: \(error.localizedDescription)")
+        }
         Task { @MainActor in
             self.photoContinuation?.resume(returning: nil)
             self.photoContinuation = nil

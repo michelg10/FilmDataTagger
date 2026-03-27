@@ -194,6 +194,7 @@ final class FilmLogViewModel {
             let descriptor = FetchDescriptor<Roll>(predicate: #Predicate { $0.id == rollId })
             let freshRoll = try? modelContext.fetch(descriptor).first
             if freshRoll == nil {
+                debugLog("validateOpenState: roll fetch returned nil for \(rollId)")
                 // Roll was deleted remotely
                 openRoll = nil
                 logItems = []
@@ -211,6 +212,7 @@ final class FilmLogViewModel {
         if let cameraId = openCamera?.id {
             let descriptor = FetchDescriptor<Camera>(predicate: #Predicate { $0.id == cameraId })
             if (try? modelContext.fetch(descriptor).first) == nil {
+                debugLog("validateOpenState: camera fetch returned nil for \(cameraId)")
                 openCamera = nil
             }
         }
@@ -225,6 +227,7 @@ final class FilmLogViewModel {
         for camera in cameras {
             let activeRolls = (camera.rolls ?? []).filter(\.isActive)
             guard activeRolls.count > 1 else { continue }
+            debugLog("repairDuplicateActiveRolls: camera \(camera.name) has \(activeRolls.count) active rolls")
             // Keep the one with the most recent exposure, or most recently created
             let keeper = activeRolls
                 .sorted { ($0.lastExposureDate ?? .distantPast) > ($1.lastExposureDate ?? .distantPast) }
@@ -484,7 +487,12 @@ final class FilmLogViewModel {
         let container = modelContext.container
         return await Task.detached {
             let context = ModelContext(container)
-            return try? ExportService.exportJSON(context: context)
+            do {
+                return try ExportService.exportJSON(context: context)
+            } catch {
+                debugLog("exportJSON failed: \(error)")
+                return nil
+            }
         }.value
     }
 
@@ -492,7 +500,12 @@ final class FilmLogViewModel {
         let container = modelContext.container
         return await Task.detached {
             let context = ModelContext(container)
-            return try? ExportService.exportCSV(context: context)
+            do {
+                return try ExportService.exportCSV(context: context)
+            } catch {
+                debugLog("exportCSV failed: \(error)")
+                return nil
+            }
         }.value
     }
 
