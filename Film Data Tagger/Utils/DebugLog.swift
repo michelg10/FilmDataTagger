@@ -19,6 +19,7 @@ private nonisolated enum DebugLogConfig {
 nonisolated func debugLog(_ message: String, file: String = #fileID, line: Int = #line) {
     let timestamp = ISO8601DateFormatter.string(from: Date(), timeZone: .current, formatOptions: [.withFullDate, .withFullTime, .withFractionalSeconds])
     let entry = "[\(timestamp)] \(file):\(line) \(message)\n"
+    print("[debugLog] \(file):\(line) \(message)")
     DebugLogConfig.queue.async {
         if let data = entry.data(using: .utf8) {
             if FileManager.default.fileExists(atPath: DebugLogConfig.url.path) {
