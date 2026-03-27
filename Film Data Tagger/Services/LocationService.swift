@@ -167,16 +167,7 @@ final class LocationService {
                 return (item.id, CLLocation(latitude: lat, longitude: lon))
             }
 
-            var geocoded: [(UUID, GeocodingResult)] = []
-            for (id, location) in pending {
-                guard !Task.isCancelled else { break }
-                let result = await Geocoder.geocode(location)
-                if result.placeName != nil || result.cityName != nil {
-                    geocoded.append((id, result))
-                }
-                try? await Task.sleep(for: .milliseconds(20))
-            }
-            let results = geocoded
+            let results = await Geocoder.geocodeBatch(pending)
             await MainActor.run { onComplete(results) }
         }
     }

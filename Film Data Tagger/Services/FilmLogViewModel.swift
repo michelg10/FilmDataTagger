@@ -142,18 +142,14 @@ final class FilmLogViewModel {
 
     /// Geocode any visible items that have a location but no place name (e.g., items logged via Shortcuts).
     private func geocodeUngeocodedVisibleItems() {
-        let pending = logItems.filter { $0.placeName == nil && $0.latitude != nil && $0.longitude != nil }
-        for item in pending {
-            guard let lat = item.latitude, let lon = item.longitude else { continue }
-            let itemID = item.id
-            let location = CLLocation(latitude: lat, longitude: lon)
-            Task { [weak self] in
-                let result = await Geocoder.geocode(location)
-                guard let self, let item = self.logItems.first(where: { $0.id == itemID }) else { return }
-                if let placeName = result.placeName { item.placeName = placeName }
-                if let city = result.cityName { item.cityName = city }
-                self.save()
-            }
+        let pending = logItems.compactMap { item -> (UUID, CLLocation)? in
+            guard item.placeName == nil, let lat = item.latitude, let lon = item.longitude else { return nil }
+            return (item.id, CLLocation(latitude: lat, longitude: lon))
+        }
+        guard !pending.isEmpty else { return }
+        Task { [weak self] in
+            let results = await Geocoder.geocodeBatch(pending)
+            self?.applyGeocodingResults(results)
         }
     }
 
@@ -478,11 +474,7 @@ final class FilmLogViewModel {
                 let itemID = item.id
                 Task { [weak self] in
                     let result = await Geocoder.geocode(location)
-                    // Only write if the item still exists in the current view
-                    if let item = self?.logItems.first(where: { $0.id == itemID }) {
-                        if let placeName = result.placeName { item.placeName = placeName }
-                        if let city = result.cityName { item.cityName = city }
-                    }
+                    self?.applyGeocodingResults([(itemID, result)])
                 }
             }
         }

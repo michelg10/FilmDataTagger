@@ -67,6 +67,21 @@ enum Geocoder {
             return await Geocoder_Legacy.geocode(location)
         }
     }
+
+    /// Geocode a batch of locations sequentially with rate-limiting delays.
+    /// Shared by all backfill paths to avoid concurrent CLGeocoder requests.
+    static func geocodeBatch(_ items: [(UUID, CLLocation)]) async -> [(UUID, GeocodingResult)] {
+        var results: [(UUID, GeocodingResult)] = []
+        for (id, location) in items {
+            guard !Task.isCancelled else { break }
+            let result = await geocode(location)
+            if result.placeName != nil || result.cityName != nil {
+                results.append((id, result))
+            }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return results
+    }
 }
 
 private extension String {
