@@ -281,7 +281,6 @@ struct CaptureSheet: View {
 
     private var frameCount: Int { viewModel.logItems.count }
     private var frameNumber: Int { viewModel.logItems.count - (viewModel.openRoll?.extraExposures ?? 0) + 1}
-    private var rollCapacity: Int { viewModel.openRoll?.totalCapacity ?? 0 }
     private var lastCaptureDate: Date? { viewModel.logItems.last(where: { $0.hasRealCreatedAt })?.createdAt }
 
     private static let captureButtonHeight: CGFloat = 63 + 26
@@ -384,7 +383,6 @@ struct CaptureSheet: View {
             CaptureButton(
                 hasRoll: viewModel.openRoll != nil,
                 frameCount: frameCount,
-                rollCapacity: rollCapacity,
                 frameNumber: frameNumber,
                 onCapture: { Task { await viewModel.logExposure() } },
                 onAddPlaceholder: {
