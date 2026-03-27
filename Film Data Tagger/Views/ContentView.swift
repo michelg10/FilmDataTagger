@@ -99,6 +99,7 @@ struct ExposureScreen: View {
             ExposureListView(
                 logItems: logItems,
                 cameraName: viewModel.openCamera?.name ?? "No camera selected",
+                cameraID: viewModel.openCamera?.id,
                 filmStock: viewModel.openRoll?.filmStock
                     ?? (viewModel.openCamera != nil ? "No roll selected" : ""),
                 hasRoll: viewModel.openRoll != nil,

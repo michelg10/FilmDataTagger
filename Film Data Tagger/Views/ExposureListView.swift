@@ -221,6 +221,7 @@ private struct MoveToRollMenu: View {
 private struct CameraSwitcherMenu: View {
     let cameraName: String
     let filmStock: String
+    var cameraID: UUID? = nil
     var onCameraSelected: ((Camera) -> Void)?
     @Query private var cameras: [Camera]
 
@@ -234,7 +235,7 @@ private struct CameraSwitcherMenu: View {
                 Button {
                     onCameraSelected?(camera)
                 } label: {
-                    if camera.name == cameraName {
+                    if camera.id == cameraID {
                         Label(camera.name, systemImage: "checkmark")
                     } else {
                         Text(camera.name)
@@ -264,6 +265,7 @@ private struct CameraSwitcherMenu: View {
 struct ExposureListView: View {
     let logItems: [LogItem]
     var cameraName: String = ""
+    var cameraID: UUID? = nil
     var filmStock: String = ""
     var hasRoll: Bool = true
     var extraExposures: Int = 0
@@ -419,6 +421,7 @@ struct ExposureListView: View {
                     CameraSwitcherMenu(
                         cameraName: cameraName,
                         filmStock: filmStock,
+                        cameraID: cameraID,
                         onCameraSelected: onCameraSelected
                     )
                 }
