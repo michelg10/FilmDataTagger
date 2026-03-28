@@ -16,6 +16,7 @@ import os.log
 @MainActor
 final class FilmLogViewModel {
     private let modelContext: ModelContext
+    let store: DataStore
     private let settings = AppSettings.shared
     let cameraManager = CameraManager()
     let locationService = LocationService()
@@ -50,8 +51,9 @@ final class FilmLogViewModel {
         locationService.displayPlaceName ?? geocodingState.displayText
     }
 
-    init(modelContext: ModelContext) {
+    init(modelContext: ModelContext, store: DataStore) {
         self.modelContext = modelContext
+        self.store = store
         self.referencePhotosEnabled = AppSettings.shared.referencePhotosEnabled
     }
 

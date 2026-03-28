@@ -29,6 +29,17 @@ enum SharedModelContainer {
     }()
 }
 
+enum SharedDataStore {
+    /// Created off-main to satisfy DataStore's init assertion.
+    @MainActor
+    static let shared: DataStore = {
+        let container = SharedModelContainer.shared
+        return DispatchQueue.global(qos: .userInitiated).sync {
+            DataStore(modelContainer: container)
+        }
+    }()
+}
+
 @main
 struct Film_Data_TaggerApp: App {
     var sharedModelContainer: ModelContainer { SharedModelContainer.shared }
@@ -36,7 +47,8 @@ struct Film_Data_TaggerApp: App {
     @State private var viewModel: FilmLogViewModel
 
     init() {
-        let vm = FilmLogViewModel(modelContext: SharedModelContainer.shared.mainContext)
+        let store = SharedDataStore.shared
+        let vm = FilmLogViewModel(modelContext: SharedModelContainer.shared.mainContext, store: store)
         vm.setup()
         _viewModel = State(initialValue: vm)
     }
