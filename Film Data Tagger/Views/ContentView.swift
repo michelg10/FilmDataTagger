@@ -178,7 +178,6 @@ let bottomGradientOpacity: Double = 0.4
 struct ContentView: View {
     let viewModel: FilmLogViewModel
     @Query private var cameras: [Camera]
-    @Query private var instantFilmGroups: [InstantFilmGroup]
 
     @State private var path: NavigationPath
     @State private var showNewCamera = false
@@ -192,9 +191,7 @@ struct ContentView: View {
         self.viewModel = viewModel
         var initialPath = NavigationPath()
         var initialCamera: Camera?
-        if let group = viewModel.activeInstantFilmGroup {
-            initialPath.append(group.id)
-        } else if let roll = viewModel.openRoll, let camera = roll.camera {
+        if let roll = viewModel.openRoll, let camera = roll.camera {
             initialPath.append(camera.id)
             initialPath.append(ExposureMarker())
             initialCamera = camera
@@ -227,9 +224,6 @@ struct ContentView: View {
                             }
                         )
                         .onAppear { selectedCamera = camera }
-                    } else if let group = instantFilmGroups.first(where: { $0.id == id }) {
-                        // TODO: instant film
-                        Text("instant film view, coming soon")
                     }
                 }
                 .navigationDestination(for: ExposureMarker.self) { _ in

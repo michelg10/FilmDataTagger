@@ -16,8 +16,6 @@ enum SchemaV1: VersionedSchema {
             Camera.self,
             Roll.self,
             LogItem.self,
-            InstantFilmGroup.self,
-            InstantFilmCamera.self,
         ]
     }
 }

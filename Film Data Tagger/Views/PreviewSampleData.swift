@@ -32,7 +32,7 @@ enum PreviewSampleData {
     @MainActor
     static func makeContainer() -> ModelContainer {
         let container = try! ModelContainer(
-            for: Camera.self, Roll.self, LogItem.self, InstantFilmGroup.self, InstantFilmCamera.self,
+            for: Camera.self, Roll.self, LogItem.self,
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
         let context = container.mainContext

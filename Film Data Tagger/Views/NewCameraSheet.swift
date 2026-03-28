@@ -118,17 +118,10 @@ struct NewCameraSheet: View {
                 if let editingEntry {
                     if let camera = editingEntry as? Camera {
                         viewModel.renameCamera(camera, to: cameraName)
-                    } else if let group = editingEntry as? InstantFilmGroup {
-                        viewModel.renameInstantFilmGroup(group, to: cameraName)
                     }
                     dismiss()
                 } else {
-                    let id: UUID
-                    if isInstantFilm {
-                        id = viewModel.createInstantFilmGroup(name: cameraName).id
-                    } else {
-                        id = viewModel.createCamera(name: cameraName).id
-                    }
+                    let id = viewModel.createCamera(name: cameraName).id
                     dismiss()
                     onCameraCreated?(id)
                 }

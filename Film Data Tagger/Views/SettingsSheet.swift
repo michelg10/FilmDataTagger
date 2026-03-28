@@ -428,7 +428,6 @@ private struct ExportPage: View {
 private struct AboutPage: View {
     @State private var showBuildNumber = false
     @Query private var cameras: [Camera]
-    // TODO: count InstantFilmGroups once instant film is wired up
 
     private var totalRolls: Int { cameras.reduce(0) { $0 + $1.cachedRollCount } }
     private var totalExposures: Int { cameras.reduce(0) { $0 + $1.cachedTotalExposureCount } }

@@ -7,8 +7,8 @@
 
 import Foundation
 
-/// Protocol for items that appear in the camera list (regular cameras and instant film groups).
-/// Both Camera and InstantFilmGroup already conform to Identifiable via @Model.
+/// Protocol for items that appear in the camera list.
+/// Camera conforms via @Model.
 ///
 /// Properties accessed from view bodies must be cheap — no relationship faulting.
 /// Camera uses cached summary fields maintained by the ViewModel.
@@ -39,30 +39,6 @@ protocol CameraListEntry {
     var lastUsedCompact: String? { get }
 }
 
-// MARK: - Default implementations (used by InstantFilmGroup; Camera overrides these)
-
-extension CameraListEntry {
-    var rollCount: Int { allRolls.count }
-
-    var totalExposureCount: Int {
-        allRolls.reduce(0) { $0 + $1.exposureCount }
-    }
-
-    var activeExposureCount: Int? {
-        activeRoll?.exposureCount
-    }
-
-    var activeCapacity: Int? {
-        activeRoll?.totalCapacity
-    }
-
-    var lastUsedCompact: String? {
-        guard !allRolls.isEmpty else { return nil }
-        let lastDate = allRolls.map { $0.lastExposureDate ?? $0.createdAt }.max()!
-        return relativeTimeString(from: lastDate)
-    }
-}
-
 
 // MARK: - Camera conformance (uses cached fields — safe for view bodies)
 
@@ -90,15 +66,4 @@ extension Camera: CameraListEntry {
         guard let date = cachedLastUsedDate else { return nil }
         return relativeTimeString(from: date)
     }
-}
-
-// MARK: - InstantFilmGroup conformance (instant film is unshipped — uses default implementations)
-
-extension InstantFilmGroup: CameraListEntry {
-    var displayName: String { name }
-    var isInstantFilm: Bool { true }
-    var allRolls: [Roll] { (cameras ?? []).flatMap { $0.rolls ?? [] } }
-    var activeRoll: Roll? { nil }
-
-    var filmStockLabel: String? { nil }
 }

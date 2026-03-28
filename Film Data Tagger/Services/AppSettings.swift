@@ -181,14 +181,6 @@ final class AppSettings {
         didSet { defaults.set(openCameraId?.uuidString, forKey: AppSettingsKeys.openCameraId) }
     }
 
-    var activeInstantFilmGroupId: UUID? {
-        didSet { defaults.set(activeInstantFilmGroupId?.uuidString, forKey: AppSettingsKeys.activeInstantFilmGroupId) }
-    }
-
-    var activeInstantFilmCameraId: UUID? {
-        didSet { defaults.set(activeInstantFilmCameraId?.uuidString, forKey: AppSettingsKeys.activeInstantFilmCameraId) }
-    }
-
     // MARK: - Preferences
 
     var referencePhotosEnabled: Bool {
@@ -280,9 +272,6 @@ final class AppSettings {
 
         openRollId = d.string(forKey: AppSettingsKeys.openRollId).flatMap(UUID.init)
         openCameraId = d.string(forKey: AppSettingsKeys.openCameraId).flatMap(UUID.init)
-        activeInstantFilmGroupId = d.string(forKey: AppSettingsKeys.activeInstantFilmGroupId).flatMap(UUID.init)
-        activeInstantFilmCameraId = d.string(forKey: AppSettingsKeys.activeInstantFilmCameraId).flatMap(UUID.init)
-
         referencePhotosEnabled = d.object(forKey: AppSettingsKeys.referencePhotosEnabled) == nil
             ? true : d.bool(forKey: AppSettingsKeys.referencePhotosEnabled)
         referencePhotoStartup = d.string(forKey: AppSettingsKeys.referencePhotoStartup)
@@ -313,8 +302,6 @@ final class AppSettings {
 nonisolated enum AppSettingsKeys {
     static let openRollId = "openRollId"
     static let openCameraId = "openCameraId"
-    static let activeInstantFilmGroupId = "activeInstantFilmGroupId"
-    static let activeInstantFilmCameraId = "activeInstantFilmCameraId"
     static let referencePhotosEnabled = "referencePhotosEnabled"
     static let referencePhotoStartup = "referencePhotoStartup"
     static let photoQuality = "photoQuality"

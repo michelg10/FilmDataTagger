@@ -232,7 +232,6 @@ private struct CameraEndDropDelegate: DropDelegate {
 struct CameraListView: View {
     let viewModel: FilmLogViewModel
     @Query private var cameras: [Camera]
-    @Query private var instantFilmGroups: [InstantFilmGroup]
     @State private var editingEntry: (any CameraListEntry)?
     @State private var entryToDelete: (any CameraListEntry)?
     @State private var showDeleteAlert = false
@@ -240,7 +239,7 @@ struct CameraListView: View {
     @State private var dropTargetIndex: Int?
 
     private var allEntries: [any CameraListEntry] {
-        let entries: [any CameraListEntry] = cameras + instantFilmGroups
+        let entries: [any CameraListEntry] = Array(cameras)
         return entries.sorted { a, b in
             if a.listOrder != b.listOrder {
                 return a.listOrder < b.listOrder
@@ -416,8 +415,6 @@ struct CameraListView: View {
                     withAnimation {
                         if let camera = entry as? Camera {
                             viewModel.deleteCamera(camera)
-                        } else if let group = entry as? InstantFilmGroup {
-                            viewModel.deleteInstantFilmGroup(group)
                         }
                     }
                     entryToDelete = nil

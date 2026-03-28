@@ -14,11 +14,8 @@ final class Roll {
 
     var id: UUID = UUID()
 
-    /// The camera this roll is loaded in (nil for instant film packs)
+    /// The camera this roll is loaded in
     var camera: Camera?
-
-    /// The instant film camera this pack belongs to (nil for regular rolls)
-    var instantFilmCamera: InstantFilmCamera?
 
     /// Film stock name (e.g., "Portra 400", "HP5+")
     var filmStock: String = "SystemReserved:DataError"
