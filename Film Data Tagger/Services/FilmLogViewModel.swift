@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 import SwiftData
-internal import CoreData
+import CoreData
 import CoreLocation
 import os.log
 

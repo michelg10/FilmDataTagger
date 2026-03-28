@@ -9,6 +9,7 @@ import Foundation
 import SwiftData
 import CoreLocation
 import Combine
+import CoreData
 
 struct MoveItemResult: Sendable {
     let targetCameraID: UUID
@@ -35,6 +36,12 @@ actor DataStore: ModelActor {
     let camerasSubject = CurrentValueSubject<[CameraSnapshot], Never>([])
 
     let cameraRollsSubject = CurrentValueSubject<[RollSnapshot], Never>([])
+
+    /// Fires when the observed roll is deleted remotely. VM should nil openRoll and pop navigation.
+    let observedRollInvalidated = PassthroughSubject<Void, Never>()
+
+    /// Fires when the observed camera is deleted remotely. VM should nil openCamera and pop navigation.
+    let observedCameraInvalidated = PassthroughSubject<Void, Never>()
 
     // MARK: - Observed state
 
@@ -334,6 +341,104 @@ actor DataStore: ModelActor {
             byID[id]?.listOrder = Double(index)
         }
         save()
+    }
+
+    // MARK: - Remote Changes
+
+    private var remoteChangeObserver: (any NSObjectProtocol)?
+    private var maintenanceTask: Task<Void, Never>?
+
+    /// Begin observing CloudKit remote changes. Call once on startup.
+    func observeRemoteChanges() {
+        remoteChangeObserver = NotificationCenter.default.addObserver(
+            forName: .NSPersistentStoreRemoteChange,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            guard let self else { return }
+            Task { await self.handleRemoteChange() }
+        }
+    }
+
+    /// Immediate: re-fetch observed data and push if changed.
+    /// Debounced: expensive maintenance (repair duplicate active rolls).
+    private func handleRemoteChange() async {
+        // --- Validate: check observed entities still exist ---
+
+        if let cameraID = observedCameraID {
+            if fetchCamera(cameraID) == nil {
+                debugLog("handleRemoteChange: observed camera \(cameraID) deleted remotely")
+                observedCameraID = nil
+                cameraRollsSubject.send([])
+                observedCameraInvalidated.send()
+                // Camera gone → roll under it is gone too
+                if observedRollID != nil {
+                    observedRollID = nil
+                    rollItemsSubject.send([])
+                    observedRollInvalidated.send()
+                }
+            }
+        }
+
+        if let rollID = observedRollID {
+            if fetchRoll(rollID) == nil {
+                debugLog("handleRemoteChange: observed roll \(rollID) deleted remotely")
+                observedRollID = nil
+                rollItemsSubject.send([])
+                observedRollInvalidated.send()
+            }
+        }
+
+        // --- Immediate: reconcile observed state ---
+
+        if let rollID = observedRollID {
+            let fresh = await fetchLogItems(forRoll: rollID)
+            if fresh != rollItemsSubject.value {
+                rollItemsSubject.send(fresh)
+            }
+        }
+
+        if let cameraID = observedCameraID {
+            let fresh = fetchRollSnapshots(forCamera: cameraID)
+            if fresh != cameraRollsSubject.value {
+                cameraRollsSubject.send(fresh)
+            }
+        }
+
+        // Camera list (always checked)
+        let freshCameras = fetchAllCameraSnapshots()
+        if freshCameras != camerasSubject.value {
+            camerasSubject.send(freshCameras)
+        }
+
+        // --- Debounced: maintenance ---
+
+        maintenanceTask?.cancel()
+        maintenanceTask = Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            repairDuplicateActiveRolls()
+        }
+    }
+
+    /// Ensure each camera has at most one active roll.
+    /// Keeps the most recently used one, deactivates the rest.
+    private func repairDuplicateActiveRolls() {
+        let cameras = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
+        var didRepair = false
+        for camera in cameras {
+            let activeRolls = (camera.rolls ?? []).filter(\.isActive)
+            guard activeRolls.count > 1 else { continue }
+            debugLog("repairDuplicateActiveRolls: camera \(camera.name) has \(activeRolls.count) active rolls")
+            let keeper = activeRolls
+                .sorted { ($0.lastExposureDate ?? .distantPast) > ($1.lastExposureDate ?? .distantPast) }
+                .first!
+            for roll in activeRolls where roll.id != keeper.id {
+                roll.isActive = false
+            }
+            didRepair = true
+        }
+        if didRepair { save() }
     }
 
     // MARK: - Maintenance
