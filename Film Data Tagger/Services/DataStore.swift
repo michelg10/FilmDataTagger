@@ -23,6 +23,8 @@ actor DataStore {
 
     let rollItemsSubject = CurrentValueSubject<[LogItemSnapshot], Never>([])
 
+    let camerasSubject = CurrentValueSubject<[CameraSnapshot], Never>([])
+
     // MARK: - Observed state
 
     private var observedRollID: UUID?
@@ -92,6 +94,7 @@ actor DataStore {
     ) async {
         guard let roll = fetchRoll(rollID) else {
             debugLog("logExposure: roll \(rollID) not found")
+            // TODO: trigger reconciliation on rolls from the current camera
             return
         }
         let item = LogItem(roll: roll)
@@ -118,6 +121,7 @@ actor DataStore {
     func logPlaceholder(id: UUID, rollID: UUID, createdAt: Date) {
         guard let roll = fetchRoll(rollID) else {
             debugLog("logPlaceholder: roll \(rollID) not found")
+            // TODO: trigger reconciliation on rolls from the current camera
             return
         }
         let item = LogItem.placeholder(roll: roll)
@@ -154,6 +158,7 @@ actor DataStore {
     func setExtraExposures(rollID: UUID, count: Int) {
         guard let roll = fetchRoll(rollID) else {
             debugLog("setExtraExposures: roll \(rollID) not found")
+            // TODO: trigger reconciliation on rolls from the current camera
             return
         }
         roll.extraExposures = count
@@ -161,9 +166,12 @@ actor DataStore {
     }
 
     /// Persist a placeholder's new timestamp. The VM has already resorted its local state.
-    func movePlaceholder(id: UUID, newTimestamp: Date) {
+    func movePlaceholder(id: UUID, newTimestamp: Date) async {
         guard let item = fetchLogItem(id) else {
-            debugLog("movePlaceholder: item \(id) not found")
+            debugLog("movePlaceholder: item \(id) not found - triggering reconciliation")
+            if let rollID = observedRollID {
+                rollItemsSubject.send(await fetchLogItems(forRoll: rollID))
+            }
             return
         }
         item.createdAt = newTimestamp
@@ -177,6 +185,7 @@ actor DataStore {
               let targetRoll = fetchRoll(toRollID),
               let targetCamera = targetRoll.camera else {
             debugLog("moveItem: item \(id) or roll \(toRollID) not found")
+            // TODO: trigger reconciliation on everything
             return nil
         }
         let oldRoll = item.roll
@@ -200,7 +209,72 @@ actor DataStore {
         return MoveItemResult(targetCameraID: targetCamera.id)
     }
 
+    // MARK: - Camera API
+
+    /// Fetch all cameras and publish to `camerasSubject`. Call on startup.
+    func loadCameras() {
+        camerasSubject.send(fetchAllCameraSnapshots())
+    }
+
+    /// Persist a new camera. The VM has already added the snapshot optimistically.
+    func createCamera(id: UUID, name: String, listOrder: Double) {
+        let camera = Camera(name: name, listOrder: listOrder)
+        camera.id = id
+        modelContext.insert(camera)
+        save()
+    }
+
+    /// Persist a camera rename. The VM has already updated its local state optimistically.
+    func renameCamera(id: UUID, name: String) {
+        guard let camera = fetchCamera(id) else {
+            debugLog("renameCamera: camera \(id) not found - triggering reconciliation")
+            camerasSubject.send(fetchAllCameraSnapshots())
+            return
+        }
+        camera.name = name
+        save()
+    }
+
+    /// Delete a camera and all its rolls/exposures (cascade).
+    /// The VM has already removed it from its local state optimistically.
+    func deleteCamera(id: UUID) {
+        guard let camera = fetchCamera(id) else {
+            debugLog("deleteCamera: camera \(id) not found - triggering reconciliation")
+            camerasSubject.send(fetchAllCameraSnapshots())
+            return
+        }
+        // Evict thumbnails for all items in all rolls
+        for roll in camera.rolls ?? [] {
+            for item in roll.logItems ?? [] {
+                ImageCache.shared.evict(id: item.id)
+            }
+        }
+        modelContext.delete(camera)
+        save()
+    }
+
+    /// Persist a new camera ordering. The VM has already reordered its local state optimistically.
+    func reorderCameras(orderedIDs: [UUID]) {
+        let cameras = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
+        let byID = Dictionary(uniqueKeysWithValues: cameras.map { ($0.id, $0) })
+        for (index, id) in orderedIDs.enumerated() {
+            byID[id]?.listOrder = Double(index)
+        }
+        save()
+    }
+
     // MARK: - Internal
+
+    private func fetchCamera(_ id: UUID) -> Camera? {
+        let descriptor = FetchDescriptor<Camera>(predicate: #Predicate { $0.id == id })
+        return try? modelContext.fetch(descriptor).first
+    }
+
+    private func fetchAllCameraSnapshots() -> [CameraSnapshot] {
+        let descriptor = FetchDescriptor<Camera>(sortBy: [SortDescriptor(\.listOrder)])
+        let cameras = (try? modelContext.fetch(descriptor)) ?? []
+        return cameras.map { $0.snapshot }
+    }
 
     private func save() {
         do {
