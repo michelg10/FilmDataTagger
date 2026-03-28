@@ -31,17 +31,13 @@ actor DataStore: ModelActor {
 
     // MARK: - Publishers
 
-    let rollItemsSubject = CurrentValueSubject<[LogItemSnapshot], Never>([])
-
-    let camerasSubject = CurrentValueSubject<[CameraSnapshot], Never>([])
-
-    let cameraRollsSubject = CurrentValueSubject<[RollSnapshot], Never>([])
-
-    /// Fires when the observed roll is deleted remotely. VM should nil openRoll and pop navigation.
-    let observedRollInvalidated = PassthroughSubject<Void, Never>()
-
-    /// Fires when the observed camera is deleted remotely. VM should nil openCamera and pop navigation.
-    let observedCameraInvalidated = PassthroughSubject<Void, Never>()
+    // nonisolated(unsafe): these are let constants and Combine subjects are thread-safe.
+    // Safe to subscribe from main actor and send from the DataStore actor.
+    nonisolated(unsafe) let rollItemsSubject = CurrentValueSubject<[LogItemSnapshot], Never>([])
+    nonisolated(unsafe) let camerasSubject = CurrentValueSubject<[CameraSnapshot], Never>([])
+    nonisolated(unsafe) let cameraRollsSubject = CurrentValueSubject<[RollSnapshot], Never>([])
+    nonisolated(unsafe) let observedRollInvalidated = PassthroughSubject<Void, Never>()
+    nonisolated(unsafe) let observedCameraInvalidated = PassthroughSubject<Void, Never>()
 
     // MARK: - Observed state
 
@@ -383,9 +379,14 @@ actor DataStore: ModelActor {
 
     /// Persist a new camera ordering. The VM has already reordered its local state optimistically.
     func reorderCameras(orderedIDs: [UUID]) {
-        let cameras = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
+        let cameras = (try? modelContext.fetch(FetchDescriptor<Camera>(
+            sortBy: [SortDescriptor(\.listOrder)]
+        ))) ?? []
         let byID = Dictionary(uniqueKeysWithValues: cameras.map { ($0.id, $0) })
-        for (index, id) in orderedIDs.enumerated() {
+        // Safety net: append any cameras not in orderedIDs (e.g., arrived via CloudKit during drag)
+        let movedSet = Set(orderedIDs)
+        let finalOrder = orderedIDs + cameras.map(\.id).filter { !movedSet.contains($0) }
+        for (index, id) in finalOrder.enumerated() {
             byID[id]?.listOrder = Double(index)
         }
         save()

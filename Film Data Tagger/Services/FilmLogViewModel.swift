@@ -10,6 +10,7 @@ import SwiftUI
 import SwiftData
 import CoreData
 import CoreLocation
+import Combine
 import os.log
 
 @Observable
@@ -44,6 +45,10 @@ final class FilmLogViewModel {
         didSet { settings.openCameraId = openCamera?.id }
     }
 
+    /// Camera list — driven by DataStore via Combine, with optimistic local updates.
+    private(set) var cameras: [CameraSnapshot] = []
+    private var cancellables = Set<AnyCancellable>()
+
     // MARK: - Location (proxied from LocationService)
     var geocodingState: GeocodingState { locationService.geocodingState }
     /// Display-friendly location text that avoids flashing "Locating..." during re-geocoding.
@@ -55,6 +60,11 @@ final class FilmLogViewModel {
         self.modelContext = modelContext
         self.store = store
         self.referencePhotosEnabled = AppSettings.shared.referencePhotosEnabled
+
+        store.camerasSubject
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.cameras = $0 }
+            .store(in: &cancellables)
     }
 
     nonisolated(unsafe) private var remoteChangeObserver: Any?
@@ -74,6 +84,7 @@ final class FilmLogViewModel {
         case .off: referencePhotosEnabled = false
         }
         locationService.setup()
+        Task.detached { await self.store.loadCameras() }
         syncAllCameraCaches()
         loadOrCreateActiveRoll()
         scheduleRemoteChangeMaintenance() // deferred: repairDuplicateActiveRolls + geocode backfill
@@ -758,58 +769,51 @@ final class FilmLogViewModel {
         save()
     }
 
-    // MARK: - Camera Management
+    // MARK: - Camera Management (optimistic + DataStore)
 
-    @discardableResult
-    func createCamera(name: String) -> Camera {
-        let camera = Camera(name: name, listOrder: nextCameraListOrder())
-        modelContext.insert(camera)
-        save()
-        return camera
+    func createCamera(name: String) -> UUID {
+        let id = UUID()
+        let listOrder = (cameras.map(\.listOrder).max() ?? -1) + 1
+        let snapshot = CameraSnapshot(
+            id: id,
+            name: name,
+            createdAt: Date(),
+            listOrder: listOrder,
+            rollCount: 0,
+            totalExposureCount: 0
+        )
+        cameras.append(snapshot)
+        Task.detached { await self.store.createCamera(id: id, name: name, listOrder: listOrder) }
+        return id
     }
 
-    func renameCamera(_ camera: Camera, to name: String) {
-        camera.name = name
-        save()
+    func renameCamera(id: UUID, name: String) {
+        if let i = cameras.firstIndex(where: { $0.id == id }) {
+            cameras[i].name = name
+        }
+        Task.detached { await self.store.renameCamera(id: id, name: name) }
     }
 
-    func deleteCamera(_ camera: Camera) {
-        if openCamera?.id == camera.id {
+    func deleteCamera(id: UUID) {
+        if openCamera?.id == id {
             openRoll = nil
             openCamera = nil
             logItems = []
         }
-        modelContext.delete(camera)
-        save()
+        cameras.removeAll { $0.id == id }
+        Task.detached { await self.store.deleteCamera(id: id) }
     }
 
-    func reorderCameraListEntries(_ orderedIDs: [UUID]) {
-        let cameras: [Camera] = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
-        let cameraByID = Dictionary(uniqueKeysWithValues: cameras.map { ($0.id, $0) })
-
-        // Ensure IDs not present in orderedIDs stay in their current relative order.
-        let existingSortedIDs = cameras
-            .sorted {
-                if $0.listOrder != $1.listOrder {
-                    return $0.listOrder < $1.listOrder
-                }
-                if $0.createdAt != $1.createdAt {
-                    return $0.createdAt < $1.createdAt
-                }
-                return $0.id.uuidString < $1.id.uuidString
-            }
-            .map(\.id)
+    func reorderCameras(_ orderedIDs: [UUID]) {
+        // Reorder local state optimistically
+        let byID = Dictionary(uniqueKeysWithValues: cameras.map { ($0.id, $0) })
         let movedSet = Set(orderedIDs)
-        let finalOrder = orderedIDs + existingSortedIDs.filter { !movedSet.contains($0) }
-
-        for (index, id) in finalOrder.enumerated() {
-            cameraByID[id]?.listOrder = Double(index)
+        let remaining = cameras.filter { !movedSet.contains($0.id) }
+        var reordered = orderedIDs.compactMap { byID[$0] } + remaining
+        for i in reordered.indices {
+            reordered[i].listOrder = Double(i)
         }
-        save()
-    }
-
-    private func nextCameraListOrder() -> Double {
-        let cameras: [Camera] = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
-        return (cameras.map(\.listOrder).max() ?? -1) + 1
+        cameras = reordered
+        Task.detached { await self.store.reorderCameras(orderedIDs: orderedIDs) }
     }
 }
