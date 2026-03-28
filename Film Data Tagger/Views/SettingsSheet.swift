@@ -426,11 +426,11 @@ private struct ExportPage: View {
 }
 
 private struct AboutPage: View {
+    let cameras: [CameraSnapshot]
     @State private var showBuildNumber = false
-    @Query private var cameras: [Camera]
 
-    private var totalRolls: Int { cameras.reduce(0) { $0 + $1.cachedRollCount } }
-    private var totalExposures: Int { cameras.reduce(0) { $0 + $1.cachedTotalExposureCount } }
+    private var totalRolls: Int { cameras.reduce(0) { $0 + $1.rollCount } }
+    private var totalExposures: Int { cameras.reduce(0) { $0 + $1.totalExposureCount } }
 
     private static let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
     private static let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
@@ -520,7 +520,7 @@ struct SettingsSheet: View {
                         SettingsSeparator()
                         SettingsNavRow(text: "Export...") { ExportPage(viewModel: viewModel) }
                         SettingsSeparator()
-                        SettingsNavRow(text: "About") { AboutPage() }
+                        SettingsNavRow(text: "About") { AboutPage(cameras: viewModel.cameras) }
                     }
                 }.padding(.horizontal, 16)
                 .offset(y: -38)
