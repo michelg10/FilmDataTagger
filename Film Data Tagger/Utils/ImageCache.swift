@@ -176,20 +176,29 @@ final class ImageCache: @unchecked Sendable {
 
     // MARK: - Write (callable from any thread — NSCache is thread-safe, disk writes are idempotent)
 
-    /// Decode + cache a thumbnail.
+    /// Decode + cache a thumbnail. Promotes JPEG→BGRA if the item was previously demoted.
     func preload(for id: UUID, data: Data) {
         let key = id as NSUUID
         guard memory.object(forKey: key) == nil else { return }
-        if let image = loadFromDisk(id: id) {
+        // Check BGRA first — already in the fast tier
+        if let image = loadBGRA(url: bgraPath(for: id)) {
             memory.setObject(image, forKey: key)
             return
         }
+        // JPEG hit — promote back to BGRA
+        if let image = loadJPEG(id: id) {
+            memory.setObject(image, forKey: key)
+            saveBGRA(id: id, image: image)
+            return
+        }
+        // Full miss — decode from source data
         guard let image = UIImage(data: data) else { return }
         memory.setObject(image, forKey: key)
         saveBGRA(id: id, image: image)
     }
 
     /// Remove a thumbnail from all layers.
+    /// TODO: Wire up from DataStore delete flows (deleteItem, deleteRoll, deleteCamera).
     func evict(id: UUID) {
         memory.removeObject(forKey: id as NSUUID)
         try? FileManager.default.removeItem(at: bgraPath(for: id))
