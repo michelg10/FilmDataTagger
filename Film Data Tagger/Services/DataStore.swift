@@ -107,6 +107,9 @@ actor DataStore: ModelActor {
     // MARK: - Write API
 
     /// Persist a new exposure. The VM has already updated its local state optimistically.
+    /// If the roll is not currently active, it will be activated (and the previous active roll
+    /// on the same camera deactivated). This handles the case where the user navigates to
+    /// an old roll and starts logging.
     func logExposure(
         id: UUID,
         rollID: UUID,
@@ -135,6 +138,15 @@ actor DataStore: ModelActor {
             item.cityName = cityName
         }
         modelContext.insert(item)
+
+        // Activate the roll if it isn't already (deactivate the previous active roll)
+        if !roll.isActive, let camera = roll.camera {
+            for r in camera.rolls ?? [] where r.isActive {
+                r.isActive = false
+            }
+            roll.isActive = true
+        }
+
         roll.cachedLastExposureDate = createdAt
         roll.cachedExposureCount += 1
         // Incremental camera cache update — avoids faulting all rolls
@@ -143,9 +155,10 @@ actor DataStore: ModelActor {
             if camera.cachedLastUsedDate == nil || createdAt > camera.cachedLastUsedDate! {
                 camera.cachedLastUsedDate = createdAt
             }
-            if roll.isActive {
-                camera.cachedActiveExposureCount = roll.cachedExposureCount
-            }
+            // Always update active fields — the roll is guaranteed active at this point
+            camera.cachedActiveFilmStock = roll.filmStock
+            camera.cachedActiveExposureCount = roll.cachedExposureCount
+            camera.cachedActiveCapacity = roll.totalCapacity
         }
         save()
         if let thumbnailData {
