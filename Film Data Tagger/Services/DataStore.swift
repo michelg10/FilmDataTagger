@@ -16,8 +16,8 @@ struct MoveItemResult: Sendable {
 
 // MARK: - DataStore
 actor DataStore: ModelActor {
-    nonisolated let modelExecutor: any ModelExecutor
-    nonisolated let modelContainer: ModelContainer
+    let modelExecutor: any ModelExecutor
+    let modelContainer: ModelContainer
 
     init(modelContainer: ModelContainer) {
         #if DEBUG
