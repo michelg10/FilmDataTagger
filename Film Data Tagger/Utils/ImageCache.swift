@@ -220,7 +220,7 @@ final class ImageCache: @unchecked Sendable {
     /// Non-priority BGRA files are demoted to JPEG to save disk space.
     /// WARNING: Do not call from the main thread.
     func warmOnLaunch(priorityIDs: Set<UUID>) async {
-        // Warm priority thumbnails from BGRA into memory, up to the item limit
+        // Warm priority thumbnails from disk into memory (BGRA first, then JPEG with promotion)
         var count = 0
         for id in priorityIDs {
             guard count < Self.warmItemLimit else { break }
@@ -228,6 +228,9 @@ final class ImageCache: @unchecked Sendable {
             guard memory.object(forKey: key) == nil else { continue }
             if let image = loadBGRA(url: bgraPath(for: id)) {
                 memory.setObject(image, forKey: key)
+            } else if let image = loadJPEG(id: id) {
+                memory.setObject(image, forKey: key)
+                saveBGRA(id: id, image: image) // promote back to fast tier
             }
             count += 1
             if count % 50 == 0 { await Task.yield() }

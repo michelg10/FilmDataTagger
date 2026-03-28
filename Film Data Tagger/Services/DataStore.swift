@@ -59,6 +59,8 @@ actor DataStore {
         // Fire-and-forget roll access tracking
         Task { await ImageCache.shared.bookkeeper.recordAccess(rollID) }
         let items = await fetchLogItems(forRoll: rollID)
+        // Guard against a newer observeRoll call that started during our await
+        guard observedRollID == rollID else { return items }
         rollItemsSubject.send(items)
         return items
     }
