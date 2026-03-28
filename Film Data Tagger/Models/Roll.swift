@@ -53,4 +53,20 @@ final class Roll {
 
     /// Total capacity including extra pre-first-frame exposures
     var totalCapacity: Int { capacity + extraExposures }
+
+    // MARK: - Snapshot
+
+    var snapshot: RollSnapshot {
+        RollSnapshot(
+            id: id,
+            filmStock: filmStock,
+            capacity: capacity,
+            extraExposures: extraExposures,
+            isActive: isActive,
+            createdAt: createdAt,
+            lastExposureDate: lastExposureDate,
+            exposureCount: exposureCount,
+            totalCapacity: totalCapacity
+        )
+    }
 }

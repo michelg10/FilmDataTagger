@@ -36,4 +36,21 @@ final class Camera {
         self.createdAt = Date()
         self.listOrder = listOrder
     }
+
+    // MARK: - Snapshot
+
+    var snapshot: CameraSnapshot {
+        CameraSnapshot(
+            id: id,
+            name: name,
+            createdAt: createdAt,
+            listOrder: listOrder,
+            rollCount: cachedRollCount,
+            totalExposureCount: cachedTotalExposureCount,
+            lastUsedDate: cachedLastUsedDate,
+            activeFilmStock: cachedActiveFilmStock,
+            activeExposureCount: cachedActiveExposureCount,
+            activeCapacity: cachedActiveCapacity
+        )
+    }
 }

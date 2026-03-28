@@ -203,4 +203,31 @@ final class LogItem {
         _formattedDateLocal = result
         return result
     }
+
+    // MARK: - Snapshot
+
+    var snapshot: LogItemSnapshot {
+        let hasDifferentTZ = timeZoneIdentifier.map { $0 != TimeZone.current.identifier } ?? false
+        return LogItemSnapshot(
+            id: id,
+            createdAt: createdAt,
+            hasRealCreatedAt: hasRealCreatedAt,
+            notes: notes,
+            latitude: latitude,
+            longitude: longitude,
+            placeName: placeName,
+            cityName: cityName,
+            timeZoneIdentifier: timeZoneIdentifier,
+            isPlaceholder: isPlaceholder,
+            source: source,
+            hasThumbnail: thumbnailData != nil,
+            hasPhoto: photoData != nil,
+            formattedTime: formattedTime,
+            formattedDate: formattedDate,
+            formattedTimeForeignTZ: hasDifferentTZ ? formattedTimeForeignTZ : nil,
+            formattedDateForeignTZ: hasDifferentTZ ? formattedDateForeignTZ : nil,
+            formattedTimeLocal: hasDifferentTZ ? formattedTimeLocal : nil,
+            formattedDateLocal: hasDifferentTZ ? formattedDateLocal : nil
+        )
+    }
 }
