@@ -54,10 +54,10 @@ struct CameraEntityQuery: EntityQuery {
     }
 
     private static func subtitle(for roll: Roll) -> String {
-        let count = roll.exposureCount
+        let count = roll.cachedExposureCount
         let extraExposures = roll.extraExposures
         var result = "Frame \(count - extraExposures + 1)" // show the current frame counter
-        if let lastDate = roll.lastExposureDate {
+        if let lastDate = roll.cachedLastExposureDate {
             let ago = relativeTimeString(from: lastDate, suffix: true)
             result += " • \(ago)"
         }
@@ -116,17 +116,17 @@ struct LogExposureIntent: AppIntent {
         // SwiftData maintains the inverse: item.roll = roll (set in init) automatically
         // appends to roll.logItems on insert. No manual array overwrite needed.
         context.insert(item)
-        roll.lastExposureDate = item.createdAt
-        roll.exposureCount += 1
+        roll.cachedLastExposureDate = item.createdAt
+        roll.cachedExposureCount += 1
 
         // Update camera caches so CameraListView shows fresh data
         dbCamera.cachedTotalExposureCount += 1
-        dbCamera.cachedActiveExposureCount = roll.exposureCount
+        dbCamera.cachedActiveExposureCount = roll.cachedExposureCount
         dbCamera.cachedLastUsedDate = item.createdAt
 
         try context.save()
 
-        let exposureCount = roll.exposureCount
+        let exposureCount = roll.cachedExposureCount
 
         return .result(value: "Logged exposure \(exposureCount) on \(dbCamera.name) with roll \(roll.filmStock)")
     }

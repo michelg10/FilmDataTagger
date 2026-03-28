@@ -83,7 +83,7 @@ struct RollListRow: View {
     var maxCapacity: Int = 36
 
     private var exposureCount: Int {
-        roll.exposureCount
+        roll.cachedExposureCount
     }
 
     private var exposureCountDisplay: String {
@@ -97,7 +97,7 @@ struct RollListRow: View {
     }()
 
     private var lastUsedText: String {
-        relativeTimeString(from: roll.lastExposureDate ?? roll.createdAt, suffix: true)
+        relativeTimeString(from: roll.cachedLastExposureDate ?? roll.createdAt, suffix: true)
     }
 
     var body: some View {
@@ -159,7 +159,7 @@ struct RollListView: View {
 
     private var pastRolls: [Roll] {
         rolls.filter { !$0.isActive }.sorted {
-            ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt)
+            ($0.cachedLastExposureDate ?? $0.createdAt) > ($1.cachedLastExposureDate ?? $1.createdAt)
         }
     }
 
@@ -167,7 +167,7 @@ struct RollListView: View {
     @State private var rollToEdit: Roll?
 
     private var totalExposures: Int {
-        rolls.reduce(0) { $0 + $1.exposureCount }
+        rolls.reduce(0) { $0 + $1.cachedExposureCount }
     }
 
     private var maxCapacity: Int {
@@ -301,7 +301,7 @@ struct RollListView: View {
                 rollToDelete = nil
             }
         } message: {
-            let count = rollToDelete?.exposureCount ?? 0
+            let count = rollToDelete?.cachedExposureCount ?? 0
             Text("This will permanently delete \"\(rollToDelete?.filmStock ?? "")\" and its \(count.formatted()) logged exposure\(count == 1 ? "" : "s") from all your devices. Data saved to Photos or exported files won't be affected.")
         }
         .navigationBarBackButtonHidden()

@@ -171,10 +171,10 @@ private struct MoveToRollMenu: View {
     private var currentCamera: Camera? { currentRoll?.camera }
 
     private func rollSubtitle(_ roll: Roll) -> String {
-        let count = roll.exposureCount
+        let count = roll.cachedExposureCount
         let capacity = roll.totalCapacity
         var parts = "\(count) / \(capacity)"
-        if let lastDate = roll.lastExposureDate {
+        if let lastDate = roll.cachedLastExposureDate {
             let ago = relativeTimeString(from: lastDate, suffix: true)
             parts += " · \(ago)"
         }
@@ -199,7 +199,7 @@ private struct MoveToRollMenu: View {
         if let currentCamera {
             let otherRolls = (currentCamera.rolls ?? [])
                 .filter { $0.id != currentRoll?.id }
-                .sorted { ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt) }
+                .sorted { ($0.cachedLastExposureDate ?? $0.createdAt) > ($1.cachedLastExposureDate ?? $1.createdAt) }
             if !otherRolls.isEmpty {
                 Menu {
                     ForEach(otherRolls) { roll in

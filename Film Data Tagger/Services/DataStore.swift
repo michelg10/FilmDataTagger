@@ -135,8 +135,9 @@ actor DataStore: ModelActor {
             item.cityName = cityName
         }
         modelContext.insert(item)
-        roll.lastExposureDate = createdAt
-        roll.exposureCount += 1
+        roll.cachedLastExposureDate = createdAt
+        roll.cachedExposureCount += 1
+        if let camera = roll.camera { syncCameraCache(camera) }
         save()
         if let thumbnailData {
             await ImageCache.shared.preload(for: id, data: thumbnailData)
@@ -154,7 +155,8 @@ actor DataStore: ModelActor {
         item.id = id
         item.createdAt = createdAt
         modelContext.insert(item)
-        roll.exposureCount += 1
+        roll.cachedExposureCount += 1
+        if let camera = roll.camera { syncCameraCache(camera) }
         save()
     }
 
@@ -172,8 +174,9 @@ actor DataStore: ModelActor {
         let roll = item.roll
         modelContext.delete(item)
         if let roll {
-            roll.exposureCount = max(0, roll.exposureCount - 1)
+            roll.cachedExposureCount = max(0, roll.cachedExposureCount - 1)
             recomputeLastExposureDate(for: roll)
+            if let camera = roll.camera { syncCameraCache(camera) }
         }
         save()
         ImageCache.shared.evict(id: id)
@@ -221,15 +224,17 @@ actor DataStore: ModelActor {
 
         // Recompute counts and dates
         if let oldRoll {
-            oldRoll.exposureCount = max(0, oldRoll.exposureCount - 1)
+            oldRoll.cachedExposureCount = max(0, oldRoll.cachedExposureCount - 1)
             recomputeLastExposureDate(for: oldRoll)
+            if let oldCamera = oldRoll.camera { syncCameraCache(oldCamera) }
         }
-        targetRoll.exposureCount += 1
+        targetRoll.cachedExposureCount += 1
         if let date = item.hasRealCreatedAt ? item.createdAt : nil {
-            if targetRoll.lastExposureDate == nil || date > targetRoll.lastExposureDate! {
-                targetRoll.lastExposureDate = date
+            if targetRoll.cachedLastExposureDate == nil || date > targetRoll.cachedLastExposureDate! {
+                targetRoll.cachedLastExposureDate = date
             }
         }
+        syncCameraCache(targetCamera)
 
         save()
         return MoveItemResult(targetCameraID: targetCamera.id)
@@ -267,6 +272,7 @@ actor DataStore: ModelActor {
         let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity)
         roll.id = id
         modelContext.insert(roll)
+        syncCameraCache(camera)
         save()
     }
 
@@ -279,6 +285,7 @@ actor DataStore: ModelActor {
         }
         roll.filmStock = filmStock
         roll.capacity = capacity
+        if let camera = roll.camera { syncCameraCache(camera) }
         save()
     }
 
@@ -290,10 +297,12 @@ actor DataStore: ModelActor {
             reconcileObservedCamera()
             return
         }
+        let camera = roll.camera
         for item in roll.logItems ?? [] {
             ImageCache.shared.evict(id: item.id)
         }
         modelContext.delete(roll)
+        if let camera { syncCameraCache(camera) }
         save()
     }
 
@@ -413,6 +422,9 @@ actor DataStore: ModelActor {
             }
         }
 
+        // Sync all camera caches — remote changes may have added/removed rolls or items
+        syncAllCameraCaches()
+
         // Camera list (always checked)
         let freshCameras = fetchAllCameraSnapshots()
         if freshCameras != camerasSubject.value {
@@ -444,7 +456,7 @@ actor DataStore: ModelActor {
             guard activeRolls.count > 1 else { continue }
             debugLog("repairDuplicateActiveRolls: camera \(camera.name) has \(activeRolls.count) active rolls")
             let keeper = activeRolls
-                .sorted { ($0.lastExposureDate ?? .distantPast) > ($1.lastExposureDate ?? .distantPast) }
+                .sorted { ($0.cachedLastExposureDate ?? .distantPast) > ($1.cachedLastExposureDate ?? .distantPast) }
                 .first!
             for roll in activeRolls where roll.id != keeper.id {
                 roll.isActive = false
@@ -633,6 +645,40 @@ actor DataStore: ModelActor {
 
     // MARK: - Internal
 
+    /// Sync cached summary fields on all cameras. Call after remote changes.
+    private func syncAllCameraCaches() {
+        let cameras = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
+        for camera in cameras {
+            // Also fix roll cached fields while we have them faulted
+            for roll in camera.rolls ?? [] {
+                let items = roll.logItems ?? []
+                let actual = items.count
+                if roll.cachedExposureCount != actual {
+                    roll.cachedExposureCount = actual
+                }
+                let freshLastDate = items.filter(\.hasRealCreatedAt).map(\.createdAt).max()
+                if roll.cachedLastExposureDate != freshLastDate {
+                    roll.cachedLastExposureDate = freshLastDate
+                }
+            }
+            syncCameraCache(camera)
+        }
+        save()
+    }
+
+    /// Update cached summary fields on a camera from its rolls.
+    /// Call after any write that changes roll count, exposure count, or active roll.
+    private func syncCameraCache(_ camera: Camera) {
+        let rolls = camera.rolls ?? []
+        let active = rolls.first(where: \.isActive)
+        camera.cachedRollCount = rolls.count
+        camera.cachedTotalExposureCount = rolls.reduce(0) { $0 + $1.cachedExposureCount }
+        camera.cachedLastUsedDate = rolls.compactMap { $0.cachedLastExposureDate ?? ($0.cachedExposureCount > 0 ? $0.createdAt : nil) }.max()
+        camera.cachedActiveFilmStock = active?.filmStock
+        camera.cachedActiveExposureCount = active?.cachedExposureCount
+        camera.cachedActiveCapacity = active?.totalCapacity
+    }
+
     private func fetchCamera(_ id: UUID) -> Camera? {
         let descriptor = FetchDescriptor<Camera>(predicate: #Predicate { $0.id == id })
         return try? modelContext.fetch(descriptor).first
@@ -661,7 +707,7 @@ actor DataStore: ModelActor {
     private func fetchRollSnapshots(forCamera cameraID: UUID) -> [RollSnapshot] {
         let descriptor = FetchDescriptor<Roll>(
             predicate: #Predicate<Roll> { $0.camera?.id == cameraID },
-            sortBy: [SortDescriptor(\.lastExposureDate, order: .reverse)]
+            sortBy: [SortDescriptor(\.cachedLastExposureDate, order: .reverse)]
         )
         return ((try? modelContext.fetch(descriptor)) ?? []).map { $0.snapshot }
     }
@@ -685,7 +731,7 @@ actor DataStore: ModelActor {
     }
 
     private func recomputeLastExposureDate(for roll: Roll) {
-        roll.lastExposureDate = (roll.logItems ?? [])
+        roll.cachedLastExposureDate = (roll.logItems ?? [])
             .filter { $0.hasRealCreatedAt }
             .map(\.createdAt)
             .max()

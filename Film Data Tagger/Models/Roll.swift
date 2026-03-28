@@ -33,11 +33,11 @@ final class Roll {
 
     /// The date of the most recent real (non-placeholder) exposure on this roll.
     /// Maintained by the ViewModel; nil if the roll has no real exposures yet.
-    var lastExposureDate: Date?
+    var cachedLastExposureDate: Date?
 
     /// Cached count of logItems. Maintained by the ViewModel to avoid faulting
     /// the logItems relationship just to get a count (expensive in view bodies).
-    var exposureCount: Int = 0
+    var cachedExposureCount: Int = 0
 
     /// The log items (frames) in this roll
     @Relationship(deleteRule: .cascade, inverse: \LogItem.roll)
@@ -64,8 +64,8 @@ final class Roll {
             extraExposures: extraExposures,
             isActive: isActive,
             createdAt: createdAt,
-            lastExposureDate: lastExposureDate,
-            exposureCount: exposureCount,
+            lastExposureDate: cachedLastExposureDate,
+            exposureCount: cachedExposureCount,
             totalCapacity: totalCapacity
         )
     }

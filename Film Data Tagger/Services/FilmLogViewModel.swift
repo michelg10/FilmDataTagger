@@ -184,7 +184,7 @@ final class FilmLogViewModel {
         let items = openRoll?.logItems ?? [] as [LogItem]
         logItems = items.sorted { $0.createdAt < $1.createdAt }
         // Sync cached counts while we have the data faulted
-        openRoll?.exposureCount = items.count
+        openRoll?.cachedExposureCount = items.count
         if let camera = openCamera { syncCameraCache(camera) }
     }
 
@@ -203,30 +203,30 @@ final class FilmLogViewModel {
                 // Sync roll exposure counts first — camera cache depends on them
                 for roll in rolls {
                     let actual = (roll.logItems ?? []).count
-                    if roll.exposureCount != actual {
-                        roll.exposureCount = actual
+                    if roll.cachedExposureCount != actual {
+                        roll.cachedExposureCount = actual
                         didChange = true
                     }
                 }
                 let active = rolls.first(where: \.isActive)
                 let newRollCount = rolls.count
-                let newTotalExposureCount = rolls.reduce(0) { $0 + $1.exposureCount }
-                let newLastUsedDate = rolls.compactMap { $0.lastExposureDate ?? ($0.exposureCount > 0 ? $0.createdAt : nil) }.max()
+                let newTotalcachedExposureCount = rolls.reduce(0) { $0 + $1.cachedExposureCount }
+                let newLastUsedDate = rolls.compactMap { $0.cachedLastExposureDate ?? ($0.cachedExposureCount > 0 ? $0.createdAt : nil) }.max()
                 let newActiveFilmStock = active?.filmStock
-                let newActiveExposureCount = active?.exposureCount
+                let newActivecachedExposureCount = active?.cachedExposureCount
                 let newActiveCapacity = active?.totalCapacity
 
                 if camera.cachedRollCount != newRollCount ||
-                   camera.cachedTotalExposureCount != newTotalExposureCount ||
+                   camera.cachedTotalExposureCount != newTotalcachedExposureCount ||
                    camera.cachedLastUsedDate != newLastUsedDate ||
                    camera.cachedActiveFilmStock != newActiveFilmStock ||
-                   camera.cachedActiveExposureCount != newActiveExposureCount ||
+                   camera.cachedActiveExposureCount != newActivecachedExposureCount ||
                    camera.cachedActiveCapacity != newActiveCapacity {
                     camera.cachedRollCount = newRollCount
-                    camera.cachedTotalExposureCount = newTotalExposureCount
+                    camera.cachedTotalExposureCount = newTotalcachedExposureCount
                     camera.cachedLastUsedDate = newLastUsedDate
                     camera.cachedActiveFilmStock = newActiveFilmStock
-                    camera.cachedActiveExposureCount = newActiveExposureCount
+                    camera.cachedActiveExposureCount = newActivecachedExposureCount
                     camera.cachedActiveCapacity = newActiveCapacity
                     didChange = true
                 }
@@ -241,10 +241,10 @@ final class FilmLogViewModel {
         let rolls = camera.rolls ?? []
         let active = rolls.first(where: \.isActive)
         camera.cachedRollCount = rolls.count
-        camera.cachedTotalExposureCount = rolls.reduce(0) { $0 + $1.exposureCount }
-        camera.cachedLastUsedDate = rolls.compactMap { $0.lastExposureDate ?? ($0.exposureCount > 0 ? $0.createdAt : nil) }.max()
+        camera.cachedTotalExposureCount = rolls.reduce(0) { $0 + $1.cachedExposureCount }
+        camera.cachedLastUsedDate = rolls.compactMap { $0.cachedLastExposureDate ?? ($0.cachedExposureCount > 0 ? $0.createdAt : nil) }.max()
         camera.cachedActiveFilmStock = active?.filmStock
-        camera.cachedActiveExposureCount = active?.exposureCount
+        camera.cachedActiveExposureCount = active?.cachedExposureCount
         camera.cachedActiveCapacity = active?.totalCapacity
     }
 
@@ -291,7 +291,7 @@ final class FilmLogViewModel {
             debugLog("repairDuplicateActiveRolls: camera \(camera.name) has \(activeRolls.count) active rolls")
             // Keep the one with the most recent exposure, or most recently created
             let keeper = activeRolls
-                .sorted { ($0.lastExposureDate ?? .distantPast) > ($1.lastExposureDate ?? .distantPast) }
+                .sorted { ($0.cachedLastExposureDate ?? .distantPast) > ($1.cachedLastExposureDate ?? .distantPast) }
                 .first!
             for roll in activeRolls where roll.id != keeper.id {
                 roll.isActive = false
@@ -506,8 +506,8 @@ final class FilmLogViewModel {
             // SwiftData maintains the inverse: inserting an item with item.roll = roll
             // automatically appends it to roll.logItems. No manual array overwrite needed.
             modelContext.insert(item)
-            roll.lastExposureDate = item.createdAt
-            roll.exposureCount += 1
+            roll.cachedLastExposureDate = item.createdAt
+            roll.cachedExposureCount += 1
             logItems.append(item)
 
             // If we don't have a geocode yet, do it in the background
@@ -555,7 +555,7 @@ final class FilmLogViewModel {
         guard let roll = openRoll else { return }
         let item = LogItem.placeholder(roll: roll)
         modelContext.insert(item)
-        roll.exposureCount += 1
+        roll.cachedExposureCount += 1
         logItems.append(item)
         if let camera = roll.camera { syncCameraCache(camera) }
         save()
@@ -567,7 +567,7 @@ final class FilmLogViewModel {
         modelContext.delete(item)
         logItems.removeAll { $0.id == deletedID }
         if let roll {
-            roll.exposureCount = max(0, roll.exposureCount - 1)
+            roll.cachedExposureCount = max(0, roll.cachedExposureCount - 1)
             recomputeLastExposureDate(for: roll, excluding: deletedID)
             if let camera = roll.camera { syncCameraCache(camera) }
         }
@@ -583,13 +583,13 @@ final class FilmLogViewModel {
         item.roll = targetRoll
 
         if let oldRoll {
-            oldRoll.exposureCount = max(0, oldRoll.exposureCount - 1)
+            oldRoll.cachedExposureCount = max(0, oldRoll.cachedExposureCount - 1)
             recomputeLastExposureDate(for: oldRoll, excluding: item.id)
         }
-        targetRoll.exposureCount += 1
+        targetRoll.cachedExposureCount += 1
         if let date = item.hasRealCreatedAt ? item.createdAt : nil {
-            if targetRoll.lastExposureDate == nil || date > targetRoll.lastExposureDate! {
-                targetRoll.lastExposureDate = date
+            if targetRoll.cachedLastExposureDate == nil || date > targetRoll.cachedLastExposureDate! {
+                targetRoll.cachedLastExposureDate = date
             }
         }
 
@@ -727,7 +727,7 @@ final class FilmLogViewModel {
     }
 
     private func recomputeLastExposureDate(for roll: Roll, excluding excludedID: UUID? = nil) {
-        roll.lastExposureDate = (roll.logItems ?? [])
+        roll.cachedLastExposureDate = (roll.logItems ?? [])
             .filter { $0.hasRealCreatedAt && $0.id != excludedID }
             .map(\.createdAt)
             .max()
@@ -735,7 +735,7 @@ final class FilmLogViewModel {
 
     func cycleExtraExposures() {
         guard let roll = openRoll else { return }
-        let maxExtra = min(4, roll.exposureCount)
+        let maxExtra = min(4, roll.cachedExposureCount)
         let next = roll.extraExposures + 1
         roll.extraExposures = next > maxExtra ? 0 : next
         playHaptic(.cycleExtraExposures)
