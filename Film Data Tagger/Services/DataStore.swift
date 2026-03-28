@@ -80,16 +80,21 @@ actor DataStore: ModelActor {
 
     /// Set the actively observed roll. Returns the initial snapshot list
     /// and begins publishing updates for this roll via `rollItemsSubject`.
+    /// IMPORTANT: Must return fast — the VM awaits this during navigation transitions.
+    /// Deferred work (geocoding, placeholder repair) is fire-and-forget.
     func observeRoll(_ rollID: UUID) async -> [LogItemSnapshot] {
         observedRollID = rollID
         // Fire-and-forget roll access tracking
-        Task { await ImageCache.shared.bookkeeper.recordAccess(rollID) }
         let items = await fetchLogItems(forRoll: rollID)
         // Guard against a newer observeRoll call that started during our await
         guard observedRollID == rollID else { return items }
         rollItemsSubject.send(items)
-        // Geocode any items in this roll that are missing place names (e.g., Shortcut-logged)
-        Task { await self.geocodeItemsInRoll(rollID) }
+        // Fire-and-forget: geocode + repair placeholders. If either mutates, pushes via subject.
+        Task(priority: .utility) {
+            await ImageCache.shared.bookkeeper.recordAccess(rollID)
+            await self.geocodeItemsInRoll(rollID)
+            await self.repairPlaceholderTimestamps(rollID: rollID)
+        }
         return items
     }
 
@@ -234,6 +239,7 @@ actor DataStore: ModelActor {
 
     /// Set the actively observed camera. Returns its rolls sorted by recency
     /// and begins publishing updates via `cameraRollsSubject`.
+    /// IMPORTANT: Must return fast — the VM awaits this during navigation transitions.
     func observeCamera(_ cameraID: UUID) -> [RollSnapshot] {
         observedCameraID = cameraID
         let rolls = fetchRollSnapshots(forCamera: cameraID)
@@ -358,7 +364,7 @@ actor DataStore: ModelActor {
             queue: nil
         ) { [weak self] _ in
             guard let self else { return }
-            Task { await self.handleRemoteChange() }
+            Task(priority: .userInitiated) { await self.handleRemoteChange() }
         }
     }
 
@@ -421,7 +427,7 @@ actor DataStore: ModelActor {
         // --- Debounced: maintenance ---
 
         maintenanceTask?.cancel()
-        maintenanceTask = Task {
+        maintenanceTask = Task(priority: .utility) {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             repairDuplicateActiveRolls()
@@ -505,6 +511,52 @@ actor DataStore: ModelActor {
         if let rollID = observedRollID {
             let currentIDs = Set(rollItemsSubject.value.map(\.id))
             if !affectedIDs.isDisjoint(with: currentIDs) {
+                let fresh = await fetchLogItems(forRoll: rollID)
+                rollItemsSubject.send(fresh)
+            }
+        }
+    }
+
+    /// Re-interpolate placeholder timestamps between real exposures.
+    /// Repairs precision exhaustion from repeated drag reordering.
+    /// Pushes updated snapshots via subject if anything changed.
+    private func repairPlaceholderTimestamps(rollID: UUID) async {
+        let descriptor = FetchDescriptor<LogItem>(
+            predicate: #Predicate<LogItem> { $0.roll?.id == rollID },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        let items = (try? modelContext.fetch(descriptor)) ?? []
+        guard items.count >= 2, items.contains(where: \.hasRealCreatedAt) else { return }
+
+        var didRepair = false
+        var i = 0
+        while i < items.count {
+            guard !items[i].hasRealCreatedAt else { i += 1; continue }
+            let runStart = i
+            while i < items.count && !items[i].hasRealCreatedAt { i += 1 }
+            let runEnd = i
+
+            let before = runStart > 0
+                ? items[runStart - 1].createdAt
+                : items[runEnd < items.count ? runEnd : runStart].createdAt.addingTimeInterval(-Double(runEnd - runStart + 1))
+            let after = runEnd < items.count
+                ? items[runEnd].createdAt
+                : before.addingTimeInterval(Double(runEnd - runStart + 1))
+
+            let count = runEnd - runStart
+            for j in 0..<count {
+                let fraction = Double(j + 1) / Double(count + 1)
+                let newTime = before.addingTimeInterval(after.timeIntervalSince(before) * fraction)
+                if items[runStart + j].createdAt != newTime {
+                    items[runStart + j].createdAt = newTime
+                    didRepair = true
+                }
+            }
+        }
+
+        if didRepair {
+            save()
+            if observedRollID == rollID {
                 let fresh = await fetchLogItems(forRoll: rollID)
                 rollItemsSubject.send(fresh)
             }
