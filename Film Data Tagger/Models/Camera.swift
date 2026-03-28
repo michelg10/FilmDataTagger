@@ -26,6 +26,7 @@ final class Camera {
     var cachedRollCount: Int = 0
     var cachedTotalExposureCount: Int = 0
     var cachedLastUsedDate: Date?
+    var cachedActiveRollID: UUID?
     var cachedActiveFilmStock: String?
     var cachedActiveExposureCount: Int?
     var cachedActiveCapacity: Int?
@@ -53,6 +54,7 @@ final class Camera {
             rollCount: cachedRollCount,
             totalExposureCount: cachedTotalExposureCount,
             lastUsedDate: cachedLastUsedDate,
+            activeRollID: cachedActiveRollID,
             activeFilmStock: cachedActiveFilmStock,
             activeExposureCount: cachedActiveExposureCount,
             activeCapacity: cachedActiveCapacity

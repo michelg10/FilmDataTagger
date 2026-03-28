@@ -157,6 +157,7 @@ actor DataStore: ModelActor {
                 camera.cachedLastUsedDate = createdAt
             }
             // Always update active fields — the roll is guaranteed active at this point
+            camera.cachedActiveRollID = roll.id
             camera.cachedActiveFilmStock = roll.filmStock
             camera.cachedActiveExposureCount = roll.cachedExposureCount
             camera.cachedActiveCapacity = roll.totalCapacity
@@ -770,6 +771,7 @@ actor DataStore: ModelActor {
         camera.cachedRollCount = rolls.count
         camera.cachedTotalExposureCount = rolls.reduce(0) { $0 + $1.cachedExposureCount }
         camera.cachedLastUsedDate = rolls.compactMap { $0.cachedLastExposureDate ?? ($0.cachedExposureCount > 0 ? $0.createdAt : nil) }.max()
+        camera.cachedActiveRollID = active?.id
         camera.cachedActiveFilmStock = active?.filmStock
         camera.cachedActiveExposureCount = active?.cachedExposureCount
         camera.cachedActiveCapacity = active?.totalCapacity
