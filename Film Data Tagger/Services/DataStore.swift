@@ -137,7 +137,16 @@ actor DataStore: ModelActor {
         modelContext.insert(item)
         roll.cachedLastExposureDate = createdAt
         roll.cachedExposureCount += 1
-        if let camera = roll.camera { syncCameraCache(camera) }
+        // Incremental camera cache update — avoids faulting all rolls
+        if let camera = roll.camera {
+            camera.cachedTotalExposureCount += 1
+            if camera.cachedLastUsedDate == nil || createdAt > camera.cachedLastUsedDate! {
+                camera.cachedLastUsedDate = createdAt
+            }
+            if roll.isActive {
+                camera.cachedActiveExposureCount = roll.cachedExposureCount
+            }
+        }
         save()
         if let thumbnailData {
             await ImageCache.shared.preload(for: id, data: thumbnailData)
@@ -156,7 +165,13 @@ actor DataStore: ModelActor {
         item.createdAt = createdAt
         modelContext.insert(item)
         roll.cachedExposureCount += 1
-        if let camera = roll.camera { syncCameraCache(camera) }
+        // Incremental camera cache update — avoids faulting all rolls
+        if let camera = roll.camera {
+            camera.cachedTotalExposureCount += 1
+            if roll.isActive {
+                camera.cachedActiveExposureCount = roll.cachedExposureCount
+            }
+        }
         save()
     }
 
@@ -191,6 +206,9 @@ actor DataStore: ModelActor {
             return
         }
         roll.extraExposures = count
+        if roll.isActive, let camera = roll.camera {
+            camera.cachedActiveCapacity = roll.totalCapacity
+        }
         save()
     }
 
