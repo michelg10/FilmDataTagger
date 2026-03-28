@@ -79,7 +79,7 @@ final class CameraManager: NSObject {
     /// Schedule a stop after a delay. Cancelled if `start()` or `stop()` is called first.
     func scheduleStop(after seconds: TimeInterval = 30) {
         stopTimer?.cancel()
-        stopTimer = Task {
+        stopTimer = Task(priority: .utility) {
             try? await Task.sleep(for: .seconds(seconds))
             guard !Task.isCancelled else { return }
             stop()

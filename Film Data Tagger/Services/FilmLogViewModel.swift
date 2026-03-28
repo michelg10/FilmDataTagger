@@ -128,7 +128,7 @@ final class FilmLogViewModel {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
-            Task { @MainActor in
+            Task(priority: .userInitiated) { @MainActor in
                 debugLog("Remote change notification received")
                 // Immediate — UI correctness
                 self.validateOpenState()
@@ -142,7 +142,7 @@ final class FilmLogViewModel {
 
     private func scheduleRemoteChangeMaintenance() {
         remoteMaintenanceTask?.cancel()
-        remoteMaintenanceTask = Task { @MainActor in
+        remoteMaintenanceTask = Task(priority: .utility) { @MainActor in
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             self.repairDuplicateActiveRolls()
@@ -158,7 +158,7 @@ final class FilmLogViewModel {
             return (item.id, CLLocation(latitude: lat, longitude: lon))
         }
         guard !pending.isEmpty else { return }
-        Task { [weak self] in
+        Task(priority: .utility) { [weak self] in
             let results = await Geocoder.geocodeBatch(pending)
             self?.applyGeocodingResults(results)
         }
@@ -513,7 +513,7 @@ final class FilmLogViewModel {
             // If we don't have a geocode yet, do it in the background
             if item.placeName == nil, let location {
                 let itemID = item.id
-                Task { [weak self] in
+                Task(priority: .utility) { [weak self] in
                     let result = await Geocoder.geocode(location)
                     self?.applyGeocodingResults([(itemID, result)])
                 }
@@ -650,7 +650,7 @@ final class FilmLogViewModel {
     /// Start the camera session if reference photos are enabled. Call on exposure screen appear.
     func ensureCameraRunning() {
         guard referencePhotosEnabled else { return }
-        Task {
+        Task(priority: .userInitiated) {
             let granted = await cameraManager.requestPermission()
             if granted {
                 cameraManager.start()
@@ -668,7 +668,7 @@ final class FilmLogViewModel {
     func toggleReferencePhotos() {
         if !referencePhotosEnabled {
             // Turning on — check permission first
-            Task {
+            Task(priority: .userInitiated) {
                 let granted = await cameraManager.requestPermission()
                 if granted {
                     referencePhotosEnabled = true

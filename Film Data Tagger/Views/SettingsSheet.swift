@@ -401,7 +401,7 @@ private struct ExportPage: View {
                 SettingsTaskRow(text: "Export as JSON", color: .accentColor, isActive: activeExport == .json, isDisabled: activeExport != nil) {
                     guard activeExport == nil else { return }
                     activeExport = .json
-                    Task {
+                    Task(priority: .userInitiated) {
                         shareURL = await viewModel.exportJSON()
                         activeExport = nil
                     }
@@ -410,7 +410,7 @@ private struct ExportPage: View {
                 SettingsTaskRow(text: "Export as CSV", color: .accentColor, isActive: activeExport == .csv, isDisabled: activeExport != nil) {
                     guard activeExport == nil else { return }
                     activeExport = .csv
-                    Task {
+                    Task(priority: .userInitiated) {
                         shareURL = await viewModel.exportCSV()
                         activeExport = nil
                     }
@@ -548,7 +548,7 @@ struct SettingsSheet: View {
             iCloudStatus = try? await CKContainer.default().accountStatus()
         }
         .onReceive(NotificationCenter.default.publisher(for: .CKAccountChanged)) { _ in
-            Task {
+            Task(priority: .userInitiated) {
                 iCloudStatus = try? await CKContainer.default().accountStatus()
             }
         }
