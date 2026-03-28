@@ -336,6 +336,74 @@ actor DataStore: ModelActor {
         save()
     }
 
+    // MARK: - Maintenance
+
+    /// Periodic cleanup: orphan data, stale cache entries.
+    /// Runs every 72h. Fires a detached background task to avoid blocking the actor.
+    func runPeriodicCleanupIfNeeded() {
+        let defaults = UserDefaults.standard
+        if let lastClean = defaults.object(forKey: AppSettingsKeys.lastDataCleanDate) as? Date,
+           Date().timeIntervalSince(lastClean) < 72 * 60 * 60 { return }
+
+        let previousRollIDs = Set(defaults.stringArray(forKey: AppSettingsKeys.pendingOrphanRollIDs) ?? [])
+        let previousItemIDs = Set(defaults.stringArray(forKey: AppSettingsKeys.pendingOrphanItemIDs) ?? [])
+
+        let container = modelContainer
+        Task.detached(priority: .background) {
+            let context = ModelContext(container)
+
+            // --- 1. Orphan cleanup (two-strike) ---
+
+            let orphanedRolls = (try? context.fetch(FetchDescriptor<Roll>(
+                predicate: #Predicate<Roll> { $0.camera == nil }
+            ))) ?? []
+            let candidateRollIDs = orphanedRolls.map { $0.id.uuidString }
+
+            let orphanedItems = (try? context.fetch(FetchDescriptor<LogItem>(
+                predicate: #Predicate<LogItem> { $0.roll == nil }
+            ))) ?? []
+            let candidateItemIDs = orphanedItems.map { $0.id.uuidString }
+
+            // Persist current candidates for the next run's comparison
+            defaults.set(candidateRollIDs, forKey: AppSettingsKeys.pendingOrphanRollIDs)
+            defaults.set(candidateItemIDs, forKey: AppSettingsKeys.pendingOrphanItemIDs)
+
+            // Only delete IDs that were also flagged on the previous run
+            let confirmedRollIDs = Set(candidateRollIDs).intersection(previousRollIDs)
+            let confirmedItemIDs = Set(candidateItemIDs).intersection(previousItemIDs)
+
+            var deletedRolls = 0
+            for roll in orphanedRolls where confirmedRollIDs.contains(roll.id.uuidString) {
+                for item in roll.logItems ?? [] {
+                    ImageCache.shared.evict(id: item.id)
+                }
+                context.delete(roll)
+                deletedRolls += 1
+            }
+            var deletedItems = 0
+            for item in orphanedItems where confirmedItemIDs.contains(item.id.uuidString) {
+                ImageCache.shared.evict(id: item.id)
+                context.delete(item)
+                deletedItems += 1
+            }
+
+            if deletedRolls > 0 || deletedItems > 0 {
+                debugLog("Orphan cleanup: \(deletedRolls) roll(s), \(deletedItems) item(s)")
+                try? context.save()
+            }
+
+            // --- 2. Purge stale cache bookkeeper entries ---
+
+            let allRolls = (try? context.fetch(FetchDescriptor<Roll>())) ?? []
+            let existingRollIDs = Set(allRolls.map(\.id))
+            await ImageCache.shared.bookkeeper.purgeStaleEntries(existingRollIDs: existingRollIDs)
+
+            // --- Done ---
+
+            defaults.set(Date(), forKey: AppSettingsKeys.lastDataCleanDate)
+        }
+    }
+
     // MARK: - Internal
 
     private func fetchCamera(_ id: UUID) -> Camera? {

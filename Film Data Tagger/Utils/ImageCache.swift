@@ -45,7 +45,6 @@ actor CacheBookkeeper {
     }
 
     /// Remove access dates for rolls that no longer exist.
-    /// TODO: Call from DataStore's orphan cleanup (every 72h), once that's migrated.
     func purgeStaleEntries(existingRollIDs: Set<UUID>) {
         let before = rollAccessDates.count
         rollAccessDates = rollAccessDates.filter { existingRollIDs.contains($0.key) }
@@ -205,7 +204,6 @@ final class ImageCache: @unchecked Sendable {
     }
 
     /// Remove a thumbnail from all layers.
-    /// TODO: Wire up from DataStore delete flows (deleteItem, deleteRoll, deleteCamera).
     func evict(id: UUID) {
         memory.removeObject(forKey: id as NSUUID)
         try? FileManager.default.removeItem(at: bgraPath(for: id))
