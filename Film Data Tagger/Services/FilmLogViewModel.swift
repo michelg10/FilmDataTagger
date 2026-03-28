@@ -84,7 +84,7 @@ final class FilmLogViewModel {
         case .off: referencePhotosEnabled = false
         }
         locationService.setup()
-        Task.detached { await self.store.loadCameras() }
+        Task.detached(priority: .userInitiated) { await self.store.loadCameras() }
         syncAllCameraCaches()
         loadOrCreateActiveRoll()
         scheduleRemoteChangeMaintenance() // deferred: repairDuplicateActiveRolls + geocode backfill
@@ -783,7 +783,7 @@ final class FilmLogViewModel {
             totalExposureCount: 0
         )
         cameras.append(snapshot)
-        Task.detached { await self.store.createCamera(id: id, name: name, listOrder: listOrder) }
+        Task.detached(priority: .userInitiated) { await self.store.createCamera(id: id, name: name, listOrder: listOrder) }
         return id
     }
 
@@ -791,7 +791,7 @@ final class FilmLogViewModel {
         if let i = cameras.firstIndex(where: { $0.id == id }) {
             cameras[i].name = name
         }
-        Task.detached { await self.store.renameCamera(id: id, name: name) }
+        Task.detached(priority: .userInitiated) { await self.store.renameCamera(id: id, name: name) }
     }
 
     func deleteCamera(id: UUID) {
@@ -801,7 +801,7 @@ final class FilmLogViewModel {
             logItems = []
         }
         cameras.removeAll { $0.id == id }
-        Task.detached { await self.store.deleteCamera(id: id) }
+        Task.detached(priority: .userInitiated) { await self.store.deleteCamera(id: id) }
     }
 
     func reorderCameras(_ orderedIDs: [UUID]) {
@@ -814,6 +814,6 @@ final class FilmLogViewModel {
             reordered[i].listOrder = Double(i)
         }
         cameras = reordered
-        Task.detached { await self.store.reorderCameras(orderedIDs: orderedIDs) }
+        Task.detached(priority: .userInitiated) { await self.store.reorderCameras(orderedIDs: orderedIDs) }
     }
 }

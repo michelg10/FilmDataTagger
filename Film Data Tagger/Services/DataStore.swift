@@ -79,6 +79,9 @@ actor DataStore: ModelActor {
     /// IMPORTANT: Must return fast — the VM awaits this during navigation transitions.
     /// Deferred work (geocoding, placeholder repair) is fire-and-forget.
     func observeRoll(_ rollID: UUID) async -> [LogItemSnapshot] {
+        #if DEBUG
+        assertHighPriority()
+        #endif
         observedRollID = rollID
         // Fire-and-forget roll access tracking
         let items = await fetchLogItems(forRoll: rollID)
@@ -106,6 +109,8 @@ actor DataStore: ModelActor {
     /// If the roll is not currently active, it will be activated (and the previous active roll
     /// on the same camera deactivated). This handles the case where the user navigates to
     /// an old roll and starts logging.
+    ///
+    /// Not high priority: do not await
     func logExposure(
         id: UUID,
         rollID: UUID,
@@ -163,6 +168,8 @@ actor DataStore: ModelActor {
     }
 
     /// Persist a new placeholder. The VM has already updated its local state optimistically.
+    ///
+    /// Not high priority: do not await
     func logPlaceholder(id: UUID, rollID: UUID, createdAt: Date) {
         guard let roll = fetchRoll(rollID) else {
             debugLog("logPlaceholder: roll \(rollID) not found")
@@ -187,6 +194,8 @@ actor DataStore: ModelActor {
     /// Delete an item. The VM has already removed it from its local state optimistically.
     /// If the item doesn't exist (e.g., already deleted via CloudKit), re-publish
     /// the current roll items so the VM can reconcile.
+    ///
+    /// Not high priority: do not await
     func deleteItem(id: UUID) async {
         guard let item = fetchLogItem(id) else {
             debugLog("deleteItem: item \(id) not found")
@@ -208,6 +217,8 @@ actor DataStore: ModelActor {
 
     /// Persist the new extra exposures count. The VM computes the cycling logic
     /// and updates its local state optimistically.
+    ///
+    /// Not high priority: do not await
     func setExtraExposures(rollID: UUID, count: Int) {
         guard let roll = fetchRoll(rollID) else {
             debugLog("setExtraExposures: roll \(rollID) not found")
@@ -222,6 +233,8 @@ actor DataStore: ModelActor {
     }
 
     /// Persist a placeholder's new timestamp. The VM has already resorted its local state.
+    ///
+    /// Not high priority: do not await
     func movePlaceholder(id: UUID, newTimestamp: Date) async {
         guard let item = fetchLogItem(id) else {
             debugLog("movePlaceholder: item \(id) not found")
@@ -236,6 +249,8 @@ actor DataStore: ModelActor {
 
     /// Move an item to a different roll. NOT optimistic — the VM awaits the result
     /// and then calls `observeRoll` on the target roll.
+    ///
+    /// Not high priority: do not await
     func moveItem(id: UUID, toRollID: UUID) -> MoveItemResult? {
         guard let item = fetchLogItem(id),
               let targetRoll = fetchRoll(toRollID),
@@ -286,6 +301,8 @@ actor DataStore: ModelActor {
     }
 
     /// Persist a new roll. The VM has already added the snapshot optimistically.
+    ///
+    /// Not high priority: do not await
     func createRoll(id: UUID, cameraID: UUID, filmStock: String, capacity: Int) {
         guard let camera = fetchCamera(cameraID) else {
             debugLog("createRoll: camera \(cameraID) not found")
@@ -304,6 +321,8 @@ actor DataStore: ModelActor {
     }
 
     /// Persist a roll edit. The VM has already updated its local state optimistically.
+    ///
+    /// Not high priority: do not await
     func editRoll(id: UUID, filmStock: String, capacity: Int) {
         guard let roll = fetchRoll(id) else {
             debugLog("editRoll: roll \(id) not found")
@@ -318,6 +337,8 @@ actor DataStore: ModelActor {
 
     /// Delete a roll and all its exposures (cascade).
     /// The VM has already removed it from its local state optimistically.
+    ///
+    /// Not high priority: do not await
     func deleteRoll(id: UUID) {
         guard let roll = fetchRoll(id) else {
             debugLog("deleteRoll: roll \(id) not found")
@@ -337,10 +358,15 @@ actor DataStore: ModelActor {
 
     /// Fetch all cameras and publish to `camerasSubject`. Call on startup.
     func loadCameras() {
+        #if DEBUG
+        assertHighPriority()
+        #endif
         camerasSubject.send(fetchAllCameraSnapshots())
     }
 
     /// Persist a new camera. The VM has already added the snapshot optimistically.
+    ///
+    /// Not high priority: do not await
     func createCamera(id: UUID, name: String, listOrder: Double) {
         let camera = Camera(name: name, listOrder: listOrder)
         camera.id = id
@@ -349,6 +375,8 @@ actor DataStore: ModelActor {
     }
 
     /// Persist a camera rename. The VM has already updated its local state optimistically.
+    ///
+    /// Not high priority: do not await
     func renameCamera(id: UUID, name: String) {
         guard let camera = fetchCamera(id) else {
             debugLog("renameCamera: camera \(id) not found")
@@ -361,6 +389,8 @@ actor DataStore: ModelActor {
 
     /// Delete a camera and all its rolls/exposures (cascade).
     /// The VM has already removed it from its local state optimistically.
+    ///
+    /// Not high priority: do not await
     func deleteCamera(id: UUID) {
         guard let camera = fetchCamera(id) else {
             debugLog("deleteCamera: camera \(id) not found")
@@ -378,6 +408,8 @@ actor DataStore: ModelActor {
     }
 
     /// Persist a new camera ordering. The VM has already reordered its local state optimistically.
+    ///
+    /// Not high priority: do not await
     func reorderCameras(orderedIDs: [UUID]) {
         let cameras = (try? modelContext.fetch(FetchDescriptor<Camera>(
             sortBy: [SortDescriptor(\.listOrder)]
@@ -412,6 +444,8 @@ actor DataStore: ModelActor {
     /// Immediate: re-fetch observed data and push if changed.
     /// Debounced: expensive maintenance (repair duplicate active rolls).
     private func handleRemoteChange() async {
+        debugLog("Remote change notification received")
+
         // --- Validate: check observed entities still exist ---
 
         if let cameraID = observedCameraID {
@@ -526,6 +560,8 @@ actor DataStore: ModelActor {
 
     /// Geocode items missing place names since a cutoff date.
     /// Call on startup (with lastAppLaunchDate cutoff) and foreground (with lastForegroundDate cutoff).
+    ///
+    /// Not high priority: do not await
     func geocodeItemsIfNeeded(since cutoffDate: Date) async {
         let descriptor = FetchDescriptor<LogItem>(
             predicate: #Predicate<LogItem> {
@@ -546,6 +582,8 @@ actor DataStore: ModelActor {
 
     /// Geocode items missing place names in a specific roll.
     /// Call on roll switch and after remote changes.
+    ///
+    /// Not high priority: do not await
     func geocodeItemsInRoll(_ rollID: UUID) async {
         let descriptor = FetchDescriptor<LogItem>(
             predicate: #Predicate<LogItem> {
@@ -635,6 +673,8 @@ actor DataStore: ModelActor {
 
     /// Periodic cleanup: orphan data, stale cache entries.
     /// Runs every 72h. Fires a detached background task to avoid blocking the actor.
+    ///
+    /// Not high priority: do not await
     func runPeriodicCleanupIfNeeded() {
         let defaults = UserDefaults.standard
         if let lastClean = defaults.object(forKey: AppSettingsKeys.lastDataCleanDate) as? Date,
@@ -768,7 +808,22 @@ actor DataStore: ModelActor {
         return ((try? modelContext.fetch(descriptor)) ?? []).map { $0.snapshot }
     }
 
+    #if DEBUG
+    private func assertOffMain(caller: String = #function) {
+        assert(!Thread.isMainThread, "DataStore.\(caller) must not run on the main thread")
+    }
+    private func assertHighPriority(caller: String = #function) {
+        assertOffMain(caller: caller)
+        let qos = Thread.current.qualityOfService
+        assert(qos == .userInitiated || qos == .userInteractive,
+               "DataStore.\(caller) expected high-priority QoS, got \(qos.rawValue)")
+    }
+    #endif
+
     private func save() {
+        #if DEBUG
+        assertOffMain()
+        #endif
         do {
             try modelContext.save()
         } catch {

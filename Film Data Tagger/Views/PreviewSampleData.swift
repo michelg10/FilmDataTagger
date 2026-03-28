@@ -61,8 +61,7 @@ enum PreviewSampleData {
     static func makeStore(container: ModelContainer) -> DataStore {
         var store: DataStore!
         let semaphore = DispatchSemaphore(value: 0)
-        Thread.detachNewThread {
-            Thread.current.qualityOfService = .userInteractive
+        DispatchQueue(label: "DataStore.init", qos: .userInitiated).async {
             store = DataStore(modelContainer: container)
             semaphore.signal()
         }
