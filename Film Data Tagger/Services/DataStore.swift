@@ -88,6 +88,8 @@ actor DataStore: ModelActor {
         // Guard against a newer observeRoll call that started during our await
         guard observedRollID == rollID else { return items }
         rollItemsSubject.send(items)
+        // Geocode any items in this roll that are missing place names (e.g., Shortcut-logged)
+        Task { await self.geocodeItemsInRoll(rollID) }
         return items
     }
 
@@ -411,6 +413,11 @@ actor DataStore: ModelActor {
             camerasSubject.send(freshCameras)
         }
 
+        // Geocode any new items in the observed roll that lack place names
+        if let rollID = observedRollID {
+            await geocodeItemsInRoll(rollID)
+        }
+
         // --- Debounced: maintenance ---
 
         maintenanceTask?.cancel()
@@ -439,6 +446,69 @@ actor DataStore: ModelActor {
             didRepair = true
         }
         if didRepair { save() }
+    }
+
+    // MARK: - Geocoding
+
+    /// Geocode items missing place names since a cutoff date.
+    /// Call on startup (with lastAppLaunchDate cutoff) and foreground (with lastForegroundDate cutoff).
+    func geocodeItemsIfNeeded(since cutoffDate: Date) async {
+        let descriptor = FetchDescriptor<LogItem>(
+            predicate: #Predicate<LogItem> {
+                $0.placeName == nil &&
+                $0.latitude != nil &&
+                $0.longitude != nil &&
+                $0.createdAt >= cutoffDate
+            }
+        )
+        let items = (try? modelContext.fetch(descriptor)) ?? []
+        let pending = items.compactMap { item -> (UUID, CLLocation)? in
+            guard let lat = item.latitude, let lon = item.longitude else { return nil }
+            return (item.id, CLLocation(latitude: lat, longitude: lon))
+        }
+        let results = await Geocoder.geocodeBatch(pending)
+        await applyGeocodingResults(results)
+    }
+
+    /// Geocode items missing place names in a specific roll.
+    /// Call on roll switch and after remote changes.
+    func geocodeItemsInRoll(_ rollID: UUID) async {
+        let descriptor = FetchDescriptor<LogItem>(
+            predicate: #Predicate<LogItem> {
+                $0.roll?.id == rollID &&
+                $0.placeName == nil &&
+                $0.latitude != nil &&
+                $0.longitude != nil
+            }
+        )
+        let items = (try? modelContext.fetch(descriptor)) ?? []
+        let pending = items.compactMap { item -> (UUID, CLLocation)? in
+            guard let lat = item.latitude, let lon = item.longitude else { return nil }
+            return (item.id, CLLocation(latitude: lat, longitude: lon))
+        }
+        let results = await Geocoder.geocodeBatch(pending)
+        await applyGeocodingResults(results)
+    }
+
+    /// Core: write geocoding results and push to rollItemsSubject if the observed roll was affected.
+    private func applyGeocodingResults(_ results: [(UUID, GeocodingResult)]) async {
+        guard !results.isEmpty else { return }
+        let affectedIDs = Set(results.map(\.0))
+        for (id, result) in results {
+            if let item = fetchLogItem(id) {
+                if let placeName = result.placeName { item.placeName = placeName }
+                if let cityName = result.cityName { item.cityName = cityName }
+            }
+        }
+        save()
+        // Push if any geocoded items belong to the observed roll
+        if let rollID = observedRollID {
+            let currentIDs = Set(rollItemsSubject.value.map(\.id))
+            if !affectedIDs.isDisjoint(with: currentIDs) {
+                let fresh = await fetchLogItems(forRoll: rollID)
+                rollItemsSubject.send(fresh)
+            }
+        }
     }
 
     // MARK: - Maintenance
