@@ -91,8 +91,8 @@ private let filmStockPlaceholders = [
 
 struct RollFormSheet: View {
     let viewModel: FilmLogViewModel
-    let camera: Camera
-    var editingRoll: Roll? = nil
+    let cameraID: UUID
+    var editingRoll: RollSnapshot? = nil
     var defaultFilmStock: String? = nil
     var defaultCapacity: Int? = nil
     var allowSubmitWithPlaceholder: Bool = false
@@ -174,7 +174,7 @@ struct RollFormSheet: View {
                 if let editingRoll {
                     viewModel.editRoll(id: editingRoll.id, filmStock: effectiveFilmName, capacity: capacity)
                 } else {
-                    viewModel.createRoll(cameraID: camera.id, filmStock: effectiveFilmName, capacity: capacity)
+                    viewModel.createRoll(cameraID: cameraID, filmStock: effectiveFilmName, capacity: capacity)
                 }
                 dismiss()
                 onRollCreated?()

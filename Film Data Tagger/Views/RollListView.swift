@@ -79,11 +79,11 @@ private struct BlockProgressBar: View {
 }
 
 struct RollListRow: View {
-    let roll: Roll
+    let roll: RollSnapshot
     var maxCapacity: Int = 36
 
     private var exposureCount: Int {
-        roll.cachedExposureCount
+        roll.exposureCount
     }
 
     private var exposureCountDisplay: String {
@@ -97,7 +97,7 @@ struct RollListRow: View {
     }()
 
     private var lastUsedText: String {
-        relativeTimeString(from: roll.cachedLastExposureDate ?? roll.createdAt, suffix: true)
+        relativeTimeString(from: roll.lastExposureDate ?? roll.createdAt, suffix: true)
     }
 
     var body: some View {
@@ -143,31 +143,30 @@ struct RollListRow: View {
 }
 
 struct RollListView: View {
-    let camera: Camera
+    let cameraID: UUID
     let viewModel: FilmLogViewModel
-    var onRollSelected: ((Roll) -> Void)?
+    var onRollSelected: ((RollSnapshot) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
 
-    private var rolls: [Roll] {
-        camera.rolls ?? []
+    private var rolls: [RollSnapshot] { viewModel.rolls }
+    private var cameraName: String { viewModel.cameras.first(where: { $0.id == cameraID })?.name ?? "" }
+
+    private var activeRoll: RollSnapshot? {
+        rolls.first(where: \.isActive)
     }
 
-    private var activeRoll: Roll? {
-        rolls.first { $0.isActive }
-    }
-
-    private var pastRolls: [Roll] {
+    private var pastRolls: [RollSnapshot] {
         rolls.filter { !$0.isActive }.sorted {
-            ($0.cachedLastExposureDate ?? $0.createdAt) > ($1.cachedLastExposureDate ?? $1.createdAt)
+            ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt)
         }
     }
 
-    @State private var rollToDelete: Roll?
-    @State private var rollToEdit: Roll?
+    @State private var rollToDelete: RollSnapshot?
+    @State private var rollToEdit: RollSnapshot?
 
     private var totalExposures: Int {
-        rolls.reduce(0) { $0 + $1.cachedExposureCount }
+        rolls.reduce(0) { $0 + $1.exposureCount }
     }
 
     private var maxCapacity: Int {
@@ -188,7 +187,7 @@ struct RollListView: View {
                                     .opacity(0.6)
 
                                 Button {
-                                    viewModel.switchToRoll(activeRoll)
+                                    viewModel.switchToRoll(id: activeRoll.id)
                                     onRollSelected?(activeRoll)
                                 } label: {
                                     RollListRow(roll: activeRoll, maxCapacity: maxCapacity)
@@ -228,7 +227,7 @@ struct RollListView: View {
 
                                 let isLast = index == pastRolls.count - 1
                                 Button {
-                                    viewModel.switchToRoll(roll)
+                                    viewModel.switchToRoll(id: roll.id)
                                     onRollSelected?(roll)
                                 } label: {
                                     RollListRow(roll: roll, maxCapacity: maxCapacity)
@@ -301,14 +300,14 @@ struct RollListView: View {
                 rollToDelete = nil
             }
         } message: {
-            let count = rollToDelete?.cachedExposureCount ?? 0
+            let count = rollToDelete?.exposureCount ?? 0
             Text("This will permanently delete \"\(rollToDelete?.filmStock ?? "")\" and its \(count.formatted()) logged exposure\(count == 1 ? "" : "s") from all your devices. Data saved to Photos or exported files won't be affected.")
         }
         .navigationBarBackButtonHidden()
         .sheet(item: $rollToEdit) { roll in
             RollFormSheet(
                 viewModel: viewModel,
-                camera: camera,
+                cameraID: cameraID,
                 editingRoll: roll
             )
         }
@@ -326,7 +325,7 @@ struct RollListView: View {
                     .glassEffectCompat(in: Circle())
                     .accessibilityLabel("Back")
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(camera.name)
+                        Text(cameraName)
                             .font(.system(size: 18, weight: .bold, design: .default))
                             .fontWidth(.expanded)
                             .foregroundStyle(Color.white)
@@ -340,24 +339,27 @@ struct RollListView: View {
                 }.frame(width: UIScreen.currentWidth - 32, height: 44, alignment: .leading)
             }
         }
+        .onAppear { viewModel.observeCamera(cameraID) }
+        .onDisappear { viewModel.stopObservingCamera() }
     }
 }
 
 #Preview {
     @Previewable @State var container = PreviewSampleData.makeContainer()
 
-    let (camera, viewModel): (Camera, FilmLogViewModel) = {
+    let (cameraID, viewModel): (UUID, FilmLogViewModel) = {
         let context = container.mainContext
         let camera = try! context.fetch(FetchDescriptor<Camera>()).first!
         let pastRoll = Roll(filmStock: "Fuji Superia 400", camera: camera)
         pastRoll.isActive = false
         context.insert(pastRoll)
         let vm = FilmLogViewModel(modelContext: context, store: PreviewSampleData.makeStore(container: container))
-        return (camera, vm)
+        vm.setup()
+        return (camera.id, vm)
     }()
 
     NavigationStack {
-        RollListView(camera: camera, viewModel: viewModel)
+        RollListView(cameraID: cameraID, viewModel: viewModel)
     }
     .modelContainer(container)
     .preferredColorScheme(.dark)

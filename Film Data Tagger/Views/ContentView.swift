@@ -8,6 +8,10 @@
 import SwiftUI
 import SwiftData
 
+extension UUID: @retroactive Identifiable {
+    public var id: UUID { self }
+}
+
 struct FinishRollButton: View {
     var icon: String = "checkmark.arrow.trianglehead.counterclockwise"
     var text: String = "Finish roll"
@@ -87,9 +91,9 @@ private struct FinishRollOverlay: View {
 
 struct ExposureScreen: View {
     let viewModel: FilmLogViewModel
-    var onCameraSwitched: ((Camera) -> Void)? = nil
+    var onCameraSwitched: ((UUID) -> Void)? = nil
 
-    @State private var newRollCamera: Camera?
+    @State private var newRollCameraID: UUID?
     @State private var scrollState = ExposureScrollState()
 
     private var logItems: [LogItem] { viewModel.logItems }
@@ -107,10 +111,10 @@ struct ExposureScreen: View {
                 scrollContextID: viewModel.openRoll?.id ?? viewModel.openCamera?.id,
                 onDelete: { viewModel.deleteItem($0) },
                 onMoveToRoll: { item, roll in
-                    let previousCamera = viewModel.openCamera
+                    let previousCameraID = viewModel.openCamera?.id
                     viewModel.moveItem(item, to: roll)
-                    if let camera = roll.camera, camera.id != previousCamera?.id {
-                        onCameraSwitched?(camera)
+                    if let camera = roll.camera, camera.id != previousCameraID {
+                        onCameraSwitched?(camera.id)
                     }
                 },
                 onMovePlaceholderBefore: { viewModel.movePlaceholder($0, before: $1) },
@@ -129,7 +133,7 @@ struct ExposureScreen: View {
                 onCameraSelected: { camera in
                     if let roll = camera.activeRoll {
                         viewModel.switchToRoll(roll)
-                        onCameraSwitched?(camera)
+                        onCameraSwitched?(camera.id)
                     }
                 }
             )
@@ -145,8 +149,8 @@ struct ExposureScreen: View {
                     hasRoll: viewModel.openRoll != nil,
                     hasItems: !logItems.isEmpty,
                     onFinishRoll: {
-                        if let camera = viewModel.openCamera {
-                            newRollCamera = camera
+                        if let id = viewModel.openCamera?.id {
+                            newRollCameraID = id
                         }
                     }
                 )
@@ -158,10 +162,10 @@ struct ExposureScreen: View {
         }.ignoresSafeArea()
         .onAppear { viewModel.ensureCameraRunning() }
         .onDisappear { viewModel.scheduleCameraStop() }
-        .sheet(item: $newRollCamera) { camera in
+        .sheet(item: $newRollCameraID) { cameraID in
             RollFormSheet(
                 viewModel: viewModel,
-                camera: camera,
+                cameraID: cameraID,
                 defaultFilmStock: viewModel.openRoll?.filmStock,
                 defaultCapacity: viewModel.openRoll?.capacity,
                 allowSubmitWithPlaceholder: true,
@@ -177,30 +181,31 @@ let bottomGradientOpacity: Double = 0.4
 
 struct ContentView: View {
     let viewModel: FilmLogViewModel
-    @Query private var cameras: [Camera]
+
+    private var cameras: [CameraSnapshot] { viewModel.cameras }
 
     @State private var path: NavigationPath
     @State private var showNewCamera = false
-    @State private var newRollCamera: Camera?
+    @State private var newRollCameraID: UUID?
     @State private var pendingCameraNavigation: UUID?
     @State private var pendingRollNavigation = false
-    @State private var selectedCamera: Camera?
+    @State private var selectedCameraID: UUID?
     @State private var showSettings = false
 
     init(viewModel: FilmLogViewModel) {
         self.viewModel = viewModel
         var initialPath = NavigationPath()
-        var initialCamera: Camera?
+        var initialCameraID: UUID?
         if let roll = viewModel.openRoll, let camera = roll.camera {
             initialPath.append(camera.id)
             initialPath.append(ExposureMarker())
-            initialCamera = camera
+            initialCameraID = camera.id
         } else if let camera = viewModel.openCamera {
             initialPath.append(camera.id)
-            initialCamera = camera
+            initialCameraID = camera.id
         }
         _path = State(initialValue: initialPath)
-        _selectedCamera = State(initialValue: initialCamera)
+        _selectedCameraID = State(initialValue: initialCameraID)
     }
 
     // Path depth: 0 = camera list, 1 = roll list, 2 = exposure screen
@@ -215,24 +220,24 @@ struct ContentView: View {
         NavigationStack(path: $path) {
             CameraListView(viewModel: viewModel)
                 .navigationDestination(for: UUID.self) { id in
-                    if let camera = cameras.first(where: { $0.id == id }) {
+                    if cameras.contains(where: { $0.id == id }) {
                         RollListView(
-                            camera: camera,
+                            cameraID: id,
                             viewModel: viewModel,
                             onRollSelected: { _ in
                                 path.append(ExposureMarker())
                             }
                         )
-                        .onAppear { selectedCamera = camera }
+                        .onAppear { selectedCameraID = id }
                     }
                 }
                 .navigationDestination(for: ExposureMarker.self) { _ in
-                    ExposureScreen(viewModel: viewModel) { camera in
+                    ExposureScreen(viewModel: viewModel) { cameraID in
                         var newPath = NavigationPath()
-                        newPath.append(camera.id)
+                        newPath.append(cameraID)
                         newPath.append(ExposureMarker())
                         path = newPath
-                        selectedCamera = camera
+                        selectedCameraID = cameraID
                     }
                 }
         }
@@ -242,8 +247,8 @@ struct ContentView: View {
                     // Add button
                     Button {
                         playHaptic(.newRollOrCamera)
-                        if isOnRollList, let camera = selectedCamera ?? viewModel.openCamera {
-                            newRollCamera = camera
+                        if isOnRollList, let cameraID = selectedCameraID ?? viewModel.openCamera?.id {
+                            newRollCameraID = cameraID
                         } else if !isOnRollList {
                             showNewCamera = true
                         }
@@ -303,18 +308,19 @@ struct ContentView: View {
                 pendingCameraNavigation = id
             })
         }
-        .sheet(item: $newRollCamera, onDismiss: {
+        .sheet(item: $newRollCameraID, onDismiss: {
             if pendingRollNavigation {
                 pendingRollNavigation = false
                 path.append(ExposureMarker())
             }
-        }) { camera in
+        }) { cameraID in
+            let activeRoll = viewModel.rolls.first(where: \.isActive)
             RollFormSheet(
                 viewModel: viewModel,
-                camera: camera,
-                defaultFilmStock: camera.activeRoll?.filmStock,
-                defaultCapacity: camera.activeRoll?.capacity,
-                allowSubmitWithPlaceholder: camera.activeRoll != nil,
+                cameraID: cameraID,
+                defaultFilmStock: activeRoll?.filmStock,
+                defaultCapacity: activeRoll?.capacity,
+                allowSubmitWithPlaceholder: activeRoll != nil,
                 onRollCreated: {
                     pendingRollNavigation = true
                 }
@@ -336,14 +342,14 @@ struct ContentView: View {
     private func validateNavigationPath() {
         guard isOnRollList || isOnExposureList else { return }
         // The first path element is a camera UUID
-        guard let selectedCamera, cameras.contains(where: { $0.id == selectedCamera.id }) else {
+        guard let selectedCameraID, cameras.contains(where: { $0.id == selectedCameraID }) else {
             path = NavigationPath()
             return
         }
         // If on exposure screen, verify the open roll still exists
         if isOnExposureList, viewModel.openRoll == nil {
             var newPath = NavigationPath()
-            newPath.append(selectedCamera.id)
+            newPath.append(selectedCameraID)
             path = newPath
         }
     }

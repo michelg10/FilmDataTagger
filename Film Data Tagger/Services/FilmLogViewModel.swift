@@ -782,6 +782,15 @@ final class FilmLogViewModel {
         Task.detached(priority: .userInitiated) { await self.store.deleteRoll(id: id) }
     }
 
+    /// Switch to a roll by ID. Bridges snapshot world (roll list) to legacy model world (ELV).
+    /// TODO: Remove legacy switchToRoll(Roll) path when ELV is migrated.
+    func switchToRoll(id rollID: UUID) {
+        let descriptor = FetchDescriptor<Roll>(predicate: #Predicate { $0.id == rollID })
+        if let roll = try? modelContext.fetch(descriptor).first {
+            switchToRoll(roll)
+        }
+    }
+
     // MARK: - Legacy helpers (remove when ELV is migrated to DataStore)
 
     private func activateRollIfNeeded(_ roll: Roll) {
