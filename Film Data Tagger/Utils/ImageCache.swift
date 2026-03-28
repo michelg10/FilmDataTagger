@@ -159,25 +159,11 @@ final class ImageCache: @unchecked Sendable {
         memory.object(forKey: id as NSUUID)
     }
 
-    /// Full lookup: memory → BGRA disk → JPEG disk → decode from source data.
-    /// Async to prevent accidental main-thread calls — disk I/O and decoding happen on the caller's context.
-    func image(for id: UUID, thumbnailData: Data?) async -> UIImage? {
-        let key = id as NSUUID
-        if let cached = memory.object(forKey: key) { return cached }
-        if let image = loadFromDisk(id: id) {
-            memory.setObject(image, forKey: key)
-            return image
-        }
-        guard let thumbnailData, let image = UIImage(data: thumbnailData) else { return nil }
-        memory.setObject(image, forKey: key)
-        saveBGRA(id: id, image: image)
-        return image
-    }
-
     // MARK: - Write (callable from any thread — NSCache is thread-safe, disk writes are idempotent)
 
     /// Decode + cache a thumbnail. Promotes JPEG→BGRA if the item was previously demoted.
-    func preload(for id: UUID, data: Data) {
+    /// Async to prevent accidental main-thread calls.
+    func preload(for id: UUID, data: Data) async {
         let key = id as NSUUID
         guard memory.object(forKey: key) == nil else { return }
         // Check BGRA first — already in the fast tier
@@ -195,6 +181,27 @@ final class ImageCache: @unchecked Sendable {
         guard let image = UIImage(data: data) else { return }
         memory.setObject(image, forKey: key)
         saveBGRA(id: id, image: image)
+    }
+
+    /// Decode + cache a single thumbnail and return it.
+    /// Use for cache-miss recovery when the ViewModel needs an image back.
+    /// Async to prevent accidental main-thread calls.
+    func decodeAndCache(for id: UUID, data: Data) async -> UIImage? {
+        let key = id as NSUUID
+        if let cached = memory.object(forKey: key) { return cached }
+        if let image = loadBGRA(url: bgraPath(for: id)) {
+            memory.setObject(image, forKey: key)
+            return image
+        }
+        if let image = loadJPEG(id: id) {
+            memory.setObject(image, forKey: key)
+            saveBGRA(id: id, image: image)
+            return image
+        }
+        guard let image = UIImage(data: data) else { return nil }
+        memory.setObject(image, forKey: key)
+        saveBGRA(id: id, image: image)
+        return image
     }
 
     /// Remove a thumbnail from all layers.

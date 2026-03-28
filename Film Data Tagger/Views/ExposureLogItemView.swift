@@ -53,7 +53,7 @@ struct ExposureLogItemView: View {
             guard let data = item.thumbnailData else { return }
             let id = item.id
             let image = await Task.detached(priority: .utility) {
-                await ImageCache.shared.image(for: id, thumbnailData: data)
+                await ImageCache.shared.decodeAndCache(for: id, data: data)
             }.value
             if !Task.isCancelled {
                 decodedImage = image

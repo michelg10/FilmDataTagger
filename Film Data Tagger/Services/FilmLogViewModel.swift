@@ -500,7 +500,7 @@ final class FilmLogViewModel {
 
             // Pre-cache so the row displays without decoding
             if let thumbnailData {
-                ImageCache.shared.preload(for: item.id, data: thumbnailData)
+                await ImageCache.shared.preload(for: item.id, data: thumbnailData)
             }
 
             // SwiftData maintains the inverse: inserting an item with item.roll = roll
