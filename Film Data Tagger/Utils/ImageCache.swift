@@ -9,9 +9,12 @@ import UIKit
 
 /// Header for raw bitmap thumbnail files.
 private struct BitmapHeader {
+    var version: UInt16
     var width: UInt16
     var height: UInt16
     var scale: UInt16
+
+    static let currentVersion: UInt16 = 1
 }
 
 /// Tracks when each roll was last viewed. Persisted as a plist.
@@ -21,7 +24,7 @@ actor CacheBookkeeper {
     private var rollAccessDates: [UUID: Date] = [:]
 
     private static let priorityCameraCount = 8
-    private static let lruBudget = 512
+    private static let lruRollBudget = 32
 
     private static let file: URL = {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -49,18 +52,15 @@ actor CacheBookkeeper {
         if rollAccessDates.count != before { save() }
     }
 
-    /// Compute which thumbnail IDs to warm, given relationship data from the DataStore.
-    ///
-    /// `cameraInfo`: each camera's active roll ID (if any) and all its roll IDs.
-    /// `rollItemIDs`: maps roll ID → thumbnail item IDs in that roll.
+    /// Determine which rolls should be warmed, given camera/roll metadata.
+    /// Returns the set of roll IDs whose items should be fetched and warmed.
     ///
     /// Policy:
-    /// 1. Top 8 most recently accessed cameras → their active rolls' items.
-    /// 2. Rolls sorted by last accessed → accumulate items until 512.
-    /// 3. Union = priority set.
-    func computePriorityIDs(
-        cameraInfo: [(cameraID: UUID, activeRollID: UUID?, rollIDs: [UUID])],
-        rollItemIDs: [UUID: [UUID]]
+    /// 1. Top 8 most recently accessed cameras → their active rolls.
+    /// 2. Rolls sorted by last accessed → accumulate until 768.
+    /// 3. Union = rolls to warm.
+    func rollsToWarm(
+        cameraInfo: [(cameraID: UUID, activeRollID: UUID?, rollIDs: [UUID])]
     ) -> Set<UUID> {
         var result = Set<UUID>()
 
@@ -76,20 +76,14 @@ actor CacheBookkeeper {
             .prefix(Self.priorityCameraCount)
 
         for (activeRollID, _) in camerasByAccess {
-            if let ids = rollItemIDs[activeRollID] {
-                result.formUnion(ids)
-            }
+            result.insert(activeRollID)
         }
 
-        // 2. LRU: rolls by recency, accumulate until budget
+        // 2. LRU: rolls by recency, up to 32 rolls total
         let rollsByAccess = rollAccessDates.sorted { $0.value > $1.value }
-        var budget = Self.lruBudget - result.count
         for (rollID, _) in rollsByAccess {
-            guard budget > 0 else { break }
-            if let ids = rollItemIDs[rollID] {
-                result.formUnion(ids)
-                budget -= ids.count
-            }
+            result.insert(rollID)
+            if result.count >= Self.lruRollBudget { break }
         }
 
         return result
@@ -97,7 +91,7 @@ actor CacheBookkeeper {
 
     private func save() {
         guard let data = try? PropertyListEncoder().encode(rollAccessDates) else { return }
-        try? data.write(to: Self.file)
+        try? data.write(to: Self.file, options: .atomic)
     }
 }
 
@@ -110,14 +104,14 @@ actor CacheBookkeeper {
 /// L3: disk JPEG — smaller footprint, needs decode. For everything else.
 ///
 /// New thumbnails always enter as BGRA. On app launch, the DataStore provides
-/// relationship data (cameras, rolls, item IDs) and the bookkeeper computes
-/// which thumbnails to warm based on roll access recency. Non-priority BGRA
-/// files are demoted to JPEG.
+/// relationship data (cameras, rolls) and the bookkeeper decides which rolls
+/// to warm. The DataStore then fetches item IDs only for those rolls and passes
+/// them to `warmOnLaunch(priorityIDs:)`. Non-priority BGRA files are demoted to JPEG.
 ///
 /// Thread safety: NSCache is thread-safe. Disk I/O is idempotent per thumbnail.
 /// Roll access tracking is fire-and-forget to the CacheBookkeeper actor.
 final class ImageCache: @unchecked Sendable {
-    static let shared = ImageCache()
+    nonisolated(unsafe) static let shared = ImageCache()
 
     private let memory = NSCache<NSUUID, UIImage>()
     private let bgraURL: URL
@@ -135,6 +129,27 @@ final class ImageCache: @unchecked Sendable {
         jpegURL = base.appendingPathComponent("jpeg", isDirectory: true)
         try? FileManager.default.createDirectory(at: bgraURL, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: jpegURL, withIntermediateDirectories: true)
+        discardCacheIfVersionMismatch()
+    }
+
+    /// If the on-disk format version doesn't match, wipe everything.
+    /// Thumbnails will be re-cached from SwiftData on next access.
+    private func discardCacheIfVersionMismatch() {
+        // Check any existing BGRA file for the version header
+        guard let files = try? FileManager.default.contentsOfDirectory(at: bgraURL, includingPropertiesForKeys: nil),
+              let firstFile = files.first,
+              let data = try? Data(contentsOf: firstFile, options: .mappedIfSafe),
+              data.count >= Self.headerSize
+        else { return }
+
+        let header = data.withUnsafeBytes { $0.load(as: BitmapHeader.self) }
+        if header.version != BitmapHeader.currentVersion {
+            // Wipe both directories
+            try? FileManager.default.removeItem(at: bgraURL)
+            try? FileManager.default.removeItem(at: jpegURL)
+            try? FileManager.default.createDirectory(at: bgraURL, withIntermediateDirectories: true)
+            try? FileManager.default.createDirectory(at: jpegURL, withIntermediateDirectories: true)
+        }
     }
 
     // MARK: - Read (callable from any thread)
@@ -183,38 +198,38 @@ final class ImageCache: @unchecked Sendable {
 
     // MARK: - Startup warming
 
-    /// Warm the memory cache from disk based on roll access recency.
-    /// The DataStore provides relationship data; the bookkeeper owns the policy.
+    private static let warmItemLimit = 768
+
+    /// Warm the memory cache from disk for the given priority thumbnails (capped at 768).
     /// Non-priority BGRA files are demoted to JPEG to save disk space.
     /// WARNING: Do not call from the main thread.
-    func warmOnLaunch(
-        cameraInfo: [(cameraID: UUID, activeRollID: UUID?, rollIDs: [UUID])],
-        rollItemIDs: [UUID: [UUID]]
-    ) async {
-        await bookkeeper.load()
-        let priorityIDs = await bookkeeper.computePriorityIDs(
-            cameraInfo: cameraInfo,
-            rollItemIDs: rollItemIDs
-        )
-
-        // Warm priority thumbnails from BGRA into memory
+    func warmOnLaunch(priorityIDs: Set<UUID>) async {
+        // Warm priority thumbnails from BGRA into memory, up to the item limit
+        var count = 0
         for id in priorityIDs {
+            guard count < Self.warmItemLimit else { break }
             let key = id as NSUUID
             guard memory.object(forKey: key) == nil else { continue }
             if let image = loadBGRA(url: bgraPath(for: id)) {
                 memory.setObject(image, forKey: key)
             }
+            count += 1
+            if count % 50 == 0 { await Task.yield() }
         }
 
         // Demote non-priority BGRA files to JPEG
         if let files = try? FileManager.default.contentsOfDirectory(at: bgraURL, includingPropertiesForKeys: nil) {
+            count = 0
             for file in files {
                 guard let id = UUID(uuidString: file.lastPathComponent),
                       !priorityIDs.contains(id) else { continue }
                 if let image = loadBGRA(url: file) {
                     saveJPEG(id: id, image: image)
+                    // Only delete BGRA after JPEG write succeeded
+                    try? FileManager.default.removeItem(at: file)
                 }
-                try? FileManager.default.removeItem(at: file)
+                count += 1
+                if count % 50 == 0 { await Task.yield() }
             }
         }
     }
@@ -237,6 +252,7 @@ final class ImageCache: @unchecked Sendable {
         guard fileData.count > headerSize else { return nil }
 
         let header = fileData.withUnsafeBytes { $0.load(as: BitmapHeader.self) }
+        guard header.version == BitmapHeader.currentVersion else { return nil }
         let width = Int(header.width)
         let height = Int(header.height)
         let scale = CGFloat(header.scale)
@@ -272,10 +288,10 @@ final class ImageCache: @unchecked Sendable {
 
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
-        var header = BitmapHeader(width: UInt16(width), height: UInt16(height), scale: UInt16(image.scale))
+        var header = BitmapHeader(version: BitmapHeader.currentVersion, width: UInt16(width), height: UInt16(height), scale: UInt16(image.scale))
         var fileData = Data(bytes: &header, count: Self.headerSize)
         fileData.append(Data(bytes: data, count: width * height * 4))
-        try? fileData.write(to: bgraPath(for: id))
+        try? fileData.write(to: bgraPath(for: id), options: .atomic)
         // Remove JPEG version if it exists (promoted back to BGRA)
         try? FileManager.default.removeItem(at: jpegPath(for: id))
     }
@@ -293,6 +309,6 @@ final class ImageCache: @unchecked Sendable {
 
     private func saveJPEG(id: UUID, image: UIImage) {
         guard let data = image.jpegData(compressionQuality: 0.8) else { return }
-        try? data.write(to: jpegPath(for: id))
+        try? data.write(to: jpegPath(for: id), options: .atomic)
     }
 }
