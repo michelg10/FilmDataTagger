@@ -12,8 +12,8 @@ import CoreLocation
 // MARK: - Camera App Entity
 
 struct CameraEntity: AppEntity {
-    static var typeDisplayRepresentation = TypeDisplayRepresentation(name: "Camera")
-    static var defaultQuery = CameraEntityQuery()
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Camera")
+    static let defaultQuery = CameraEntityQuery()
 
     var id: UUID
     var name: String
@@ -68,13 +68,13 @@ struct CameraEntityQuery: EntityQuery {
 // MARK: - Log Exposure Intent
 
 struct LogExposureIntent: AppIntent {
-    static var title: LocalizedStringResource = "Log Exposure"
-    static var description = IntentDescription("Log a new exposure with current location and timestamp")
+    static let title: LocalizedStringResource = "Log Exposure"
+    static let description = IntentDescription("Log a new exposure with current location and timestamp")
 
     @Parameter(title: "Camera?")
     var camera: CameraEntity
 
-    static var openAppWhenRun: Bool = false
+    static let openAppWhenRun: Bool = false
 
     static var parameterSummary: some ParameterSummary {
         Summary("Log exposure on \(\.$camera)")

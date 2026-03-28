@@ -16,7 +16,7 @@ struct GeocodingResult {
 
 @available(iOS 26, *)
 private enum Geocoder_iOS26 {
-    static func geocode(_ location: CLLocation) async -> GeocodingResult {
+    @concurrent static func geocode(_ location: CLLocation) async -> GeocodingResult {
         guard let request = MKReverseGeocodingRequest(location: location) else {
             return GeocodingResult(placeName: nil, cityName: nil)
         }
@@ -38,7 +38,7 @@ private enum Geocoder_iOS26 {
 }
 
 private enum Geocoder_Legacy {
-    static func geocode(_ location: CLLocation) async -> GeocodingResult {
+    @concurrent static func geocode(_ location: CLLocation) async -> GeocodingResult {
         do {
             let placemarks = try await CLGeocoder().reverseGeocodeLocation(location)
             guard let placemark = placemarks.first else { return GeocodingResult(placeName: nil, cityName: nil) }
@@ -60,7 +60,7 @@ private enum Geocoder_Legacy {
 }
 
 enum Geocoder {
-    static func geocode(_ location: CLLocation) async -> GeocodingResult {
+    @concurrent static func geocode(_ location: CLLocation) async -> GeocodingResult {
         if #available(iOS 26, *) {
             return await Geocoder_iOS26.geocode(location)
         } else {
@@ -70,7 +70,7 @@ enum Geocoder {
 
     /// Geocode a batch of locations sequentially with rate-limiting delays.
     /// Shared by all backfill paths to avoid concurrent CLGeocoder requests.
-    static func geocodeBatch(_ items: [(UUID, CLLocation)]) async -> [(UUID, GeocodingResult)] {
+    @concurrent static func geocodeBatch(_ items: [(UUID, CLLocation)]) async -> [(UUID, GeocodingResult)] {
         var results: [(UUID, GeocodingResult)] = []
         for (id, location) in items {
             guard !Task.isCancelled else { break }

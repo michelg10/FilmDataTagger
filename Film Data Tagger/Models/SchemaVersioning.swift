@@ -9,7 +9,7 @@ import SwiftData
 /// All models are defined in their own files — this enum just declares
 /// the version and lists the model types for the migration plan.
 enum SchemaV1: VersionedSchema {
-    static var versionIdentifier: Schema.Version = Schema.Version(1, 0, 0)
+    static let versionIdentifier: Schema.Version = Schema.Version(1, 0, 0)
 
     static var models: [any PersistentModel.Type] {
         [

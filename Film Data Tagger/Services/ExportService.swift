@@ -16,7 +16,7 @@ nonisolated struct ExportService {
 
     // MARK: - JSON
 
-    static func exportJSON(context: ModelContext) throws -> URL {
+    @concurrent static func exportJSON(context: ModelContext) async throws -> URL {
         let iso8601 = ISO8601DateFormatter()
         let cameras = try context.fetch(FetchDescriptor<Camera>())
         let rolls = try context.fetch(FetchDescriptor<Roll>())
@@ -94,7 +94,7 @@ nonisolated struct ExportService {
 
     // MARK: - CSV
 
-    static func exportCSV(context: ModelContext) throws -> URL {
+    @concurrent static func exportCSV(context: ModelContext) async throws -> URL {
         let iso8601 = ISO8601DateFormatter()
         let exposures = try context.fetch(FetchDescriptor<LogItem>())
 

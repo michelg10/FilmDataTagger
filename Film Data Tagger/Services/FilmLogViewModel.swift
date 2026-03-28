@@ -530,7 +530,7 @@ final class FilmLogViewModel {
         return await Task.detached(priority: .userInitiated) {
             let context = ModelContext(container)
             do {
-                return try ExportService.exportJSON(context: context)
+                return try await ExportService.exportJSON(context: context)
             } catch {
                 debugLog("exportJSON failed: \(error)")
                 return nil
@@ -543,7 +543,7 @@ final class FilmLogViewModel {
         return await Task.detached(priority: .userInitiated) {
             let context = ModelContext(container)
             do {
-                return try ExportService.exportCSV(context: context)
+                return try await ExportService.exportCSV(context: context)
             } catch {
                 debugLog("exportCSV failed: \(error)")
                 return nil

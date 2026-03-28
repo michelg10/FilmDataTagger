@@ -15,9 +15,18 @@ struct MoveItemResult: Sendable {
 }
 
 // MARK: - DataStore
+actor DataStore: ModelActor {
+    nonisolated let modelExecutor: any ModelExecutor
+    nonisolated let modelContainer: ModelContainer
 
-@ModelActor
-actor DataStore {
+    init(modelContainer: ModelContainer) {
+        #if DEBUG
+        assert(!Thread.isMainThread, "DataStore must be initialized off the main thread")
+        #endif
+        let modelContext = ModelContext(modelContainer)
+        self.modelExecutor = DefaultSerialModelExecutor(modelContext: modelContext)
+        self.modelContainer = modelContainer
+    }
 
     // MARK: - Publishers
 
@@ -25,9 +34,12 @@ actor DataStore {
 
     let camerasSubject = CurrentValueSubject<[CameraSnapshot], Never>([])
 
+    let cameraRollsSubject = CurrentValueSubject<[RollSnapshot], Never>([])
+
     // MARK: - Observed state
 
     private var observedRollID: UUID?
+    private var observedCameraID: UUID?
 
     // MARK: - Startup
 
@@ -94,7 +106,7 @@ actor DataStore {
     ) async {
         guard let roll = fetchRoll(rollID) else {
             debugLog("logExposure: roll \(rollID) not found")
-            // TODO: trigger reconciliation on rolls from the current camera
+            reconcileObservedCamera()
             return
         }
         let item = LogItem(roll: roll)
@@ -121,7 +133,7 @@ actor DataStore {
     func logPlaceholder(id: UUID, rollID: UUID, createdAt: Date) {
         guard let roll = fetchRoll(rollID) else {
             debugLog("logPlaceholder: roll \(rollID) not found")
-            // TODO: trigger reconciliation on rolls from the current camera
+            reconcileObservedCamera()
             return
         }
         let item = LogItem.placeholder(roll: roll)
@@ -137,7 +149,7 @@ actor DataStore {
     /// the current roll items so the VM can reconcile.
     func deleteItem(id: UUID) async {
         guard let item = fetchLogItem(id) else {
-            debugLog("deleteItem: item \(id) not found — triggering reconciliation")
+            debugLog("deleteItem: item \(id) not found")
             if let rollID = observedRollID {
                 rollItemsSubject.send(await fetchLogItems(forRoll: rollID))
             }
@@ -158,7 +170,7 @@ actor DataStore {
     func setExtraExposures(rollID: UUID, count: Int) {
         guard let roll = fetchRoll(rollID) else {
             debugLog("setExtraExposures: roll \(rollID) not found")
-            // TODO: trigger reconciliation on rolls from the current camera
+            reconcileObservedCamera()
             return
         }
         roll.extraExposures = count
@@ -168,7 +180,7 @@ actor DataStore {
     /// Persist a placeholder's new timestamp. The VM has already resorted its local state.
     func movePlaceholder(id: UUID, newTimestamp: Date) async {
         guard let item = fetchLogItem(id) else {
-            debugLog("movePlaceholder: item \(id) not found - triggering reconciliation")
+            debugLog("movePlaceholder: item \(id) not found")
             if let rollID = observedRollID {
                 rollItemsSubject.send(await fetchLogItems(forRoll: rollID))
             }
@@ -185,7 +197,7 @@ actor DataStore {
               let targetRoll = fetchRoll(toRollID),
               let targetCamera = targetRoll.camera else {
             debugLog("moveItem: item \(id) or roll \(toRollID) not found")
-            // TODO: trigger reconciliation on everything
+            reconcileAll()
             return nil
         }
         let oldRoll = item.roll
@@ -209,6 +221,67 @@ actor DataStore {
         return MoveItemResult(targetCameraID: targetCamera.id)
     }
 
+    // MARK: - Roll API
+
+    /// Set the actively observed camera. Returns its rolls sorted by recency
+    /// and begins publishing updates via `cameraRollsSubject`.
+    func observeCamera(_ cameraID: UUID) -> [RollSnapshot] {
+        observedCameraID = cameraID
+        let rolls = fetchRollSnapshots(forCamera: cameraID)
+        cameraRollsSubject.send(rolls)
+        return rolls
+    }
+
+    /// Stop observing any camera's rolls.
+    func stopObservingCamera() {
+        observedCameraID = nil
+        cameraRollsSubject.send([])
+    }
+
+    /// Persist a new roll. The VM has already added the snapshot optimistically.
+    func createRoll(id: UUID, cameraID: UUID, filmStock: String, capacity: Int) {
+        guard let camera = fetchCamera(cameraID) else {
+            debugLog("createRoll: camera \(cameraID) not found")
+            camerasSubject.send(fetchAllCameraSnapshots())
+            return
+        }
+        // Deactivate any currently active roll on this camera
+        for roll in camera.rolls ?? [] where roll.isActive {
+            roll.isActive = false
+        }
+        let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity)
+        roll.id = id
+        modelContext.insert(roll)
+        save()
+    }
+
+    /// Persist a roll edit. The VM has already updated its local state optimistically.
+    func editRoll(id: UUID, filmStock: String, capacity: Int) {
+        guard let roll = fetchRoll(id) else {
+            debugLog("editRoll: roll \(id) not found")
+            reconcileObservedCamera()
+            return
+        }
+        roll.filmStock = filmStock
+        roll.capacity = capacity
+        save()
+    }
+
+    /// Delete a roll and all its exposures (cascade).
+    /// The VM has already removed it from its local state optimistically.
+    func deleteRoll(id: UUID) {
+        guard let roll = fetchRoll(id) else {
+            debugLog("deleteRoll: roll \(id) not found")
+            reconcileObservedCamera()
+            return
+        }
+        for item in roll.logItems ?? [] {
+            ImageCache.shared.evict(id: item.id)
+        }
+        modelContext.delete(roll)
+        save()
+    }
+
     // MARK: - Camera API
 
     /// Fetch all cameras and publish to `camerasSubject`. Call on startup.
@@ -227,7 +300,7 @@ actor DataStore {
     /// Persist a camera rename. The VM has already updated its local state optimistically.
     func renameCamera(id: UUID, name: String) {
         guard let camera = fetchCamera(id) else {
-            debugLog("renameCamera: camera \(id) not found - triggering reconciliation")
+            debugLog("renameCamera: camera \(id) not found")
             camerasSubject.send(fetchAllCameraSnapshots())
             return
         }
@@ -239,7 +312,7 @@ actor DataStore {
     /// The VM has already removed it from its local state optimistically.
     func deleteCamera(id: UUID) {
         guard let camera = fetchCamera(id) else {
-            debugLog("deleteCamera: camera \(id) not found - triggering reconciliation")
+            debugLog("deleteCamera: camera \(id) not found")
             camerasSubject.send(fetchAllCameraSnapshots())
             return
         }
@@ -274,6 +347,28 @@ actor DataStore {
         let descriptor = FetchDescriptor<Camera>(sortBy: [SortDescriptor(\.listOrder)])
         let cameras = (try? modelContext.fetch(descriptor)) ?? []
         return cameras.map { $0.snapshot }
+    }
+
+    /// Re-publish rolls for the currently observed camera.
+    private func reconcileObservedCamera() {
+        if let cameraID = observedCameraID {
+            cameraRollsSubject.send(fetchRollSnapshots(forCamera: cameraID))
+        }
+    }
+
+    /// Re-publish everything: cameras, rolls, and items.
+    private func reconcileAll() {
+        camerasSubject.send(fetchAllCameraSnapshots())
+        reconcileObservedCamera()
+        // rollItemsSubject is async (fetchLogItems), so handled separately if needed
+    }
+
+    private func fetchRollSnapshots(forCamera cameraID: UUID) -> [RollSnapshot] {
+        let descriptor = FetchDescriptor<Roll>(
+            predicate: #Predicate<Roll> { $0.camera?.id == cameraID },
+            sortBy: [SortDescriptor(\.lastExposureDate, order: .reverse)]
+        )
+        return ((try? modelContext.fetch(descriptor)) ?? []).map { $0.snapshot }
     }
 
     private func save() {

@@ -111,9 +111,9 @@ actor CacheBookkeeper {
 /// Thread safety: NSCache is thread-safe. Disk I/O is idempotent per thumbnail.
 /// Roll access tracking is fire-and-forget to the CacheBookkeeper actor.
 final class ImageCache: @unchecked Sendable {
-    nonisolated(unsafe) static let shared = ImageCache()
+    static let shared = ImageCache()
 
-    private let memory = NSCache<NSUUID, UIImage>()
+    private nonisolated(unsafe) let memory = NSCache<NSUUID, UIImage>()
     private let bgraURL: URL
     private let jpegURL: URL
     let bookkeeper = CacheBookkeeper()
@@ -163,7 +163,7 @@ final class ImageCache: @unchecked Sendable {
 
     /// Decode + cache a thumbnail. Promotes JPEG→BGRA if the item was previously demoted.
     /// Async to prevent accidental main-thread calls.
-    func preload(for id: UUID, data: Data) async {
+    @concurrent func preload(for id: UUID, data: Data) async {
         let key = id as NSUUID
         guard memory.object(forKey: key) == nil else { return }
         // Check BGRA first — already in the fast tier
@@ -186,7 +186,7 @@ final class ImageCache: @unchecked Sendable {
     /// Decode + cache a single thumbnail and return it.
     /// Use for cache-miss recovery when the ViewModel needs an image back.
     /// Async to prevent accidental main-thread calls.
-    func decodeAndCache(for id: UUID, data: Data) async -> UIImage? {
+    @concurrent func decodeAndCache(for id: UUID, data: Data) async -> UIImage? {
         let key = id as NSUUID
         if let cached = memory.object(forKey: key) { return cached }
         if let image = loadBGRA(url: bgraPath(for: id)) {
@@ -219,7 +219,7 @@ final class ImageCache: @unchecked Sendable {
     /// Warm the memory cache from disk for the given priority thumbnails (capped at 768).
     /// Non-priority BGRA files are demoted to JPEG to save disk space.
     /// WARNING: Do not call from the main thread.
-    func warmOnLaunch(priorityIDs: Set<UUID>) async {
+    @concurrent func warmOnLaunch(priorityIDs: Set<UUID>) async {
         // Warm priority thumbnails from disk into memory (BGRA first, then JPEG with promotion)
         var count = 0
         for id in priorityIDs {
