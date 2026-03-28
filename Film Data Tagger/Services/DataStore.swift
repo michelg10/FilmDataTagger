@@ -484,6 +484,30 @@ actor DataStore: ModelActor {
         if didRepair { save() }
     }
 
+    // MARK: - Export
+
+    /// Export all data as JSON. The @concurrent ExportService runs off the actor's executor.
+    func exportJSON() async -> URL? {
+        let context = ModelContext(modelContainer)
+        do {
+            return try await ExportService.exportJSON(context: context)
+        } catch {
+            debugLog("exportJSON failed: \(error)")
+            return nil
+        }
+    }
+
+    /// Export all data as CSV. The @concurrent ExportService runs off the actor's executor.
+    func exportCSV() async -> URL? {
+        let context = ModelContext(modelContainer)
+        do {
+            return try await ExportService.exportCSV(context: context)
+        } catch {
+            debugLog("exportCSV failed: \(error)")
+            return nil
+        }
+    }
+
     // MARK: - Geocoding
 
     /// Geocode items missing place names since a cutoff date.
