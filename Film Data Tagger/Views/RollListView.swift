@@ -344,17 +344,19 @@ struct RollListView: View {
 }
 
 #Preview {
-    let container = PreviewSampleData.makeContainer()
-    let context = container.mainContext
-    let camera = try! context.fetch(FetchDescriptor<Camera>()).first!
+    @Previewable @State var container = PreviewSampleData.makeContainer()
 
-    // Add a past roll
-    let pastRoll = Roll(filmStock: "Fuji Superia 400", camera: camera)
-    pastRoll.isActive = false
-    context.insert(pastRoll)
+    let (camera, viewModel): (Camera, FilmLogViewModel) = {
+        let context = container.mainContext
+        let camera = try! context.fetch(FetchDescriptor<Camera>()).first!
+        let pastRoll = Roll(filmStock: "Fuji Superia 400", camera: camera)
+        pastRoll.isActive = false
+        context.insert(pastRoll)
+        let vm = FilmLogViewModel(modelContext: context, store: PreviewSampleData.makeStore(container: container))
+        return (camera, vm)
+    }()
 
-    let viewModel = FilmLogViewModel(modelContext: context)
-    return NavigationStack {
+    NavigationStack {
         RollListView(camera: camera, viewModel: viewModel)
     }
     .modelContainer(container)

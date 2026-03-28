@@ -443,7 +443,7 @@ struct CameraListView: View {
     @Previewable @State var container = PreviewSampleData.makeContainer()
 
     let viewModel: FilmLogViewModel = {
-        let vm = FilmLogViewModel(modelContext: container.mainContext)
+        let vm = FilmLogViewModel(modelContext: container.mainContext, store: PreviewSampleData.makeStore(container: container))
 
         let camera2 = Camera(name: "Olympus XA")
         container.mainContext.insert(camera2)
