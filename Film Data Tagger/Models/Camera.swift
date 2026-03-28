@@ -37,6 +37,11 @@ final class Camera {
         self.listOrder = listOrder
     }
 
+    /// The currently active roll. Faults the rolls relationship — avoid calling from view bodies.
+    var activeRoll: Roll? {
+        (rolls ?? []).first(where: \.isActive)
+    }
+
     // MARK: - Snapshot
 
     var snapshot: CameraSnapshot {

@@ -116,12 +116,10 @@ struct NewCameraSheet: View {
             PrimaryButton(enabled: !cameraName.isEmpty && (SUPPORT_INSTANT_FILM || !isInstantFilm), action: {
                 playHaptic(.newRollOrCamera)
                 if let editingEntry {
-                    if let camera = editingEntry as? Camera {
-                        viewModel.renameCamera(camera, to: cameraName)
-                    }
+                    viewModel.renameCamera(id: editingEntry.id, name: cameraName)
                     dismiss()
                 } else {
-                    let id = viewModel.createCamera(name: cameraName).id
+                    let id = viewModel.createCamera(name: cameraName)
                     dismiss()
                     onCameraCreated?(id)
                 }
@@ -138,8 +136,8 @@ struct NewCameraSheet: View {
         }
         .onAppear {
             if let editingEntry {
-                cameraName = editingEntry.displayName
-                placeholder = editingEntry.displayName
+                cameraName = editingEntry.name
+                placeholder = editingEntry.name
                 isInstantFilm = editingEntry.isInstantFilm
             }
         }

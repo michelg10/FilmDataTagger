@@ -57,7 +57,7 @@ struct CameraListRow: View {
                 totalExposureCount: entry.activeCapacity
             ).padding(.trailing, 17)
             VStack(alignment: .leading, spacing: 0) {
-                Text(entry.displayName)
+                Text(entry.name)
                     .font(.system(size: 20, weight: .bold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
@@ -231,25 +231,13 @@ private struct CameraEndDropDelegate: DropDelegate {
 
 struct CameraListView: View {
     let viewModel: FilmLogViewModel
-    @Query private var cameras: [Camera]
     @State private var editingEntry: (any CameraListEntry)?
     @State private var entryToDelete: (any CameraListEntry)?
     @State private var showDeleteAlert = false
     @State private var draggingEntryID: UUID?
     @State private var dropTargetIndex: Int?
 
-    private var allEntries: [any CameraListEntry] {
-        let entries: [any CameraListEntry] = Array(cameras)
-        return entries.sorted { a, b in
-            if a.listOrder != b.listOrder {
-                return a.listOrder < b.listOrder
-            }
-            if a.createdAt != b.createdAt {
-                return a.createdAt < b.createdAt
-            }
-            return a.id.uuidString < b.id.uuidString
-        }
-    }
+    private var cameras: [CameraSnapshot] { viewModel.cameras }
 
     @State private var titleVisible = true
 
@@ -285,9 +273,7 @@ struct CameraListView: View {
         VStack(spacing: 0) {
             ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                 NavigationLink(value: entry.id) {
-                    CameraListRow(
-                        entry: entry
-                    )
+                    CameraListRow(entry: entry)
                 }
                 .overlay(alignment: .top) {
                     CameraDropIndicatorLine(active: dropTargetIndex == index)
@@ -317,7 +303,7 @@ struct CameraListView: View {
                         currentOrder: orderedIDs,
                         draggingID: $draggingEntryID,
                         dropTargetIndex: $dropTargetIndex,
-                        commit: { viewModel.reorderCameraListEntries($0) }
+                        commit: { viewModel.reorderCameras($0) }
                     )
                 )
                 .transition(.asymmetric(insertion: .opacity, removal: index == entries.count - 1 ? .opacity : .identity))
@@ -343,7 +329,7 @@ struct CameraListView: View {
                         currentOrder: orderedIDs,
                         draggingID: $draggingEntryID,
                         dropTargetIndex: $dropTargetIndex,
-                        commit: { viewModel.reorderCameraListEntries($0) }
+                        commit: { viewModel.reorderCameras($0) }
                     )
                 )
         }.animation(.easeOut(duration: 0.25), value: entries.map(\.id))
@@ -352,7 +338,7 @@ struct CameraListView: View {
 
     var body: some View {
         Group {
-            let entries = allEntries
+            let entries = cameras
             let orderedIDs = entries.map(\.id)
             let forceOnboarding = false // debug: set to true to preview onboarding text
             if !entries.isEmpty && !forceOnboarding {
@@ -407,14 +393,14 @@ struct CameraListView: View {
             }
         }
         .alert(
-            "Delete \"\(entryToDelete?.displayName ?? "")\"?",
+            "Delete \"\(entryToDelete?.name ?? "")\"?",
             isPresented: $showDeleteAlert
         ) {
             Button("Delete", role: .destructive) {
                 if let entry = entryToDelete {
                     withAnimation {
-                        if let camera = entry as? Camera {
-                            viewModel.deleteCamera(camera)
+                        if let camera = entry as? CameraSnapshot {
+                            viewModel.deleteCamera(id: camera.id)
                         }
                     }
                     entryToDelete = nil
@@ -428,11 +414,11 @@ struct CameraListView: View {
                 let rolls = entry.rollCount
                 let exposures = entry.totalExposureCount
                 if rolls == 0 && exposures == 0 {
-                    Text("This will permanently delete \"\(entry.displayName)\" from all your devices. Data saved to Photos or exported files won't be affected.")
+                    Text("This will permanently delete \"\(entry.name)\" from all your devices. Data saved to Photos or exported files won't be affected.")
                 } else if exposures == 0 {
-                    Text("This will permanently delete \"\(entry.displayName)\" and its \(rolls.formatted()) roll\(rolls == 1 ? "" : "s") from all your devices. Data saved to Photos or exported files won't be affected.")
+                    Text("This will permanently delete \"\(entry.name)\" and its \(rolls.formatted()) roll\(rolls == 1 ? "" : "s") from all your devices. Data saved to Photos or exported files won't be affected.")
                 } else {
-                    Text("This will permanently delete \"\(entry.displayName)\", its \(rolls.formatted()) roll\(rolls == 1 ? "" : "s"), and all \(exposures.formatted()) exposure\(exposures == 1 ? "" : "s") from all your devices. Data saved to Photos or exported files won't be affected.")
+                    Text("This will permanently delete \"\(entry.name)\", its \(rolls.formatted()) roll\(rolls == 1 ? "" : "s"), and all \(exposures.formatted()) exposure\(exposures == 1 ? "" : "s") from all your devices. Data saved to Photos or exported files won't be affected.")
                 }
             }
         }
@@ -443,13 +429,13 @@ struct CameraListView: View {
     @Previewable @State var container = PreviewSampleData.makeContainer()
 
     let viewModel: FilmLogViewModel = {
-        let vm = FilmLogViewModel(modelContext: container.mainContext, store: PreviewSampleData.makeStore(container: container))
-
         let camera2 = Camera(name: "Olympus XA")
         container.mainContext.insert(camera2)
         let roll2 = Roll(filmStock: "Fuji Superia 400", camera: camera2)
         container.mainContext.insert(roll2)
 
+        let vm = FilmLogViewModel(modelContext: container.mainContext, store: PreviewSampleData.makeStore(container: container))
+        vm.setup()
         return vm
     }()
 
