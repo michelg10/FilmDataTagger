@@ -34,9 +34,15 @@ enum SharedDataStore {
     @MainActor
     static let shared: DataStore = {
         let container = SharedModelContainer.shared
-        return DispatchQueue.global(qos: .userInitiated).sync {
-            DataStore(modelContainer: container)
+        var store: DataStore!
+        let semaphore = DispatchSemaphore(value: 0)
+        Thread.detachNewThread {
+            Thread.current.qualityOfService = .userInteractive
+            store = DataStore(modelContainer: container)
+            semaphore.signal()
         }
+        semaphore.wait()
+        return store
     }()
 }
 

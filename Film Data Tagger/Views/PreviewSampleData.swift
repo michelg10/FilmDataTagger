@@ -59,9 +59,15 @@ enum PreviewSampleData {
     /// Creates a DataStore backed by the given container, off the main thread.
     @MainActor
     static func makeStore(container: ModelContainer) -> DataStore {
-        DispatchQueue.global(qos: .userInitiated).sync {
-            DataStore(modelContainer: container)
+        var store: DataStore!
+        let semaphore = DispatchSemaphore(value: 0)
+        Thread.detachNewThread {
+            Thread.current.qualityOfService = .userInteractive
+            store = DataStore(modelContainer: container)
+            semaphore.signal()
         }
+        semaphore.wait()
+        return store
     }
 
     /// Returns the sample log items from a container
