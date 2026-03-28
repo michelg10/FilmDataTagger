@@ -172,9 +172,9 @@ struct RollFormSheet: View {
                 playHaptic(.newRollOrCamera)
                 let capacity = effectiveExposureCount
                 if let editingRoll {
-                    viewModel.editRoll(editingRoll, filmStock: effectiveFilmName, capacity: capacity)
+                    viewModel.editRoll(id: editingRoll.id, filmStock: effectiveFilmName, capacity: capacity)
                 } else {
-                    viewModel.createRoll(camera: camera, filmStock: effectiveFilmName, capacity: capacity)
+                    viewModel.createRoll(cameraID: camera.id, filmStock: effectiveFilmName, capacity: capacity)
                 }
                 dismiss()
                 onRollCreated?()

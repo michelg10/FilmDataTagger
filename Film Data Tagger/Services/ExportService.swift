@@ -58,7 +58,7 @@ nonisolated struct ExportService {
         var obj: JObj = [
             ("id", r.id.uuidString),
         ]
-        if let cameraId = r.camera?.id { obj.append(("cameraId", cameraId.uuidString)) }
+        if let cameraID = r.camera?.id { obj.append(("cameraID", cameraID.uuidString)) }
         obj.append(("filmStock", r.filmStock))
         obj.append(("capacity", r.capacity))
         obj.append(("extraExposures", r.extraExposures))
@@ -72,7 +72,7 @@ nonisolated struct ExportService {
         var obj: JObj = [
             ("id", e.id.uuidString),
         ]
-        if let rollId = e.roll?.id { obj.append(("rollId", rollId.uuidString)) }
+        if let rollID = e.roll?.id { obj.append(("rollID", rollID.uuidString)) }
         obj.append(("createdAt", iso8601.string(from: e.createdAt)))
         obj.append(("hasRealCreatedAt", e.hasRealCreatedAt))
         obj.append(("isPlaceholder", e.isPlaceholder))
@@ -98,7 +98,7 @@ nonisolated struct ExportService {
         let iso8601 = ISO8601DateFormatter()
         let exposures = try context.fetch(FetchDescriptor<LogItem>())
 
-        var csv = "id,rollId,cameraId,cameraName,filmStock,createdAt,isPlaceholder,notes,"
+        var csv = "id,rollID,cameraID,cameraName,filmStock,createdAt,isPlaceholder,notes,"
         csv += "latitude,longitude,altitude,horizontalAccuracy,verticalAccuracy,"
         csv += "course,speed,locationTimestamp,placeName,cityName,timeZoneIdentifier,source\n"
 

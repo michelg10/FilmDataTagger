@@ -225,7 +225,7 @@ struct RollListView: View {
                                         .frame(height: 1)
                                         .padding(.horizontal, 8)
                                 }
-                                
+
                                 let isLast = index == pastRolls.count - 1
                                 Button {
                                     viewModel.switchToRoll(roll)
@@ -293,7 +293,7 @@ struct RollListView: View {
         ) {
             Button("Delete", role: .destructive) {
                 if let roll = rollToDelete {
-                    viewModel.deleteRoll(roll)
+                    viewModel.deleteRoll(id: roll.id)
                     rollToDelete = nil
                 }
             }

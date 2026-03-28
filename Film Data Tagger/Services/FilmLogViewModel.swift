@@ -29,7 +29,7 @@ final class FilmLogViewModel {
     /// The currently open (viewed) roll. May or may not be the active roll for its camera.
     var openRoll: Roll? {
         didSet {
-            settings.openRollId = openRoll?.id
+            settings.openRollID = openRoll?.id
             if let roll = openRoll {
                 openCamera = roll.camera
             }
@@ -42,11 +42,15 @@ final class FilmLogViewModel {
     /// The currently selected camera. Derived from openRoll when a roll is set,
     /// or persisted independently when no roll is selected.
     var openCamera: Camera? {
-        didSet { settings.openCameraId = openCamera?.id }
+        didSet { settings.openCameraID = openCamera?.id }
     }
 
     /// Camera list — driven by DataStore via Combine, with optimistic local updates.
     private(set) var cameras: [CameraSnapshot] = []
+
+    /// Rolls for the currently observed camera — driven by DataStore via Combine, with optimistic local updates.
+    private(set) var rolls: [RollSnapshot] = []
+
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Location (proxied from LocationService)
@@ -64,6 +68,31 @@ final class FilmLogViewModel {
         store.camerasSubject
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.cameras = $0 }
+            .store(in: &cancellables)
+
+        store.cameraRollsSubject
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.rolls = $0 }
+            .store(in: &cancellables)
+
+        store.observedCameraInvalidated
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in
+                guard let self else { return }
+                self.openCamera = nil
+                self.openRoll = nil
+                self.logItems = []
+                self.rolls = []
+            }
+            .store(in: &cancellables)
+
+        store.observedRollInvalidated
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in
+                guard let self else { return }
+                self.openRoll = nil
+                self.logItems = []
+            }
             .store(in: &cancellables)
     }
 
@@ -265,11 +294,11 @@ final class FilmLogViewModel {
     /// Clears stale references caused by remote (iCloud) changes.
     private func validateOpenState() {
         if let roll = openRoll {
-            let rollId = roll.id
-            let descriptor = FetchDescriptor<Roll>(predicate: #Predicate { $0.id == rollId })
+            let rollID = roll.id
+            let descriptor = FetchDescriptor<Roll>(predicate: #Predicate { $0.id == rollID })
             let freshRoll = try? modelContext.fetch(descriptor).first
             if freshRoll == nil {
-                debugLog("validateOpenState: roll fetch returned nil for \(rollId)")
+                debugLog("validateOpenState: roll fetch returned nil for \(rollID)")
                 // Roll was deleted remotely
                 openRoll = nil
                 logItems = []
@@ -284,10 +313,10 @@ final class FilmLogViewModel {
                 // Stay on the roll so the user can see it, but clear won't surprise them
             }
         }
-        if let cameraId = openCamera?.id {
-            let descriptor = FetchDescriptor<Camera>(predicate: #Predicate { $0.id == cameraId })
+        if let cameraID = openCamera?.id {
+            let descriptor = FetchDescriptor<Camera>(predicate: #Predicate { $0.id == cameraID })
             if (try? modelContext.fetch(descriptor).first) == nil {
-                debugLog("validateOpenState: camera fetch returned nil for \(cameraId)")
+                debugLog("validateOpenState: camera fetch returned nil for \(cameraID)")
                 openCamera = nil
             }
         }
@@ -419,10 +448,10 @@ final class FilmLogViewModel {
 
     private func loadOrCreateActiveRoll() {
         // 1. Try the persisted open roll ID
-        if let storedId = settings.openRollId {
+        if let storedID = settings.openRollID {
             let descriptor = FetchDescriptor<Roll>(
                 predicate: #Predicate<Roll> { roll in
-                    roll.id == storedId
+                    roll.id == storedID
                 }
             )
             if let roll = try? modelContext.fetch(descriptor).first {
@@ -433,9 +462,9 @@ final class FilmLogViewModel {
         }
 
         // 2. Try the persisted open camera ID (no roll selected)
-        if let storedCameraId = settings.openCameraId {
+        if let storedCameraID = settings.openCameraID {
             let descriptor = FetchDescriptor<Camera>(
-                predicate: #Predicate<Camera> { $0.id == storedCameraId }
+                predicate: #Predicate<Camera> { $0.id == storedCameraID }
             )
             if let camera = try? modelContext.fetch(descriptor).first {
                 openCamera = camera
@@ -696,41 +725,65 @@ final class FilmLogViewModel {
         }
     }
 
-    // MARK: - Roll Management
+    // MARK: - Roll Management (optimistic + DataStore)
 
-    @discardableResult
-    func createRoll(camera: Camera, filmStock: String, capacity: Int = 36) -> Roll {
-        // Deactivate any currently active roll on this camera
-        for roll in camera.rolls ?? [] where roll.isActive {
-            roll.isActive = false
+    /// Begin observing a camera's rolls. Call when navigating to the roll list.
+    func observeCamera(_ cameraID: UUID) {
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            let snapshots = await self.store.observeCamera(cameraID)
+            await MainActor.run { self.rolls = snapshots }
         }
-
-        let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity)
-        modelContext.insert(roll)
-
-        syncCameraCache(camera)
-        switchToRoll(roll)
-        save()
-        return roll
     }
 
-    func switchToRoll(_ roll: Roll) {
-        openRoll = roll
-
-        reloadItems()
-        geocodeUngeocodedVisibleItems()
+    /// Stop observing camera rolls. Call when navigating away from the roll list.
+    func stopObservingCamera() {
+        Task.detached(priority: .userInitiated) { await self.store.stopObservingCamera() }
+        rolls = []
     }
 
-    func editRoll(_ roll: Roll, filmStock: String, capacity: Int) {
-        roll.filmStock = filmStock
-        roll.capacity = capacity
-        if let camera = roll.camera { syncCameraCache(camera) }
-        reloadItems()
-        save()
+    func createRoll(cameraID: UUID, filmStock: String, capacity: Int = 36) -> UUID {
+        let id = UUID()
+        // Deactivate previous active roll optimistically
+        for i in rolls.indices where rolls[i].isActive {
+            rolls[i].isActive = false
+        }
+        let snapshot = RollSnapshot(
+            id: id,
+            filmStock: filmStock,
+            capacity: capacity,
+            extraExposures: 0,
+            isActive: true,
+            createdAt: Date(),
+            lastExposureDate: nil,
+            exposureCount: 0,
+            totalCapacity: capacity
+        )
+        rolls.insert(snapshot, at: 0)
+        Task.detached(priority: .userInitiated) { await self.store.createRoll(id: id, cameraID: cameraID, filmStock: filmStock, capacity: capacity) }
+        return id
     }
 
-    /// If the roll isn't already the active roll for its camera, activate it
-    /// (deactivating the previous active roll on that camera).
+    func editRoll(id: UUID, filmStock: String, capacity: Int) {
+        if let i = rolls.firstIndex(where: { $0.id == id }) {
+            rolls[i].filmStock = filmStock
+            rolls[i].capacity = capacity
+            rolls[i].totalCapacity = capacity + rolls[i].extraExposures
+        }
+        Task.detached(priority: .userInitiated) { await self.store.editRoll(id: id, filmStock: filmStock, capacity: capacity) }
+    }
+
+    func deleteRoll(id: UUID) {
+        if openRoll?.id == id {
+            openRoll = nil
+            logItems = []
+        }
+        rolls.removeAll { $0.id == id }
+        Task.detached(priority: .userInitiated) { await self.store.deleteRoll(id: id) }
+    }
+
+    // MARK: - Legacy helpers (remove when ELV is migrated to DataStore)
+
     private func activateRollIfNeeded(_ roll: Roll) {
         guard !roll.isActive, let camera = roll.camera else { return }
         for r in camera.rolls ?? [] where r.isActive {
@@ -757,16 +810,10 @@ final class FilmLogViewModel {
         save()
     }
 
-    func deleteRoll(_ roll: Roll) {
-        let camera = roll.camera
-        modelContext.delete(roll)
-        if openRoll?.id == roll.id {
-            openRoll = nil
-            logItems = []
-            openCamera = camera
-        }
-        if let camera { syncCameraCache(camera) }
-        save()
+    func switchToRoll(_ roll: Roll) {
+        openRoll = roll
+        reloadItems()
+        geocodeUngeocodedVisibleItems()
     }
 
     // MARK: - Camera Management (optimistic + DataStore)

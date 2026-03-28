@@ -27,8 +27,8 @@ struct ExposureLogItemView: View {
 
     /// Whether the item was captured in a different time zone than the user's current one
     private var hasDifferentTimeZone: Bool {
-        guard let tzId = item.timeZoneIdentifier else { return false }
-        return tzId != TimeZone.current.identifier
+        guard let tzID = item.timeZoneIdentifier else { return false }
+        return tzID != TimeZone.current.identifier
     }
 
     var body: some View {
