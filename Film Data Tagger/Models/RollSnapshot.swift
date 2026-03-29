@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct RollSnapshot: Identifiable, Hashable, Sendable {
+struct RollSnapshot: Identifiable, Hashable, Sendable, Codable {
     let id: UUID
     var cameraID: UUID?
     var filmStock: String

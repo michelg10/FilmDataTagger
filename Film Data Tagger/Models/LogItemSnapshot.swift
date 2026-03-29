@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct LogItemSnapshot: Identifiable, Hashable, Sendable {
+struct LogItemSnapshot: Identifiable, Hashable, Sendable, Codable {
     let id: UUID
     var rollID: UUID?
     var createdAt: Date

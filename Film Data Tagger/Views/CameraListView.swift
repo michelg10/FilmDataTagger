@@ -399,9 +399,7 @@ struct CameraListView: View {
             Button("Delete", role: .destructive) {
                 if let entry = entryToDelete {
                     withAnimation {
-                        if let camera = entry as? CameraSnapshot {
-                            viewModel.deleteCamera(id: camera.id)
-                        }
+                        viewModel.deleteCamera(id: entry.id)
                     }
                     entryToDelete = nil
                 }

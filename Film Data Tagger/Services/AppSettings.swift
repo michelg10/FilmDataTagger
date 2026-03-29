@@ -171,16 +171,6 @@ enum LocationAccuracy: String, CaseIterable {
 final class AppSettings {
     static let shared = AppSettings()
 
-    // MARK: - Active state
-
-    var openRollID: UUID? {
-        didSet { defaults.set(openRollID?.uuidString, forKey: AppSettingsKeys.openRollID) }
-    }
-
-    var openCameraID: UUID? {
-        didSet { defaults.set(openCameraID?.uuidString, forKey: AppSettingsKeys.openCameraID) }
-    }
-
     // MARK: - Preferences
 
     var referencePhotosEnabled: Bool {
@@ -270,8 +260,6 @@ final class AppSettings {
     private init() {
         let d = UserDefaults.standard
 
-        openRollID = d.string(forKey: AppSettingsKeys.openRollID).flatMap(UUID.init)
-        openCameraID = d.string(forKey: AppSettingsKeys.openCameraID).flatMap(UUID.init)
         referencePhotosEnabled = d.object(forKey: AppSettingsKeys.referencePhotosEnabled) == nil
             ? true : d.bool(forKey: AppSettingsKeys.referencePhotosEnabled)
         referencePhotoStartup = d.string(forKey: AppSettingsKeys.referencePhotoStartup)
@@ -300,8 +288,6 @@ final class AppSettings {
 }
 
 nonisolated enum AppSettingsKeys {
-    static let openRollID = "openRollID"
-    static let openCameraID = "openCameraID"
     static let referencePhotosEnabled = "referencePhotosEnabled"
     static let referencePhotoStartup = "referencePhotoStartup"
     static let photoQuality = "photoQuality"
