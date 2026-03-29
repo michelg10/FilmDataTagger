@@ -426,7 +426,7 @@ private struct ExportPage: View {
 }
 
 private struct AboutPage: View {
-    let cameras: [CameraSnapshot]
+    let cameras: [CameraState]
     @State private var showBuildNumber = false
 
     private var totalRolls: Int { cameras.reduce(0) { $0 + $1.rollCount } }

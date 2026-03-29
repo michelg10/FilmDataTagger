@@ -149,7 +149,7 @@ struct RollListView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    private var rolls: [RollSnapshot] { viewModel.rolls }
+    private var rolls: [RollSnapshot] { viewModel.openCamera?.rolls.map(\.snapshot) ?? [] }
     private var cameraName: String { viewModel.cameras.first(where: { $0.id == cameraID })?.name ?? "" }
 
     private var activeRoll: RollSnapshot? {

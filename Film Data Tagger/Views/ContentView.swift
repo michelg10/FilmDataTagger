@@ -13,8 +13,8 @@ extension UUID: @retroactive Identifiable {
 }
 
 struct FinishRollButton: View {
-    var icon: String = "checkmark.arrow.trianglehead.counterclockwise"
-    var text: String = "Finish roll"
+    let icon: String = "checkmark.arrow.trianglehead.counterclockwise"
+    let text: String = "Finish roll"
     let isNearBottom: Bool
     let action: () -> Void
 
@@ -96,7 +96,7 @@ struct ExposureScreen: View {
     @State private var newRollCameraID: UUID?
     @State private var scrollState = ExposureScrollState()
 
-    private var logItems: [LogItemSnapshot] { viewModel.logItems }
+    private var logItems: [LogItemSnapshot] { viewModel.openRoll?.items ?? [] }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -104,10 +104,10 @@ struct ExposureScreen: View {
                 logItems: logItems,
                 cameraName: viewModel.openCamera?.name ?? "No camera selected",
                 cameraID: viewModel.openCamera?.id,
-                filmStock: viewModel.openRoll?.filmStock
+                filmStock: viewModel.openRoll?.snapshot.filmStock
                     ?? (viewModel.openCamera != nil ? "No roll selected" : ""),
                 hasRoll: viewModel.openRoll != nil,
-                extraExposures: viewModel.openRoll?.extraExposures ?? 0,
+                extraExposures: viewModel.openRoll?.snapshot.extraExposures ?? 0,
                 scrollContextID: viewModel.openRoll?.id ?? viewModel.openCamera?.id,
                 onDelete: { viewModel.deleteItem($0) },
                 onMoveToRoll: { item, rollID in
@@ -126,10 +126,10 @@ struct ExposureScreen: View {
                     }
                 },
                 onScrollToBottomRegistered: { scrollState.scrollToBottom = $0 },
-                cameras: viewModel.cameras,
+                cameras: viewModel.cameras.map(\.snapshot),
                 currentCameraID: viewModel.openCamera?.id,
                 currentRollID: viewModel.openRoll?.id,
-                currentRolls: viewModel.rolls,
+                currentRolls: viewModel.openCamera?.rolls.map(\.snapshot) ?? [],
                 onCameraSelected: { cameraID in
                     if let camera = viewModel.cameras.first(where: { $0.id == cameraID }),
                        let rollID = camera.activeRollID {
@@ -167,8 +167,8 @@ struct ExposureScreen: View {
             RollFormSheet(
                 viewModel: viewModel,
                 cameraID: cameraID,
-                defaultFilmStock: viewModel.openRoll?.filmStock,
-                defaultCapacity: viewModel.openRoll?.capacity,
+                defaultFilmStock: viewModel.openRoll?.snapshot.filmStock,
+                defaultCapacity: viewModel.openRoll?.snapshot.capacity,
                 allowSubmitWithPlaceholder: true,
                 formIsAboveAnotherSheet: true
             )
@@ -183,7 +183,7 @@ let bottomGradientOpacity: Double = 0.4
 struct ContentView: View {
     let viewModel: FilmLogViewModel
 
-    private var cameras: [CameraSnapshot] { viewModel.cameras }
+    private var cameras: [CameraState] { viewModel.cameras }
 
     @State private var path: NavigationPath
     @State private var showNewCamera = false
@@ -318,7 +318,7 @@ struct ContentView: View {
                 path.append(ExposureMarker())
             }
         }) { cameraID in
-            let activeRoll = viewModel.rolls.first(where: \.isActive)
+            let activeRoll = viewModel.openCamera?.activeRoll?.snapshot
             RollFormSheet(
                 viewModel: viewModel,
                 cameraID: cameraID,

@@ -279,9 +279,10 @@ struct CaptureSheet: View {
 
     let viewModel: FilmLogViewModel
 
-    private var frameCount: Int { viewModel.logItems.count }
-    private var frameNumber: Int { viewModel.logItems.count - (viewModel.openRoll?.extraExposures ?? 0) + 1}
-    private var lastCaptureDate: Date? { viewModel.logItems.last(where: { $0.hasRealCreatedAt })?.createdAt }
+    private var items: [LogItemSnapshot] { viewModel.openRoll?.items ?? [] }
+    private var frameCount: Int { items.count }
+    private var frameNumber: Int { items.count - (viewModel.openRoll?.snapshot.extraExposures ?? 0) + 1}
+    private var lastCaptureDate: Date? { items.last(where: { $0.hasRealCreatedAt })?.createdAt }
 
     private static let captureButtonHeight: CGFloat = 63 + 26
 
