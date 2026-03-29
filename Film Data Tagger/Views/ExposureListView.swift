@@ -217,8 +217,7 @@ private struct MoveToRollMenu: View {
     }
 }
 
-/// Isolated view that owns `@Query cameras` so that camera changes
-/// only re-render the menu, not the entire ExposureListView.
+/// Camera switcher menu. Receives camera snapshots from ExposureListView.
 private struct CameraSwitcherMenu: View {
     let cameraName: String
     let filmStock: String

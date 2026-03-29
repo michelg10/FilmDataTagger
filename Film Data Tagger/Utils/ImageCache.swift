@@ -56,7 +56,7 @@ actor CacheBookkeeper {
     ///
     /// Policy:
     /// 1. Top 8 most recently accessed cameras → their active rolls.
-    /// 2. Rolls sorted by last accessed → accumulate until 768.
+    /// 2. Rolls sorted by last accessed → up to 32 rolls.
     /// 3. Union = rolls to warm.
     func rollsToWarm(
         cameraInfo: [(cameraID: UUID, activeRollID: UUID?, rollIDs: [UUID])]
@@ -271,12 +271,6 @@ final class ImageCache: @unchecked Sendable {
             saveBGRA(id: id, image: image)
             return image
         }
-        return nil
-    }
-
-    private func loadFromDisk(id: UUID) -> UIImage? {
-        if let image = loadBGRA(url: bgraPath(for: id)) { return image }
-        if let image = loadJPEG(id: id) { return image }
         return nil
     }
 

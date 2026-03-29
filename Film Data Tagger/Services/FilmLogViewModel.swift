@@ -219,16 +219,27 @@ final class FilmLogViewModel {
         Task.detached(priority: .userInitiated) { [store] in
             await store.warmRollThumbnails(rollID)
         }
+        Task.detached(priority: .utility) { [store] in
+            await store.geocodeItemsInRoll(rollID)
+            await store.repairPlaceholderTimestamps(rollID: rollID)
+        }
     }
 
     /// Switch to a different camera's active roll (camera switcher in ExposureListView header).
     func switchToCameraActiveRoll(_ cameraID: UUID) {
         guard let camera = cameras.first(where: { $0.id == cameraID }),
-              let activeRoll = camera.activeRoll else { return }
+              let activeRoll = camera.activeRoll else {
+                debugLog("switchToCameraActiveRoll: camera \(cameraID) has no active roll");
+                return
+            }
         openCamera = camera
         openRoll = activeRoll
         Task.detached(priority: .userInitiated) { [store] in
             await store.warmRollThumbnails(activeRoll.id)
+        }
+        Task.detached(priority: .utility) { [store] in
+            await store.geocodeItemsInRoll(activeRoll.id)
+            await store.repairPlaceholderTimestamps(rollID: activeRoll.id)
         }
     }
 
@@ -282,7 +293,10 @@ final class FilmLogViewModel {
         isCapturing = false
 
         for _ in 0..<count {
-            guard let targetRoll else { continue }
+            guard let targetRoll else {
+                debugLog("logExposure: no target roll");
+                continue
+            }
 
             // Activate the roll if it isn't already (mirrors DataStore behavior)
             if !targetRoll.snapshot.isActive, let camera = targetCamera {
@@ -358,7 +372,10 @@ final class FilmLogViewModel {
     }
 
     func logPlaceholder() {
-        guard let roll = openRoll else { return }
+        guard let roll = openRoll else {
+            debugLog("logPlaceholder: no open roll");
+            return
+        }
         let id = UUID()
         let createdAt = Date()
         let snapshot = LogItemSnapshot(
@@ -511,7 +528,10 @@ final class FilmLogViewModel {
 
     /// Shared: update local state and persist a placeholder move.
     private func applyPlaceholderMove(id: UUID, newTimestamp: Date) {
-        guard let roll = openRoll else { return }
+        guard let roll = openRoll else {
+            debugLog("applyPlaceholderMove: no open roll");
+            return
+        }
         if let i = roll.items.firstIndex(where: { $0.id == id }) {
             roll.items[i].createdAt = newTimestamp
             roll.items.sort { $0.createdAt < $1.createdAt }
@@ -523,7 +543,10 @@ final class FilmLogViewModel {
     }
 
     func cycleExtraExposures() {
-        guard let roll = openRoll else { return }
+        guard let roll = openRoll else {
+            debugLog("cycleExtraExposures: no open roll");
+            return
+        }
         let maxExtra = min(4, roll.items.count)
         let next = roll.snapshot.extraExposures + 1
         roll.snapshot.extraExposures = next > maxExtra ? 0 : next
@@ -591,7 +614,10 @@ final class FilmLogViewModel {
 
     @discardableResult
     func createRoll(cameraID: UUID, filmStock: String, capacity: Int = 36) -> UUID {
-        guard let camera = cameras.first(where: { $0.id == cameraID }) else { return UUID() }
+        guard let camera = cameras.first(where: { $0.id == cameraID }) else {
+            debugLog("createRoll: camera \(cameraID) not found");
+            return UUID()
+        }
         let id = UUID()
         // Deactivate previous active roll
         camera.activeRoll?.snapshot.isActive = false

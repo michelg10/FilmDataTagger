@@ -11,10 +11,6 @@ import CoreLocation
 import Combine
 import CoreData
 
-struct MoveItemResult: Sendable {
-    let targetCameraID: UUID
-}
-
 // MARK: - DataStore
 actor DataStore: ModelActor {
     let modelExecutor: any ModelExecutor
@@ -258,17 +254,14 @@ actor DataStore: ModelActor {
         save()
     }
 
-    /// Move an item to a different roll. NOT optimistic — the VM awaits the result
-    /// and then calls `observeRoll` on the target roll.
-    ///
-    /// Not high priority: do not await
-    func moveItem(id: UUID, toRollID: UUID) -> MoveItemResult? {
+    /// Move an item to a different roll. The VM handles this optimistically and fire-and-forgets.
+    func moveItem(id: UUID, toRollID: UUID) {
         guard let item = fetchLogItem(id),
               let targetRoll = fetchRoll(toRollID),
               let targetCamera = targetRoll.camera else {
             debugLog("moveItem: item \(id) or roll \(toRollID) not found")
             remoteDataChanged.send()
-            return nil
+            return
         }
         let oldRoll = item.roll
 
@@ -290,7 +283,6 @@ actor DataStore: ModelActor {
         syncCameraCache(targetCamera)
 
         save()
-        return MoveItemResult(targetCameraID: targetCamera.id)
     }
 
     // MARK: - Roll API
@@ -598,7 +590,7 @@ actor DataStore: ModelActor {
             return (item.id, CLLocation(latitude: lat, longitude: lon))
         }
         let results = await Geocoder.geocodeBatch(pending)
-        await applyGeocodingResults(results)
+        applyGeocodingResults(results)
     }
 
     /// Core: write geocoding results and signal remote data changed if any items were updated.
@@ -617,8 +609,7 @@ actor DataStore: ModelActor {
 
     /// Re-interpolate placeholder timestamps between real exposures.
     /// Repairs precision exhaustion from repeated drag reordering.
-    /// Pushes updated snapshots via subject if anything changed.
-    private func repairPlaceholderTimestamps(rollID: UUID) async {
+    func repairPlaceholderTimestamps(rollID: UUID) {
         let descriptor = FetchDescriptor<LogItem>(
             predicate: #Predicate<LogItem> { $0.roll?.id == rollID },
             sortBy: [SortDescriptor(\.createdAt)]
