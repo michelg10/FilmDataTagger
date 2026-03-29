@@ -428,6 +428,53 @@ actor DataStore: ModelActor {
         save()
     }
 
+    // MARK: - Timezone Change Detection
+
+    private var lastKnownUTCOffset = TimeZone.current.secondsFromGMT()
+    private var tzCheckTask: Task<Void, Never>?
+
+    /// Start a 30-second timer that checks for device timezone changes.
+    /// If the offset changed, re-publish all observed snapshots with updated formatting.
+    func startTimezoneChangeDetection() {
+        tzCheckTask = Task(priority: .utility) {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                guard !Task.isCancelled else { break }
+                let currentOffset = TimeZone.current.secondsFromGMT()
+                if currentOffset != lastKnownUTCOffset {
+                    debugLog("Device timezone changed: offset \(lastKnownUTCOffset) → \(currentOffset)")
+                    lastKnownUTCOffset = currentOffset
+                    // Spawn at high priority — this updates the UI
+                    Task(priority: .userInitiated) {
+                        await self.refreshFormattedSnapshots()
+                    }
+                }
+            }
+        }
+    }
+
+    /// Called on foreground — check immediately rather than waiting for the timer.
+    func checkTimezoneChange() async {
+        let currentOffset = TimeZone.current.secondsFromGMT()
+        if currentOffset != lastKnownUTCOffset {
+            debugLog("Device timezone changed on foreground: offset \(lastKnownUTCOffset) → \(currentOffset)")
+            lastKnownUTCOffset = currentOffset
+            await refreshFormattedSnapshots()
+        }
+    }
+
+    /// Re-fetch and re-publish all observed snapshots (formatted strings are recomputed by LogItem.snapshot).
+    private func refreshFormattedSnapshots() async {
+        if let rollID = observedRollID {
+            let fresh = await fetchLogItems(forRoll: rollID)
+            rollItemsSubject.send(fresh)
+        }
+        if let cameraID = observedCameraID {
+            cameraRollsSubject.send(fetchRollSnapshots(forCamera: cameraID))
+        }
+        camerasSubject.send(fetchAllCameraSnapshots())
+    }
+
     // MARK: - Remote Changes
 
     private var remoteChangeObserver: (any NSObjectProtocol)?

@@ -257,6 +257,23 @@ final class ImageCache: @unchecked Sendable {
         bgraURL.appendingPathComponent(id.uuidString)
     }
 
+    /// Load from disk (BGRA then JPEG), cache in memory, and return.
+    /// Use when the source Data is not available (snapshot world — no thumbnailData on the snapshot).
+    @concurrent func loadFromDiskAndCache(for id: UUID) async -> UIImage? {
+        let key = id as NSUUID
+        if let cached = memory.object(forKey: key) { return cached }
+        if let image = loadBGRA(url: bgraPath(for: id)) {
+            memory.setObject(image, forKey: key)
+            return image
+        }
+        if let image = loadJPEG(id: id) {
+            memory.setObject(image, forKey: key)
+            saveBGRA(id: id, image: image)
+            return image
+        }
+        return nil
+    }
+
     private func loadFromDisk(id: UUID) -> UIImage? {
         if let image = loadBGRA(url: bgraPath(for: id)) { return image }
         if let image = loadJPEG(id: id) { return image }

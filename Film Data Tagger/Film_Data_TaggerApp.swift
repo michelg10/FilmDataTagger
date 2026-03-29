@@ -67,7 +67,7 @@ struct Film_Data_TaggerApp: App {
         .modelContainer(sharedModelContainer)
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
-                viewModel.geocodeUngeocodedItems()
+                viewModel.onForeground()
             }
         }
     }

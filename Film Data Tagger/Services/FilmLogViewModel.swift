@@ -112,6 +112,7 @@ final class FilmLogViewModel {
         Task.detached(priority: .userInitiated) { [store, weak self] in
             let cameras = await store.loadCameras()
             await store.observeRemoteChanges()
+            await store.startTimezoneChangeDetection()
             await store.warmThumbnailCache()
 
             // Restore persisted open state
@@ -129,11 +130,14 @@ final class FilmLogViewModel {
         recordAppLaunch()
     }
 
-    /// Geocode items logged since the app was last in the foreground
-    /// (e.g. exposures logged via Shortcuts while the app was backgrounded).
-    func geocodeUngeocodedItems() {
+    /// Called when the app returns to the foreground.
+    /// Geocodes items logged via Shortcuts while backgrounded, and checks for TZ changes.
+    func onForeground() {
         let cutoff = settings.lastForegroundDate ?? Date()
         settings.lastForegroundDate = Date()
+        Task.detached(priority: .userInitiated) { [store] in
+            await store.checkTimezoneChange()
+        }
         Task.detached(priority: .utility) { [store] in
             await store.geocodeItemsIfNeeded(since: cutoff)
         }
@@ -245,7 +249,11 @@ final class FilmLogViewModel {
                 hasThumbnail: thumbnailData != nil,
                 hasPhoto: photoData != nil,
                 formattedTime: createdAt.formatted(.dateTime.hour().minute()),
-                formattedDate: createdAt.formatted(.dateTime.month().day().year())
+                formattedDate: createdAt.formatted(.dateTime.month().day().year()),
+                localFormattedTime: createdAt.formatted(.dateTime.hour().minute()),
+                localFormattedDate: createdAt.formatted(.dateTime.month().day().year()),
+                hasDifferentTimeZone: false,
+                capturedTZLabel: nil
             )
             logItems.append(snapshot)
 
@@ -282,7 +290,11 @@ final class FilmLogViewModel {
             hasThumbnail: false,
             hasPhoto: false,
             formattedTime: "",
-            formattedDate: ""
+            formattedDate: "",
+            localFormattedTime: "",
+            localFormattedDate: "",
+            hasDifferentTimeZone: false,
+            capturedTZLabel: nil
         )
         logItems.append(snapshot)
         Task.detached(priority: .userInitiated) { [store] in

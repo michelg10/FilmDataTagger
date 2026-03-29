@@ -24,11 +24,15 @@ struct LogItemSnapshot: Identifiable, Hashable, Sendable {
     // Media (thumbnails loaded via ImageCache, not carried in the snapshot)
     var hasThumbnail: Bool
     var hasPhoto: Bool
-    // Pre-formatted display strings
+    // Time display — all pre-computed by the DataStore.
+    /// Capture timezone (immutable — never recomputed).
     var formattedTime: String
     var formattedDate: String
-    var formattedTimeForeignTZ: String?
-    var formattedDateForeignTZ: String?
-    var formattedTimeLocal: String?
-    var formattedDateLocal: String?
+    /// Device timezone (recomputed by DataStore if device TZ changes).
+    var localFormattedTime: String
+    var localFormattedDate: String
+    /// Whether the capture TZ differs from the device TZ (recomputed on TZ change).
+    var hasDifferentTimeZone: Bool
+    /// Human-readable capture TZ label (e.g., "Tokyo"). Uses cityName if available.
+    var capturedTZLabel: String?
 }

@@ -207,7 +207,22 @@ final class LogItem {
     // MARK: - Snapshot
 
     var snapshot: LogItemSnapshot {
-        let hasDifferentTZ = timeZoneIdentifier.map { $0 != TimeZone.current.identifier } ?? false
+        // Capture TZ formatting (immutable)
+        let capturedTZ = timeZoneIdentifier.flatMap { TimeZone(identifier: $0) } ?? .current
+        var capTimeFmt = Date.FormatStyle.dateTime.hour().minute()
+        capTimeFmt.timeZone = capturedTZ
+        var capDateFmt = Date.FormatStyle.dateTime.month().day().year()
+        capDateFmt.timeZone = capturedTZ
+
+        // Device TZ formatting (recomputed by DataStore on TZ change)
+        let hasDifferentTZ = capturedTZ.secondsFromGMT(for: createdAt)
+            != TimeZone.current.secondsFromGMT(for: createdAt)
+        let capturedTZLabel: String? = if hasDifferentTZ {
+            cityName ?? timeZoneIdentifier.map { cityName(from: $0) }
+        } else {
+            nil
+        }
+
         return LogItemSnapshot(
             id: id,
             createdAt: createdAt,
@@ -222,12 +237,19 @@ final class LogItem {
             source: source,
             hasThumbnail: thumbnailData != nil,
             hasPhoto: photoData != nil,
-            formattedTime: formattedTime,
-            formattedDate: formattedDate,
-            formattedTimeForeignTZ: hasDifferentTZ ? formattedTimeForeignTZ : nil,
-            formattedDateForeignTZ: hasDifferentTZ ? formattedDateForeignTZ : nil,
-            formattedTimeLocal: hasDifferentTZ ? formattedTimeLocal : nil,
-            formattedDateLocal: hasDifferentTZ ? formattedDateLocal : nil
+            formattedTime: createdAt.formatted(capTimeFmt),
+            formattedDate: createdAt.formatted(capDateFmt),
+            localFormattedTime: createdAt.formatted(.dateTime.hour().minute()),
+            localFormattedDate: createdAt.formatted(.dateTime.month().day().year()),
+            hasDifferentTimeZone: hasDifferentTZ,
+            capturedTZLabel: capturedTZLabel
         )
+    }
+
+    /// Extracts a city name from a time zone identifier (e.g., "America/Los_Angeles" → "Los Angeles")
+    private func cityName(from timeZoneIdentifier: String) -> String {
+        let components = timeZoneIdentifier.split(separator: "/")
+        let last = components.last.map(String.init) ?? timeZoneIdentifier
+        return last.replacingOccurrences(of: "_", with: " ")
     }
 }
