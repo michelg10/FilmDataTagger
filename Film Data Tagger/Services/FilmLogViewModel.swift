@@ -173,11 +173,22 @@ final class FilmLogViewModel {
         }
     }
 
-    /// Switch to a roll.
+    /// Switch to a roll within the current camera.
     func switchToRoll(id rollID: UUID) {
         openRoll = openCamera?.rolls.first(where: { $0.id == rollID })
         Task.detached(priority: .userInitiated) { [store] in
             await store.warmRollThumbnails(rollID)
+        }
+    }
+
+    /// Switch to a different camera's active roll (camera switcher in ExposureListView header).
+    func switchToCameraActiveRoll(_ cameraID: UUID) {
+        guard let camera = cameras.first(where: { $0.id == cameraID }),
+              let activeRoll = camera.activeRoll else { return }
+        openCamera = camera
+        openRoll = activeRoll
+        Task.detached(priority: .userInitiated) { [store] in
+            await store.warmRollThumbnails(activeRoll.id)
         }
     }
 

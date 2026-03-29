@@ -131,11 +131,8 @@ struct ExposureScreen: View {
                 currentRollID: viewModel.openRoll?.id,
                 currentRolls: viewModel.openCamera?.rolls.map(\.snapshot) ?? [],
                 onCameraSelected: { cameraID in
-                    if let camera = viewModel.cameras.first(where: { $0.id == cameraID }),
-                       let rollID = camera.activeRollID {
-                        viewModel.switchToRoll(id: rollID)
-                        onCameraSwitched?(cameraID)
-                    }
+                    viewModel.switchToCameraActiveRoll(cameraID)
+                    onCameraSwitched?(cameraID)
                 }
             )
             let captureSheetRectangle = UnevenRoundedRectangle(
