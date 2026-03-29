@@ -143,17 +143,17 @@ struct RollListRow: View {
 }
 
 struct RollListView: View {
-    let cameraID: UUID
+    let camera: CameraState
     let viewModel: FilmLogViewModel
     var onRollSelected: ((RollSnapshot) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
 
-    private var rolls: [RollSnapshot] { viewModel.openCamera?.rolls.map(\.snapshot) ?? [] }
-    private var cameraName: String { viewModel.cameras.first(where: { $0.id == cameraID })?.name ?? "" }
+    private var rolls: [RollSnapshot] { camera.rolls.map(\.snapshot) }
+    private var cameraName: String { camera.name }
 
     private var activeRoll: RollSnapshot? {
-        rolls.first(where: \.isActive)
+        camera.activeRoll?.snapshot
     }
 
     private var pastRolls: [RollSnapshot] {
@@ -307,7 +307,7 @@ struct RollListView: View {
         .sheet(item: $rollToEdit) { roll in
             RollFormSheet(
                 viewModel: viewModel,
-                cameraID: cameraID,
+                cameraID: camera.id,
                 editingRoll: roll
             )
         }
@@ -345,7 +345,7 @@ struct RollListView: View {
 #Preview {
     @Previewable @State var container = PreviewSampleData.makeContainer()
 
-    let (cameraID, viewModel): (UUID, FilmLogViewModel) = {
+    let viewModel: FilmLogViewModel = {
         let context = container.mainContext
         let camera = try! context.fetch(FetchDescriptor<Camera>()).first!
         let pastRoll = Roll(filmStock: "Fuji Superia 400", camera: camera)
@@ -353,11 +353,13 @@ struct RollListView: View {
         context.insert(pastRoll)
         let vm = FilmLogViewModel(store: PreviewSampleData.makeStore(container: container))
         vm.setup()
-        return (camera.id, vm)
+        return vm
     }()
 
     NavigationStack {
-        RollListView(cameraID: cameraID, viewModel: viewModel)
+        if let camera = viewModel.cameras.first {
+            RollListView(camera: camera, viewModel: viewModel)
+        }
     }
     .modelContainer(container)
     .preferredColorScheme(.dark)

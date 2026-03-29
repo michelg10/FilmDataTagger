@@ -221,9 +221,9 @@ struct ContentView: View {
         NavigationStack(path: $path) {
             CameraListView(viewModel: viewModel)
                 .navigationDestination(for: UUID.self) { id in
-                    if cameras.contains(where: { $0.id == id }) {
+                    if let camera = cameras.first(where: { $0.id == id }) {
                         RollListView(
-                            cameraID: id,
+                            camera: camera,
                             viewModel: viewModel,
                             onRollSelected: { _ in
                                 path.append(ExposureMarker())
