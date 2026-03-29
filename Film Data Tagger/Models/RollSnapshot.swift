@@ -9,6 +9,7 @@ import Foundation
 
 struct RollSnapshot: Identifiable, Hashable, Sendable {
     let id: UUID
+    var cameraID: UUID?
     var filmStock: String
     var capacity: Int
     var extraExposures: Int

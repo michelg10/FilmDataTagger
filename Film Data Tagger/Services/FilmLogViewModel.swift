@@ -103,15 +103,15 @@ final class FilmLogViewModel {
         }
         locationService.setup()
 
-        // DataStore startup — load cameras, restore state, start background work
+        // DataStore startup — restore state first (UI-critical), then background work
         Task.detached(priority: .userInitiated) { [store, weak self] in
             let cameras = await store.loadCameras()
+            await self?.restoreOpenState(cameras: cameras)
+
+            // Background work — not blocking UI
             await store.observeRemoteChanges()
             await store.startTimezoneChangeDetection()
             await store.warmThumbnailCache()
-
-            // Restore persisted open state
-            await self?.restoreOpenState(cameras: cameras)
 
             // Background maintenance
             let defaults = UserDefaults.standard

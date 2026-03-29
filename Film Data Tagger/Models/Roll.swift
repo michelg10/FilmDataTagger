@@ -59,6 +59,7 @@ final class Roll {
     var snapshot: RollSnapshot {
         RollSnapshot(
             id: id,
+            cameraID: camera?.id,
             filmStock: filmStock,
             capacity: capacity,
             extraExposures: extraExposures,

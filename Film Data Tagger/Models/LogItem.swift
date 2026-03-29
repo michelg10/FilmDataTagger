@@ -225,6 +225,7 @@ final class LogItem {
 
         return LogItemSnapshot(
             id: id,
+            rollID: roll?.id,
             createdAt: createdAt,
             hasRealCreatedAt: hasRealCreatedAt,
             notes: notes,

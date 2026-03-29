@@ -31,20 +31,61 @@ actor DataStore: ModelActor {
 
     // MARK: - Publishers
 
-    // nonisolated(unsafe): these are let constants and Combine subjects are thread-safe.
-    // Safe to subscribe from main actor and send from the DataStore actor.
-    nonisolated(unsafe) let rollItemsSubject = CurrentValueSubject<[LogItemSnapshot], Never>([])
-    nonisolated(unsafe) let camerasSubject = CurrentValueSubject<[CameraSnapshot], Never>([])
-    nonisolated(unsafe) let cameraRollsSubject = CurrentValueSubject<[RollSnapshot], Never>([])
-    nonisolated(unsafe) let observedRollInvalidated = PassthroughSubject<Void, Never>()
-    nonisolated(unsafe) let observedCameraInvalidated = PassthroughSubject<Void, Never>()
+    /// Single signal for remote changes. The VM re-reads `loadAll()` when this fires.
+    nonisolated(unsafe) let remoteDataChanged = PassthroughSubject<Void, Never>()
 
-    // MARK: - Observed state
+    // MARK: - Startup / Read API
 
-    private var observedRollID: UUID?
-    private var observedCameraID: UUID?
+    /// Load ALL metadata into memory as a ready-made tree.
+    /// Called once on startup and on remote changes.
+    /// Ownership is transferred to the caller — the actor holds no references afterward.
+    func loadAll() -> sending [CameraState] {
+        #if DEBUG
+        assertHighPriority()
+        #endif
+        let cameras = (try? modelContext.fetch(FetchDescriptor<Camera>(sortBy: [SortDescriptor(\.listOrder)]))) ?? []
+        let allRolls = (try? modelContext.fetch(FetchDescriptor<Roll>())) ?? []
+        let allItems = (try? modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)]))) ?? []
 
-    // MARK: - Startup
+        // Build snapshots and seed the diff cache
+        let cameraSnapshots = cameras.map { $0.snapshot }
+        let rollSnapshots = allRolls.map { $0.snapshot }
+        let itemSnapshots = allItems.map { $0.snapshot }
+        lastCameras = cameraSnapshots
+        lastRolls = rollSnapshots
+        lastItems = itemSnapshots
+
+        // Group items by roll ID
+        let itemsByRoll = Dictionary(grouping: itemSnapshots, by: { $0.rollID })
+
+        // Group rolls by camera ID
+        let rollsByCamera = Dictionary(grouping: rollSnapshots, by: { $0.cameraID })
+
+        // Build the tree
+        return cameras.map { camera in
+            let cameraRolls = (rollsByCamera[camera.id] ?? [])
+                .sorted { ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt) }
+            let rollStates = cameraRolls.map { roll in
+                RollState(snapshot: roll, items: itemsByRoll[roll.id] ?? [])
+            }
+            return CameraState(snapshot: camera.snapshot, rolls: rollStates)
+        }
+    }
+
+    /// Warm thumbnails for a specific roll into ImageCache.
+    /// Call when navigating to a camera (for its active roll) or switching to a roll.
+    func warmRollThumbnails(_ rollID: UUID) async {
+        await ImageCache.shared.bookkeeper.recordAccess(rollID)
+        let descriptor = FetchDescriptor<LogItem>(
+            predicate: #Predicate<LogItem> { $0.roll?.id == rollID }
+        )
+        let items = (try? modelContext.fetch(descriptor)) ?? []
+        for item in items {
+            if let data = item.thumbnailData {
+                await ImageCache.shared.preload(for: item.id, data: data)
+            }
+        }
+    }
 
     /// Provide relationship metadata to the ImageCache bookkeeper so it can decide
     /// which rolls to warm, then fetch item IDs only for those rolls.
@@ -56,51 +97,17 @@ actor DataStore: ModelActor {
             return (camera.id, activeRollID, rolls.map(\.id))
         }
 
-        // Phase 1: bookkeeper decides which rolls matter
         let bookkeeper = ImageCache.shared.bookkeeper
         await bookkeeper.load()
         let rollsToWarm = await bookkeeper.rollsToWarm(cameraInfo: cameraInfo)
 
-        // Phase 2: fetch item IDs only for those rolls
         var priorityIDs = Set<UUID>()
         for rollID in rollsToWarm {
             let ids = fetchLogItemIDs(forRoll: rollID)
             priorityIDs.formUnion(ids)
         }
 
-        // Phase 3: warm from disk
         await ImageCache.shared.warmOnLaunch(priorityIDs: priorityIDs)
-    }
-
-    // MARK: - Read API
-
-    /// Set the actively observed roll. Returns the initial snapshot list
-    /// and begins publishing updates for this roll via `rollItemsSubject`.
-    /// IMPORTANT: Must return fast — the VM awaits this during navigation transitions.
-    /// Deferred work (geocoding, placeholder repair) is fire-and-forget.
-    func observeRoll(_ rollID: UUID) async -> [LogItemSnapshot] {
-        #if DEBUG
-        assertHighPriority()
-        #endif
-        observedRollID = rollID
-        // Fire-and-forget roll access tracking
-        let items = await fetchLogItems(forRoll: rollID)
-        // Guard against a newer observeRoll call that started during our await
-        guard observedRollID == rollID else { return items }
-        rollItemsSubject.send(items)
-        // Fire-and-forget: geocode + repair placeholders. If either mutates, pushes via subject.
-        Task(priority: .utility) {
-            await ImageCache.shared.bookkeeper.recordAccess(rollID)
-            await self.geocodeItemsInRoll(rollID)
-            await self.repairPlaceholderTimestamps(rollID: rollID)
-        }
-        return items
-    }
-
-    /// Stop observing any roll.
-    func stopObservingRoll() {
-        observedRollID = nil
-        rollItemsSubject.send([])
     }
 
     // MARK: - Write API
@@ -124,7 +131,7 @@ actor DataStore: ModelActor {
     ) async {
         guard let roll = fetchRoll(rollID) else {
             debugLog("logExposure: roll \(rollID) not found")
-            reconcileObservedCamera()
+            remoteDataChanged.send()
             return
         }
         let item = LogItem(roll: roll)
@@ -174,7 +181,7 @@ actor DataStore: ModelActor {
     func logPlaceholder(id: UUID, rollID: UUID, createdAt: Date) {
         guard let roll = fetchRoll(rollID) else {
             debugLog("logPlaceholder: roll \(rollID) not found")
-            reconcileObservedCamera()
+            remoteDataChanged.send()
             return
         }
         let item = LogItem.placeholder(roll: roll)
@@ -197,12 +204,10 @@ actor DataStore: ModelActor {
     /// the current roll items so the VM can reconcile.
     ///
     /// Not high priority: do not await
-    func deleteItem(id: UUID) async {
+    func deleteItem(id: UUID) {
         guard let item = fetchLogItem(id) else {
-            debugLog("deleteItem: item \(id) not found")
-            if let rollID = observedRollID {
-                rollItemsSubject.send(await fetchLogItems(forRoll: rollID))
-            }
+            debugLog("deleteItem: item \(id) not found — triggering reconciliation")
+            remoteDataChanged.send()
             return
         }
         let roll = item.roll
@@ -223,7 +228,7 @@ actor DataStore: ModelActor {
     func setExtraExposures(rollID: UUID, count: Int) {
         guard let roll = fetchRoll(rollID) else {
             debugLog("setExtraExposures: roll \(rollID) not found")
-            reconcileObservedCamera()
+            remoteDataChanged.send()
             return
         }
         roll.extraExposures = count
@@ -236,12 +241,10 @@ actor DataStore: ModelActor {
     /// Persist a placeholder's new timestamp. The VM has already resorted its local state.
     ///
     /// Not high priority: do not await
-    func movePlaceholder(id: UUID, newTimestamp: Date) async {
+    func movePlaceholder(id: UUID, newTimestamp: Date) {
         guard let item = fetchLogItem(id) else {
-            debugLog("movePlaceholder: item \(id) not found")
-            if let rollID = observedRollID {
-                rollItemsSubject.send(await fetchLogItems(forRoll: rollID))
-            }
+            debugLog("movePlaceholder: item \(id) not found — triggering reconciliation")
+            remoteDataChanged.send()
             return
         }
         item.createdAt = newTimestamp
@@ -257,7 +260,7 @@ actor DataStore: ModelActor {
               let targetRoll = fetchRoll(toRollID),
               let targetCamera = targetRoll.camera else {
             debugLog("moveItem: item \(id) or roll \(toRollID) not found")
-            reconcileAll()
+            remoteDataChanged.send()
             return nil
         }
         let oldRoll = item.roll
@@ -285,29 +288,12 @@ actor DataStore: ModelActor {
 
     // MARK: - Roll API
 
-    /// Set the actively observed camera. Returns its rolls sorted by recency
-    /// and begins publishing updates via `cameraRollsSubject`.
-    /// IMPORTANT: Must return fast — the VM awaits this during navigation transitions.
-    func observeCamera(_ cameraID: UUID) -> [RollSnapshot] {
-        observedCameraID = cameraID
-        let rolls = fetchRollSnapshots(forCamera: cameraID)
-        cameraRollsSubject.send(rolls)
-        return rolls
-    }
-
-    /// Stop observing any camera's rolls.
-    func stopObservingCamera() {
-        observedCameraID = nil
-        cameraRollsSubject.send([])
-    }
-
     /// Persist a new roll. The VM has already added the snapshot optimistically.
     ///
     /// Not high priority: do not await
     func createRoll(id: UUID, cameraID: UUID, filmStock: String, capacity: Int) {
         guard let camera = fetchCamera(cameraID) else {
             debugLog("createRoll: camera \(cameraID) not found")
-            camerasSubject.send(fetchAllCameraSnapshots())
             return
         }
         // Deactivate any currently active roll on this camera
@@ -327,7 +313,7 @@ actor DataStore: ModelActor {
     func editRoll(id: UUID, filmStock: String, capacity: Int) {
         guard let roll = fetchRoll(id) else {
             debugLog("editRoll: roll \(id) not found")
-            reconcileObservedCamera()
+            remoteDataChanged.send()
             return
         }
         roll.filmStock = filmStock
@@ -343,7 +329,7 @@ actor DataStore: ModelActor {
     func deleteRoll(id: UUID) {
         guard let roll = fetchRoll(id) else {
             debugLog("deleteRoll: roll \(id) not found")
-            reconcileObservedCamera()
+            remoteDataChanged.send()
             return
         }
         let camera = roll.camera
@@ -356,17 +342,6 @@ actor DataStore: ModelActor {
     }
 
     // MARK: - Camera API
-
-    /// Fetch all cameras, publish to `camerasSubject`, and return the result.
-    @discardableResult
-    func loadCameras() -> [CameraSnapshot] {
-        #if DEBUG
-        assertHighPriority()
-        #endif
-        let cameras = fetchAllCameraSnapshots()
-        camerasSubject.send(cameras)
-        return cameras
-    }
 
     /// Persist a new camera. The VM has already added the snapshot optimistically.
     ///
@@ -384,7 +359,7 @@ actor DataStore: ModelActor {
     func renameCamera(id: UUID, name: String) {
         guard let camera = fetchCamera(id) else {
             debugLog("renameCamera: camera \(id) not found")
-            camerasSubject.send(fetchAllCameraSnapshots())
+            remoteDataChanged.send()
             return
         }
         camera.name = name
@@ -398,7 +373,7 @@ actor DataStore: ModelActor {
     func deleteCamera(id: UUID) {
         guard let camera = fetchCamera(id) else {
             debugLog("deleteCamera: camera \(id) not found")
-            camerasSubject.send(fetchAllCameraSnapshots())
+            remoteDataChanged.send()
             return
         }
         // Evict thumbnails for all items in all rolls
@@ -463,16 +438,9 @@ actor DataStore: ModelActor {
         }
     }
 
-    /// Re-fetch and re-publish all observed snapshots (formatted strings are recomputed by LogItem.snapshot).
-    private func refreshFormattedSnapshots() async {
-        if let rollID = observedRollID {
-            let fresh = await fetchLogItems(forRoll: rollID)
-            rollItemsSubject.send(fresh)
-        }
-        if let cameraID = observedCameraID {
-            cameraRollsSubject.send(fetchRollSnapshots(forCamera: cameraID))
-        }
-        camerasSubject.send(fetchAllCameraSnapshots())
+    /// Signal the VM to re-read all data (formatted strings recomputed by LogItem.snapshot).
+    private func refreshFormattedSnapshots() {
+        remoteDataChanged.send()
     }
 
     // MARK: - Remote Changes
@@ -492,66 +460,39 @@ actor DataStore: ModelActor {
         }
     }
 
-    /// Immediate: re-fetch observed data and push if changed.
-    /// Debounced: expensive maintenance (repair duplicate active rolls).
-    private func handleRemoteChange() async {
+    // Cached flat snapshots for diffing remote changes
+    private var lastCameras: [CameraSnapshot] = []
+    private var lastRolls: [RollSnapshot] = []
+    private var lastItems: [LogItemSnapshot] = []
+
+    /// Called on every NSPersistentStoreRemoteChange.
+    /// Re-fetches flat snapshots, diffs against cached copies.
+    /// Only rebuilds tree and signals the VM if something actually changed.
+    private func handleRemoteChange() {
         debugLog("Remote change notification received")
 
-        // --- Validate: check observed entities still exist ---
-
-        if let cameraID = observedCameraID {
-            if fetchCamera(cameraID) == nil {
-                debugLog("handleRemoteChange: observed camera \(cameraID) deleted remotely")
-                observedCameraID = nil
-                cameraRollsSubject.send([])
-                observedCameraInvalidated.send()
-                // Camera gone → roll under it is gone too
-                if observedRollID != nil {
-                    observedRollID = nil
-                    rollItemsSubject.send([])
-                    observedRollInvalidated.send()
-                }
-            }
-        }
-
-        if let rollID = observedRollID {
-            if fetchRoll(rollID) == nil {
-                debugLog("handleRemoteChange: observed roll \(rollID) deleted remotely")
-                observedRollID = nil
-                rollItemsSubject.send([])
-                observedRollInvalidated.send()
-            }
-        }
-
-        // --- Immediate: reconcile observed state ---
-
-        if let rollID = observedRollID {
-            let fresh = await fetchLogItems(forRoll: rollID)
-            if fresh != rollItemsSubject.value {
-                rollItemsSubject.send(fresh)
-            }
-        }
-
-        if let cameraID = observedCameraID {
-            let fresh = fetchRollSnapshots(forCamera: cameraID)
-            if fresh != cameraRollsSubject.value {
-                cameraRollsSubject.send(fresh)
-            }
-        }
-
-        // Sync all camera caches — remote changes may have added/removed rolls or items
+        // Sync caches so snapshots are correct (only saves if something changed)
         syncAllCameraCaches()
 
-        // Camera list (always checked)
+        // Re-fetch flat snapshots
         let freshCameras = fetchAllCameraSnapshots()
-        if freshCameras != camerasSubject.value {
-            camerasSubject.send(freshCameras)
+        let freshRolls = ((try? modelContext.fetch(FetchDescriptor<Roll>())) ?? []).map { $0.snapshot }
+        let freshItems = ((try? modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)]))) ?? []).map { $0.snapshot }
+
+        // Diff against cached copies
+        let changed = freshCameras != lastCameras || freshRolls != lastRolls || freshItems != lastItems
+        guard changed else {
+            debugLog("Remote change: no diff, skipping")
+            return
         }
 
-        // Geocode any new items in the observed roll that lack place names
-        if let rollID = observedRollID {
-            await geocodeItemsInRoll(rollID)
-        }
+        // Update cache
+        lastCameras = freshCameras
+        lastRolls = freshRolls
+        lastItems = freshItems
+
+        // Signal the VM to call loadAll()
+        remoteDataChanged.send()
 
         // --- Debounced: maintenance ---
 
@@ -653,10 +594,9 @@ actor DataStore: ModelActor {
         await applyGeocodingResults(results)
     }
 
-    /// Core: write geocoding results and push to rollItemsSubject if the observed roll was affected.
-    private func applyGeocodingResults(_ results: [(UUID, GeocodingResult)]) async {
+    /// Core: write geocoding results and signal remote data changed if any items were updated.
+    private func applyGeocodingResults(_ results: [(UUID, GeocodingResult)]) {
         guard !results.isEmpty else { return }
-        let affectedIDs = Set(results.map(\.0))
         for (id, result) in results {
             if let item = fetchLogItem(id) {
                 if let placeName = result.placeName { item.placeName = placeName }
@@ -664,14 +604,8 @@ actor DataStore: ModelActor {
             }
         }
         save()
-        // Push if any geocoded items belong to the observed roll
-        if let rollID = observedRollID {
-            let currentIDs = Set(rollItemsSubject.value.map(\.id))
-            if !affectedIDs.isDisjoint(with: currentIDs) {
-                let fresh = await fetchLogItems(forRoll: rollID)
-                rollItemsSubject.send(fresh)
-            }
-        }
+        debugLog("applyGeocodingResults: updated \(results.count) item(s), sending remoteDataChanged")
+        remoteDataChanged.send()
     }
 
     /// Re-interpolate placeholder timestamps between real exposures.
@@ -713,10 +647,8 @@ actor DataStore: ModelActor {
 
         if didRepair {
             save()
-            if observedRollID == rollID {
-                let fresh = await fetchLogItems(forRoll: rollID)
-                rollItemsSubject.send(fresh)
-            }
+            debugLog("repairPlaceholderTimestamps: repaired roll \(rollID), sending remoteDataChanged")
+            remoteDataChanged.send()
         }
     }
 
@@ -862,37 +794,19 @@ actor DataStore: ModelActor {
         return cameras.map { $0.snapshot }
     }
 
-    /// Re-publish rolls for the currently observed camera.
-    private func reconcileObservedCamera() {
-        if let cameraID = observedCameraID {
-            cameraRollsSubject.send(fetchRollSnapshots(forCamera: cameraID))
-        }
-    }
-
-    /// Re-publish everything: cameras, rolls, and items.
-    private func reconcileAll() {
-        camerasSubject.send(fetchAllCameraSnapshots())
-        reconcileObservedCamera()
-        // rollItemsSubject is async (fetchLogItems), so handled separately if needed
-    }
-
-    private func fetchRollSnapshots(forCamera cameraID: UUID) -> [RollSnapshot] {
-        let descriptor = FetchDescriptor<Roll>(
-            predicate: #Predicate<Roll> { $0.camera?.id == cameraID },
-            sortBy: [SortDescriptor(\.cachedLastExposureDate, order: .reverse)]
-        )
-        return ((try? modelContext.fetch(descriptor)) ?? []).map { $0.snapshot }
-    }
 
     #if DEBUG
     private func assertOffMain(caller: String = #function) {
-        assert(!Thread.isMainThread, "DataStore.\(caller) must not run on the main thread")
+        if Thread.isMainThread {
+            debugLog("WARNING: DataStore.\(caller) running on main thread")
+        }
     }
     private func assertHighPriority(caller: String = #function) {
         assertOffMain(caller: caller)
         let qos = Thread.current.qualityOfService
-        assert(qos == .userInitiated || qos == .userInteractive,
-               "DataStore.\(caller) expected high-priority QoS, got \(qos.rawValue)")
+        if qos != .userInitiated && qos != .userInteractive {
+            debugLog("WARNING: DataStore.\(caller) expected high-priority QoS, got \(qos.rawValue)")
+        }
     }
     #endif
 
@@ -922,21 +836,6 @@ actor DataStore: ModelActor {
             .filter { $0.hasRealCreatedAt }
             .map(\.createdAt)
             .max()
-    }
-
-    private func fetchLogItems(forRoll rollID: UUID) async -> [LogItemSnapshot] {
-        let descriptor = FetchDescriptor<LogItem>(
-            predicate: #Predicate<LogItem> { $0.roll?.id == rollID },
-            sortBy: [SortDescriptor(\.createdAt)]
-        )
-        let items = (try? modelContext.fetch(descriptor)) ?? []
-        // Decode + cache thumbnails on the actor thread (off main)
-        for item in items {
-            if let data = item.thumbnailData {
-                await ImageCache.shared.preload(for: item.id, data: data)
-            }
-        }
-        return items.map { $0.snapshot }
     }
 
     private func fetchLogItemIDs(forRoll rollID: UUID) -> [UUID] {

@@ -29,6 +29,7 @@ protocol CameraListEntry: Identifiable where ID == UUID {
     var totalExposureCount: Int { get }
     var activeExposureCount: Int? { get }
     var activeCapacity: Int? { get }
+    var activeRollID: UUID? { get }
     var activeFilmStock: String? { get }
     var lastUsedDate: Date? { get }
 }

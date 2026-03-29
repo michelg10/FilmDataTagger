@@ -9,6 +9,7 @@ import Foundation
 
 struct LogItemSnapshot: Identifiable, Hashable, Sendable {
     let id: UUID
+    var rollID: UUID?
     var createdAt: Date
     var hasRealCreatedAt: Bool
     var notes: String?
