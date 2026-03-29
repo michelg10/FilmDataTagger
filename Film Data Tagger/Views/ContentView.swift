@@ -96,7 +96,7 @@ struct ExposureScreen: View {
     @State private var newRollCameraID: UUID?
     @State private var scrollState = ExposureScrollState()
 
-    private var logItems: [LogItem] { viewModel.logItems }
+    private var logItems: [LogItemSnapshot] { viewModel.logItems }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -110,12 +110,8 @@ struct ExposureScreen: View {
                 extraExposures: viewModel.openRoll?.extraExposures ?? 0,
                 scrollContextID: viewModel.openRoll?.id ?? viewModel.openCamera?.id,
                 onDelete: { viewModel.deleteItem($0) },
-                onMoveToRoll: { item, roll in
-                    let previousCameraID = viewModel.openCamera?.id
-                    viewModel.moveItem(item, to: roll)
-                    if let camera = roll.camera, camera.id != previousCameraID {
-                        onCameraSwitched?(camera.id)
-                    }
+                onMoveToRoll: { item, rollID in
+                    viewModel.moveItem(item, toRollID: rollID)
                 },
                 onMovePlaceholderBefore: { viewModel.movePlaceholder($0, before: $1) },
                 onMovePlaceholderAfter: { viewModel.movePlaceholder($0, after: $1) },
@@ -130,10 +126,15 @@ struct ExposureScreen: View {
                     }
                 },
                 onScrollToBottomRegistered: { scrollState.scrollToBottom = $0 },
-                onCameraSelected: { camera in
-                    if let roll = camera.activeRoll {
-                        viewModel.switchToRoll(roll)
-                        onCameraSwitched?(camera.id)
+                cameras: viewModel.cameras,
+                currentCameraID: viewModel.openCamera?.id,
+                currentRollID: viewModel.openRoll?.id,
+                currentRolls: viewModel.rolls,
+                onCameraSelected: { cameraID in
+                    if let camera = viewModel.cameras.first(where: { $0.id == cameraID }),
+                       let rollID = camera.activeRollID {
+                        viewModel.switchToRoll(id: rollID)
+                        onCameraSwitched?(cameraID)
                     }
                 }
             )
@@ -196,7 +197,7 @@ struct ContentView: View {
         self.viewModel = viewModel
         var initialPath = NavigationPath()
         var initialCameraID: UUID?
-        if let roll = viewModel.openRoll, let camera = roll.camera {
+        if viewModel.openRoll != nil, let camera = viewModel.openCamera {
             initialPath.append(camera.id)
             initialPath.append(ExposureMarker())
             initialCameraID = camera.id

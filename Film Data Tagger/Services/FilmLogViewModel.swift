@@ -156,7 +156,7 @@ final class FilmLogViewModel {
             // Observe both camera (for rolls) and roll (for items)
             var cameraRolls: [RollSnapshot] = []
             if let cameraID = camera?.id {
-                cameraRolls = store.observeCamera(cameraID)
+                cameraRolls = await store.observeCamera(cameraID)
             }
             let items = await store.observeRoll(storedRollID)
             await MainActor.run {
@@ -170,7 +170,7 @@ final class FilmLogViewModel {
 
         // 2. Try the persisted open camera ID (no roll selected)
         if let storedCameraID = settings.openCameraID {
-            let cameraRolls = store.observeCamera(storedCameraID)
+            let cameraRolls = await store.observeCamera(storedCameraID)
             await MainActor.run {
                 openCamera = cameras.first(where: { $0.id == storedCameraID })
                 rolls = cameraRolls
@@ -314,7 +314,7 @@ final class FilmLogViewModel {
         logItems.removeAll { $0.id == item.id }
         Task.detached(priority: .userInitiated) { [store, weak self] in
             guard let result = await store.moveItem(id: item.id, toRollID: toRollID) else { return }
-            let targetRolls = store.observeCamera(result.targetCameraID)
+            let targetRolls = await store.observeCamera(result.targetCameraID)
             let items = await store.observeRoll(toRollID)
             await MainActor.run {
                 guard let self else { return }
