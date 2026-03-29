@@ -7,16 +7,12 @@
 
 import Foundation
 import SwiftUI
-import SwiftData
-import CoreData
 import CoreLocation
 import Combine
-import os.log
 
 @Observable
 @MainActor
 final class FilmLogViewModel {
-    private let modelContext: ModelContext
     let store: DataStore
     private let settings = AppSettings.shared
     let cameraManager = CameraManager()
@@ -57,8 +53,7 @@ final class FilmLogViewModel {
         locationService.displayPlaceName ?? geocodingState.displayText
     }
 
-    init(modelContext: ModelContext, store: DataStore) {
-        self.modelContext = modelContext
+    init(store: DataStore) {
         self.store = store
         self.referencePhotosEnabled = AppSettings.shared.referencePhotosEnabled
 

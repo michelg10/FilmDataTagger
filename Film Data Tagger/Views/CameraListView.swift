@@ -434,7 +434,7 @@ struct CameraListView: View {
         let roll2 = Roll(filmStock: "Fuji Superia 400", camera: camera2)
         container.mainContext.insert(roll2)
 
-        let vm = FilmLogViewModel(modelContext: container.mainContext, store: PreviewSampleData.makeStore(container: container))
+        let vm = FilmLogViewModel(store: PreviewSampleData.makeStore(container: container))
         vm.setup()
         return vm
     }()

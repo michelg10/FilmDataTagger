@@ -441,10 +441,7 @@ struct CaptureSheet: View {
 
 #Preview {
     let container = try! ModelContainer(for: LogItem.self, Roll.self, Camera.self)
-    let vm = FilmLogViewModel(
-        modelContext: container.mainContext,
-        store: PreviewSampleData.makeStore(container: container)
-    )
+    let vm = FilmLogViewModel(store: PreviewSampleData.makeStore(container: container))
     ZStack(alignment: .bottom) {
         Color.black.ignoresSafeArea()
         CaptureSheet(viewModel: vm)

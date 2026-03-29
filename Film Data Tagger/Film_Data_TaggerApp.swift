@@ -53,7 +53,7 @@ struct Film_Data_TaggerApp: App {
 
     init() {
         let store = SharedDataStore.shared
-        let vm = FilmLogViewModel(modelContext: SharedModelContainer.shared.mainContext, store: store)
+        let vm = FilmLogViewModel(store: store)
         vm.setup()
         _viewModel = State(initialValue: vm)
     }

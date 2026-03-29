@@ -361,7 +361,7 @@ struct ContentView: View {
 
 #Preview {
     let container = PreviewSampleData.makeContainer()
-    let viewModel = FilmLogViewModel(modelContext: container.mainContext, store: PreviewSampleData.makeStore(container: container))
+    let viewModel = FilmLogViewModel(store: PreviewSampleData.makeStore(container: container))
     ContentView(viewModel: viewModel)
         .modelContainer(container)
 }

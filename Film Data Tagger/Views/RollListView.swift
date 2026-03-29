@@ -351,7 +351,7 @@ struct RollListView: View {
         let pastRoll = Roll(filmStock: "Fuji Superia 400", camera: camera)
         pastRoll.isActive = false
         context.insert(pastRoll)
-        let vm = FilmLogViewModel(modelContext: context, store: PreviewSampleData.makeStore(container: container))
+        let vm = FilmLogViewModel(store: PreviewSampleData.makeStore(container: container))
         vm.setup()
         return (camera.id, vm)
     }()
