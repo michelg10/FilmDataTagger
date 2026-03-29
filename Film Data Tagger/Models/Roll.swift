@@ -32,10 +32,10 @@ final class Roll {
     var createdAt: Date = Date.distantPast
 
     /// The date of the most recent real (non-placeholder) exposure on this roll.
-    /// Maintained by the ViewModel; nil if the roll has no real exposures yet.
+    /// Maintained by the DataStore; nil if the roll has no real exposures yet.
     var cachedLastExposureDate: Date?
 
-    /// Cached count of logItems. Maintained by the ViewModel to avoid faulting
+    /// Cached count of logItems. Maintained by the DataStore to avoid faulting
     /// the logItems relationship just to get a count (expensive in view bodies).
     var cachedExposureCount: Int = 0
 

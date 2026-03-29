@@ -27,21 +27,18 @@ final class FilmLogViewModel {
     }
 
     /// The currently open (viewed) roll. May or may not be the active roll for its camera.
-    var openRoll: Roll? {
+    var openRoll: RollSnapshot? {
         didSet {
             settings.openRollID = openRoll?.id
-            if let roll = openRoll {
-                openCamera = roll.camera
-            }
         }
     }
 
     /// The sorted items for the open roll/group. All mutations go through the view model.
-    private(set) var logItems: [LogItem] = []
+    private(set) var logItems: [LogItemSnapshot] = []
 
     /// The currently selected camera. Derived from openRoll when a roll is set,
     /// or persisted independently when no roll is selected.
-    var openCamera: Camera? {
+    var openCamera: CameraSnapshot? {
         didSet { settings.openCameraID = openCamera?.id }
     }
 
@@ -94,14 +91,11 @@ final class FilmLogViewModel {
                 self.logItems = []
             }
             .store(in: &cancellables)
-    }
 
-    nonisolated(unsafe) private var remoteChangeObserver: Any?
-
-    deinit {
-        if let observer = remoteChangeObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
+        store.rollItemsSubject
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.logItems = $0 }
+            .store(in: &cancellables)
     }
 
     // MARK: - Setup
@@ -113,21 +107,26 @@ final class FilmLogViewModel {
         case .off: referencePhotosEnabled = false
         }
         locationService.setup()
-        Task.detached(priority: .userInitiated) { await self.store.loadCameras() }
-        syncAllCameraCaches()
-        loadOrCreateActiveRoll()
-        scheduleRemoteChangeMaintenance() // deferred: repairDuplicateActiveRolls + geocode backfill
-        repairPlaceholderTimestamps()
-        let cutoffDate = min(
-            Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
-            settings.lastAppLaunchDate ?? Date.distantPast
-        )
-        locationService.geocodeRecentItems(container: modelContext.container, since: cutoffDate) { [weak self] results in
-            self?.applyGeocodingResults(results)
+
+        // DataStore startup — load cameras, restore state, start background work
+        Task.detached(priority: .userInitiated) { [store, weak self] in
+            let cameras = await store.loadCameras()
+            await store.observeRemoteChanges()
+            await store.warmThumbnailCache()
+
+            // Restore persisted open state
+            await self?.restoreOpenState(cameras: cameras)
+
+            // Background maintenance
+            let defaults = UserDefaults.standard
+            let cutoffDate = min(
+                Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
+                defaults.object(forKey: AppSettingsKeys.lastAppLaunchDate) as? Date ?? Date.distantPast
+            )
+            await store.geocodeItemsIfNeeded(since: cutoffDate)
+            await store.runPeriodicCleanupIfNeeded()
         }
         recordAppLaunch()
-        observeRemoteChanges()
-        cleanOrphanedDataIfNeeded()
     }
 
     /// Geocode items logged since the app was last in the foreground
@@ -135,85 +134,8 @@ final class FilmLogViewModel {
     func geocodeUngeocodedItems() {
         let cutoff = settings.lastForegroundDate ?? Date()
         settings.lastForegroundDate = Date()
-        reloadItems()
-        locationService.geocodeRecentItems(container: modelContext.container, since: cutoff) { [weak self] results in
-            self?.applyGeocodingResults(results)
-        }
-    }
-
-    /// Apply geocoded place names to items on the main context and save.
-    private func applyGeocodingResults(_ results: [(UUID, GeocodingResult)]) {
-        guard !results.isEmpty else { return }
-        for (id, result) in results {
-            // Check in-memory logItems first (fast path)
-            let item: LogItem?
-            if let found = logItems.first(where: { $0.id == id }) {
-                item = found
-            } else {
-                let descriptor = FetchDescriptor<LogItem>(predicate: #Predicate { $0.id == id })
-                item = try? modelContext.fetch(descriptor).first
-            }
-            if let item {
-                if let placeName = result.placeName { item.placeName = placeName }
-                if let cityName = result.cityName { item.cityName = cityName }
-            }
-        }
-        save()
-    }
-
-    private var remoteMaintenanceTask: Task<Void, Never>?
-
-    private func observeRemoteChanges() {
-        remoteChangeObserver = NotificationCenter.default.addObserver(
-            forName: .NSPersistentStoreRemoteChange,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            guard let self else { return }
-            Task(priority: .userInitiated) { @MainActor in
-                debugLog("Remote change notification received")
-                // Immediate — UI correctness
-                self.validateOpenState()
-                self.reloadItems()
-
-                // Debounced — expensive maintenance that doesn't need to run per-notification
-                self.scheduleRemoteChangeMaintenance()
-            }
-        }
-    }
-
-    private func scheduleRemoteChangeMaintenance() {
-        remoteMaintenanceTask?.cancel()
-        remoteMaintenanceTask = Task(priority: .utility) { @MainActor in
-            try? await Task.sleep(for: .milliseconds(500))
-            guard !Task.isCancelled else { return }
-            self.repairDuplicateActiveRolls()
-            self.syncAllCameraCaches()
-            self.geocodeUngeocodedVisibleItems()
-        }
-    }
-
-    /// Geocode any visible items that have a location but no place name (e.g., items logged via Shortcuts).
-    private func geocodeUngeocodedVisibleItems() {
-        let pending = logItems.compactMap { item -> (UUID, CLLocation)? in
-            guard item.placeName == nil, let lat = item.latitude, let lon = item.longitude else { return nil }
-            return (item.id, CLLocation(latitude: lat, longitude: lon))
-        }
-        guard !pending.isEmpty else { return }
-        Task(priority: .utility) { [weak self] in
-            let results = await Geocoder.geocodeBatch(pending)
-            self?.applyGeocodingResults(results)
-        }
-    }
-
-    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "FilmDataTagger", category: "data")
-
-    private func save() {
-        do {
-            try modelContext.save()
-        } catch {
-            Self.logger.error("SwiftData save failed: \(error)")
-            debugLog("SwiftData save failed: \(error)")
+        Task.detached(priority: .utility) { [store] in
+            await store.geocodeItemsIfNeeded(since: cutoff)
         }
     }
 
@@ -222,260 +144,40 @@ final class FilmLogViewModel {
         settings.lastForegroundDate = Date()
     }
 
-    private func reloadItems() {
-        let items = openRoll?.logItems ?? [] as [LogItem]
-        logItems = items.sorted { $0.createdAt < $1.createdAt }
-        // Sync cached counts while we have the data faulted
-        openRoll?.cachedExposureCount = items.count
-        if let camera = openCamera { syncCameraCache(camera) }
-    }
-
-    /// Rebuild cached summary fields on all cameras and rolls.
-    /// Heavy work (relationship faulting) runs on a background context to keep main thread free.
-    /// Only saves if any cached values actually changed, to avoid triggering a feedback loop
-    /// with NSPersistentStoreRemoteChange notifications.
-    private func syncAllCameraCaches() {
-        let container = modelContext.container
-        Task.detached(priority: .utility) {
-            let context = ModelContext(container)
-            let cameras = (try? context.fetch(FetchDescriptor<Camera>())) ?? []
-            var didChange = false
-            for camera in cameras {
-                let rolls = camera.rolls ?? []
-                // Sync roll exposure counts first — camera cache depends on them
-                for roll in rolls {
-                    let actual = (roll.logItems ?? []).count
-                    if roll.cachedExposureCount != actual {
-                        roll.cachedExposureCount = actual
-                        didChange = true
-                    }
-                }
-                let active = rolls.first(where: \.isActive)
-                let newRollCount = rolls.count
-                let newTotalcachedExposureCount = rolls.reduce(0) { $0 + $1.cachedExposureCount }
-                let newLastUsedDate = rolls.compactMap { $0.cachedLastExposureDate ?? ($0.cachedExposureCount > 0 ? $0.createdAt : nil) }.max()
-                let newActiveFilmStock = active?.filmStock
-                let newActivecachedExposureCount = active?.cachedExposureCount
-                let newActiveCapacity = active?.totalCapacity
-
-                if camera.cachedRollCount != newRollCount ||
-                   camera.cachedTotalExposureCount != newTotalcachedExposureCount ||
-                   camera.cachedLastUsedDate != newLastUsedDate ||
-                   camera.cachedActiveFilmStock != newActiveFilmStock ||
-                   camera.cachedActiveExposureCount != newActivecachedExposureCount ||
-                   camera.cachedActiveCapacity != newActiveCapacity {
-                    camera.cachedRollCount = newRollCount
-                    camera.cachedTotalExposureCount = newTotalcachedExposureCount
-                    camera.cachedLastUsedDate = newLastUsedDate
-                    camera.cachedActiveFilmStock = newActiveFilmStock
-                    camera.cachedActiveExposureCount = newActivecachedExposureCount
-                    camera.cachedActiveCapacity = newActiveCapacity
-                    didChange = true
-                }
-            }
-            if didChange { try? context.save() }
-        }
-    }
-
-    /// Sync cached summary fields on a Camera from its rolls.
-    /// Call after any mutation that changes roll count, exposure count, or active roll.
-    private func syncCameraCache(_ camera: Camera) {
-        let rolls = camera.rolls ?? []
-        let active = rolls.first(where: \.isActive)
-        camera.cachedRollCount = rolls.count
-        camera.cachedTotalExposureCount = rolls.reduce(0) { $0 + $1.cachedExposureCount }
-        camera.cachedLastUsedDate = rolls.compactMap { $0.cachedLastExposureDate ?? ($0.cachedExposureCount > 0 ? $0.createdAt : nil) }.max()
-        camera.cachedActiveFilmStock = active?.filmStock
-        camera.cachedActiveExposureCount = active?.cachedExposureCount
-        camera.cachedActiveCapacity = active?.totalCapacity
-    }
-
-    /// Verify that all in-memory references to persisted objects are still valid.
-    /// Clears stale references caused by remote (iCloud) changes.
-    private func validateOpenState() {
-        if let roll = openRoll {
-            let rollID = roll.id
-            let descriptor = FetchDescriptor<Roll>(predicate: #Predicate { $0.id == rollID })
-            let freshRoll = try? modelContext.fetch(descriptor).first
-            if freshRoll == nil {
-                debugLog("validateOpenState: roll fetch returned nil for \(rollID)")
-                // Roll was deleted remotely
-                openRoll = nil
-                logItems = []
-            } else if freshRoll?.camera == nil {
-                // A roll's camera is constant — if the camera is gone, the roll is about to be
-                // cascade-deleted too, we just haven't received that sync yet. Clear state now.
-                openRoll = nil
-                openCamera = nil
-                logItems = []
-            } else if !roll.isActive {
-                // Roll was deactivated on another device (e.g., finished)
-                // Stay on the roll so the user can see it, but clear won't surprise them
-            }
-        }
-        if let cameraID = openCamera?.id {
-            let descriptor = FetchDescriptor<Camera>(predicate: #Predicate { $0.id == cameraID })
-            if (try? modelContext.fetch(descriptor).first) == nil {
-                debugLog("validateOpenState: camera fetch returned nil for \(cameraID)")
-                openCamera = nil
-            }
-        }
-    }
-
-    /// Ensure each camera has at most one active roll.
-    /// Keeps the most recently used one, deactivates the rest.
-    private func repairDuplicateActiveRolls() {
-        let cameras = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
-        var didRepair = false
-        for camera in cameras {
-            let activeRolls = (camera.rolls ?? []).filter(\.isActive)
-            guard activeRolls.count > 1 else { continue }
-            debugLog("repairDuplicateActiveRolls: camera \(camera.name) has \(activeRolls.count) active rolls")
-            // Keep the one with the most recent exposure, or most recently created
-            let keeper = activeRolls
-                .sorted { ($0.cachedLastExposureDate ?? .distantPast) > ($1.cachedLastExposureDate ?? .distantPast) }
-                .first!
-            for roll in activeRolls where roll.id != keeper.id {
-                roll.isActive = false
-            }
-            didRepair = true
-        }
-        if didRepair { save() }
-    }
-
-    /// Re-interpolate placeholder timestamps between real exposures.
-    /// Repairs precision exhaustion from repeated drag reordering.
-    private func repairPlaceholderTimestamps() {
-        guard let roll = openRoll else { return }
-        let items = (roll.logItems ?? []).sorted { $0.createdAt < $1.createdAt }
-        // Need at least 2 items and at least one real timestamp to anchor against
-        guard items.count >= 2, items.contains(where: \.hasRealCreatedAt) else { return }
-
-        var didRepair = false
-        var i = 0
-        while i < items.count {
-            // Find runs of consecutive placeholders
-            guard !items[i].hasRealCreatedAt else { i += 1; continue }
-            let runStart = i
-            while i < items.count && !items[i].hasRealCreatedAt { i += 1 }
-            let runEnd = i // exclusive
-
-            // Boundaries: real timestamp before and after the run
-            let before = runStart > 0 ? items[runStart - 1].createdAt : items[runEnd < items.count ? runEnd : runStart].createdAt.addingTimeInterval(-Double(runEnd - runStart + 1))
-            let after = runEnd < items.count ? items[runEnd].createdAt : before.addingTimeInterval(Double(runEnd - runStart + 1))
-
-            let count = runEnd - runStart
-            for j in 0..<count {
-                let fraction = Double(j + 1) / Double(count + 1)
-                let newTime = before.addingTimeInterval(after.timeIntervalSince(before) * fraction)
-                if items[runStart + j].createdAt != newTime {
-                    items[runStart + j].createdAt = newTime
-                    didRepair = true
-                }
-            }
-        }
-        if didRepair { save() }
-    }
-
-    /// Delete orphaned rolls (no camera) and orphaned exposures (no roll).
-    /// Uses a two-strike approach: orphans detected on one run are only deleted if they're still
-    /// orphaned on the next run (72h+ later). This prevents deleting valid CloudKit data that
-    /// arrived out of order (children before parents).
-    private func cleanOrphanedDataIfNeeded() {
-        if let lastClean = settings.lastDataCleanDate,
-           Date().timeIntervalSince(lastClean) < 72 * 60 * 60 { return }
-
-        let defaults = UserDefaults.standard
-        let previousRollIDs = Set(defaults.stringArray(forKey: AppSettingsKeys.pendingOrphanRollIDs) ?? [])
-        let previousItemIDs = Set(defaults.stringArray(forKey: AppSettingsKeys.pendingOrphanItemIDs) ?? [])
-
-        let container = modelContext.container
-        Task.detached(priority: .utility) {
-            let context = ModelContext(container)
-
-            // Find current orphan candidates on the background context
-            let orphanedRollDescriptor = FetchDescriptor<Roll>(
-                predicate: #Predicate<Roll> {
-                    $0.camera == nil
-                }
-            )
-            let orphanedRolls = (try? context.fetch(orphanedRollDescriptor)) ?? []
-            let candidateRollIDs = orphanedRolls.map { $0.id.uuidString }
-
-            let orphanedItemDescriptor = FetchDescriptor<LogItem>(
-                predicate: #Predicate<LogItem> { $0.roll == nil }
-            )
-            let candidateItemIDs = ((try? context.fetch(orphanedItemDescriptor)) ?? []).map { $0.id.uuidString }
-
-            // Two-strike: only delete IDs that were also flagged on the previous run
-            let confirmedRollIDs = Set(candidateRollIDs).intersection(previousRollIDs)
-            let confirmedItemIDs = Set(candidateItemIDs).intersection(previousItemIDs)
-
-            await MainActor.run { [candidateRollIDs, candidateItemIDs, confirmedRollIDs, confirmedItemIDs] in
-                // Persist current candidates for the next run's comparison
-                defaults.set(candidateRollIDs, forKey: AppSettingsKeys.pendingOrphanRollIDs)
-                defaults.set(candidateItemIDs, forKey: AppSettingsKeys.pendingOrphanItemIDs)
-
-                // Delete only confirmed (two-strike) orphans, re-checking on main context
-                var deletedRolls = 0
-                for idString in confirmedRollIDs {
-                    guard let id = UUID(uuidString: idString) else { continue }
-                    let descriptor = FetchDescriptor<Roll>(predicate: #Predicate { $0.id == id })
-                    if let roll = try? self.modelContext.fetch(descriptor).first,
-                       roll.camera == nil {
-                        self.modelContext.delete(roll)
-                        deletedRolls += 1
-                    }
-                }
-                var deletedItems = 0
-                for idString in confirmedItemIDs {
-                    guard let id = UUID(uuidString: idString) else { continue }
-                    let descriptor = FetchDescriptor<LogItem>(predicate: #Predicate { $0.id == id })
-                    if let item = try? self.modelContext.fetch(descriptor).first,
-                       item.roll == nil {
-                        self.modelContext.delete(item)
-                        deletedItems += 1
-                    }
-                }
-                if deletedRolls > 0 || deletedItems > 0 {
-                    Self.logger.info("Data clean: \(deletedRolls) orphaned roll(s), \(deletedItems) orphaned exposure(s)")
-                    self.save()
-                }
-                AppSettings.shared.lastDataCleanDate = Date()
-            }
-        }
-    }
-
-    private func loadOrCreateActiveRoll() {
+    /// Restore persisted open state from the loaded cameras + DataStore.
+    private func restoreOpenState(cameras: [CameraSnapshot]) async {
         // 1. Try the persisted open roll ID
-        if let storedID = settings.openRollID {
-            let descriptor = FetchDescriptor<Roll>(
-                predicate: #Predicate<Roll> { roll in
-                    roll.id == storedID
-                }
-            )
-            if let roll = try? modelContext.fetch(descriptor).first {
-                openRoll = roll
-                reloadItems()
-                return
+        if let storedRollID = settings.openRollID {
+            let camera = cameras.first(where: { $0.activeRollID == storedRollID })
+            // Observe both camera (for rolls) and roll (for items)
+            var cameraRolls: [RollSnapshot] = []
+            if let cameraID = camera?.id {
+                cameraRolls = store.observeCamera(cameraID)
             }
+            let items = await store.observeRoll(storedRollID)
+            await MainActor.run {
+                openCamera = camera
+                rolls = cameraRolls
+                openRoll = cameraRolls.first(where: { $0.id == storedRollID })
+                logItems = items
+            }
+            return
         }
 
         // 2. Try the persisted open camera ID (no roll selected)
         if let storedCameraID = settings.openCameraID {
-            let descriptor = FetchDescriptor<Camera>(
-                predicate: #Predicate<Camera> { $0.id == storedCameraID }
-            )
-            if let camera = try? modelContext.fetch(descriptor).first {
-                openCamera = camera
-                return
+            let cameraRolls = store.observeCamera(storedCameraID)
+            await MainActor.run {
+                openCamera = cameras.first(where: { $0.id == storedCameraID })
+                rolls = cameraRolls
             }
+            return
         }
 
         // 3. No persisted state matched — drop user at the root CameraListView.
     }
 
-    // MARK: - Logging
+    // MARK: - Logging (optimistic + DataStore)
 
     private var pendingCaptures = 0
     private var isCapturing = false
@@ -525,168 +227,165 @@ final class FilmLogViewModel {
 
         for _ in 0..<count {
             guard let targetRoll else { continue }
-            activateRollIfNeeded(targetRoll)
-            let roll = targetRoll
+            let id = UUID()
+            let createdAt = Date()
 
-            let item = LogItem(roll: roll)
-            item.exposureSource = .app
-            item.photoData = photoData
-            item.thumbnailData = thumbnailData
+            // Build snapshot optimistically
+            let snapshot = LogItemSnapshot(
+                id: id,
+                createdAt: createdAt,
+                hasRealCreatedAt: true,
+                latitude: location?.coordinate.latitude,
+                longitude: location?.coordinate.longitude,
+                placeName: placeName,
+                cityName: cityName,
+                timeZoneIdentifier: TimeZone.current.identifier,
+                isPlaceholder: false,
+                source: ExposureSource.app.rawValue,
+                hasThumbnail: thumbnailData != nil,
+                hasPhoto: photoData != nil,
+                formattedTime: createdAt.formatted(.dateTime.hour().minute()),
+                formattedDate: createdAt.formatted(.dateTime.month().day().year())
+            )
+            logItems.append(snapshot)
 
+            // Pre-cache thumbnail so the row displays without decoding
+            if let thumbnailData {
+                await ImageCache.shared.preload(for: id, data: thumbnailData)
+            }
+
+            // Cache location for Shortcuts
             if let location {
-                item.setLocation(location)
-                item.placeName = placeName
-                item.cityName = cityName
                 AppSettings.shared.cacheShortcutLocation(location)
             }
 
-            // Pre-cache so the row displays without decoding
-            if let thumbnailData {
-                await ImageCache.shared.preload(for: item.id, data: thumbnailData)
-            }
-
-            // SwiftData maintains the inverse: inserting an item with item.roll = roll
-            // automatically appends it to roll.logItems. No manual array overwrite needed.
-            modelContext.insert(item)
-            roll.cachedLastExposureDate = item.createdAt
-            roll.cachedExposureCount += 1
-            logItems.append(item)
-
-            // If we don't have a geocode yet, do it in the background
-            if item.placeName == nil, let location {
-                let itemID = item.id
-                Task(priority: .utility) { [weak self] in
-                    let result = await Geocoder.geocode(location)
-                    self?.applyGeocodingResults([(itemID, result)])
-                }
+            // Fire-and-forget persistence
+            Task.detached(priority: .userInitiated) { [store] in
+                await store.logExposure(
+                    id: id, rollID: targetRoll.id, createdAt: createdAt,
+                    source: .app, photoData: photoData, thumbnailData: thumbnailData,
+                    location: location, placeName: placeName, cityName: cityName
+                )
             }
         }
-        if let camera = openCamera { syncCameraCache(camera) }
-        save()
+    }
+
+    func logPlaceholder() {
+        guard let rollID = openRoll?.id else { return }
+        let id = UUID()
+        let createdAt = Date()
+        let snapshot = LogItemSnapshot(
+            id: id,
+            createdAt: createdAt,
+            hasRealCreatedAt: false,
+            isPlaceholder: true,
+            hasThumbnail: false,
+            hasPhoto: false,
+            formattedTime: "",
+            formattedDate: ""
+        )
+        logItems.append(snapshot)
+        Task.detached(priority: .userInitiated) { [store] in
+            await store.logPlaceholder(id: id, rollID: rollID, createdAt: createdAt)
+        }
+    }
+
+    func deleteItem(_ item: LogItemSnapshot) {
+        logItems.removeAll { $0.id == item.id }
+        Task.detached(priority: .userInitiated) { [store] in
+            await store.deleteItem(id: item.id)
+        }
+    }
+
+    /// Move an exposure to a different roll. NOT optimistic — awaits store, then observes target roll.
+    func moveItem(_ item: LogItemSnapshot, toRollID: UUID) {
+        logItems.removeAll { $0.id == item.id }
+        Task.detached(priority: .userInitiated) { [store, weak self] in
+            guard let result = await store.moveItem(id: item.id, toRollID: toRollID) else { return }
+            let targetRolls = store.observeCamera(result.targetCameraID)
+            let items = await store.observeRoll(toRollID)
+            await MainActor.run {
+                guard let self else { return }
+                self.rolls = targetRolls
+                self.openRoll = targetRolls.first(where: { $0.id == toRollID })
+                self.openCamera = self.cameras.first(where: { $0.id == result.targetCameraID })
+                self.logItems = items
+            }
+        }
+    }
+
+    /// Move a placeholder to just before the target item.
+    func movePlaceholder(_ item: LogItemSnapshot, before target: LogItemSnapshot) {
+        guard item.isPlaceholder, item.id != target.id else { return }
+        let others = logItems.filter { $0.id != item.id }
+        guard let targetIndex = others.firstIndex(where: { $0.id == target.id }) else { return }
+
+        let newTimestamp: Date
+        if targetIndex == 0 {
+            newTimestamp = others[0].createdAt.addingTimeInterval(-1)
+        } else {
+            let a = others[targetIndex - 1].createdAt
+            let b = others[targetIndex].createdAt
+            newTimestamp = Date(timeIntervalSince1970: (a.timeIntervalSince1970 + b.timeIntervalSince1970) / 2.0)
+        }
+        applyPlaceholderMove(id: item.id, newTimestamp: newTimestamp)
+    }
+
+    /// Move a placeholder to just after the target item.
+    func movePlaceholder(_ item: LogItemSnapshot, after target: LogItemSnapshot) {
+        guard item.isPlaceholder, item.id != target.id else { return }
+        let others = logItems.filter { $0.id != item.id }
+        guard let targetIndex = others.firstIndex(where: { $0.id == target.id }) else { return }
+
+        let newTimestamp: Date
+        if targetIndex == others.count - 1 {
+            newTimestamp = others[targetIndex].createdAt.addingTimeInterval(1)
+        } else {
+            let a = others[targetIndex].createdAt
+            let b = others[targetIndex + 1].createdAt
+            newTimestamp = Date(timeIntervalSince1970: (a.timeIntervalSince1970 + b.timeIntervalSince1970) / 2.0)
+        }
+        applyPlaceholderMove(id: item.id, newTimestamp: newTimestamp)
+    }
+
+    func movePlaceholderToEnd(_ item: LogItemSnapshot) {
+        guard item.isPlaceholder else { return }
+        let others = logItems.filter { $0.id != item.id }
+        let newTimestamp = (others.last?.createdAt ?? Date()).addingTimeInterval(1)
+        applyPlaceholderMove(id: item.id, newTimestamp: newTimestamp)
+    }
+
+    /// Shared: update local state and persist a placeholder move.
+    private func applyPlaceholderMove(id: UUID, newTimestamp: Date) {
+        if let i = logItems.firstIndex(where: { $0.id == id }) {
+            logItems[i].createdAt = newTimestamp
+            logItems.sort { $0.createdAt < $1.createdAt }
+        }
+        Task.detached(priority: .userInitiated) { [store] in
+            await store.movePlaceholder(id: id, newTimestamp: newTimestamp)
+        }
+    }
+
+    func cycleExtraExposures() {
+        guard var roll = openRoll else { return }
+        let maxExtra = min(4, roll.exposureCount)
+        let next = roll.extraExposures + 1
+        roll.extraExposures = next > maxExtra ? 0 : next
+        openRoll = roll
+        playHaptic(.cycleExtraExposures)
+        Task.detached(priority: .userInitiated) { [store] in
+            await store.setExtraExposures(rollID: roll.id, count: roll.extraExposures)
+        }
     }
 
     // MARK: - Export
 
     func exportJSON() async -> URL? {
-        let container = modelContext.container
-        return await Task.detached(priority: .userInitiated) {
-            let context = ModelContext(container)
-            do {
-                return try await ExportService.exportJSON(context: context)
-            } catch {
-                debugLog("exportJSON failed: \(error)")
-                return nil
-            }
-        }.value
+        await store.exportJSON()
     }
 
     func exportCSV() async -> URL? {
-        let container = modelContext.container
-        return await Task.detached(priority: .userInitiated) {
-            let context = ModelContext(container)
-            do {
-                return try await ExportService.exportCSV(context: context)
-            } catch {
-                debugLog("exportCSV failed: \(error)")
-                return nil
-            }
-        }.value
-    }
-
-    func logPlaceholder() {
-        guard let roll = openRoll else { return }
-        let item = LogItem.placeholder(roll: roll)
-        modelContext.insert(item)
-        roll.cachedExposureCount += 1
-        logItems.append(item)
-        if let camera = roll.camera { syncCameraCache(camera) }
-        save()
-    }
-
-    func deleteItem(_ item: LogItem) {
-        let roll = item.roll
-        let deletedID = item.id
-        modelContext.delete(item)
-        logItems.removeAll { $0.id == deletedID }
-        if let roll {
-            roll.cachedExposureCount = max(0, roll.cachedExposureCount - 1)
-            recomputeLastExposureDate(for: roll, excluding: deletedID)
-            if let camera = roll.camera { syncCameraCache(camera) }
-        }
-        save()
-    }
-
-    /// Move an exposure to a different roll, removing it from the current view.
-    func moveItem(_ item: LogItem, to targetRoll: Roll) {
-        guard item.roll?.id != targetRoll.id else { return }
-        let oldRoll = item.roll
-
-        // Reassigning the to-one side automatically removes from old roll and adds to new.
-        item.roll = targetRoll
-
-        if let oldRoll {
-            oldRoll.cachedExposureCount = max(0, oldRoll.cachedExposureCount - 1)
-            recomputeLastExposureDate(for: oldRoll, excluding: item.id)
-        }
-        targetRoll.cachedExposureCount += 1
-        if let date = item.hasRealCreatedAt ? item.createdAt : nil {
-            if targetRoll.cachedLastExposureDate == nil || date > targetRoll.cachedLastExposureDate! {
-                targetRoll.cachedLastExposureDate = date
-            }
-        }
-
-        if let camera = oldRoll?.camera { syncCameraCache(camera) }
-        if let camera = targetRoll.camera, camera.id != oldRoll?.camera?.id { syncCameraCache(camera) }
-
-        // Switch to the target roll
-        save()
-        switchToRoll(targetRoll)
-    }
-
-    /// Move a placeholder to just before the target item.
-    func movePlaceholder(_ item: LogItem, before target: LogItem) {
-        guard item.isPlaceholder, item.id != target.id else { return }
-        let others = logItems.filter { $0.id != item.id }
-        guard let targetIndex = others.firstIndex(where: { $0.id == target.id }) else { return }
-
-        if targetIndex == 0 {
-            item.createdAt = others[0].createdAt.addingTimeInterval(-1)
-        } else {
-            let a = others[targetIndex - 1].createdAt
-            let b = others[targetIndex].createdAt
-            item.createdAt = Date(timeIntervalSince1970: (a.timeIntervalSince1970 + b.timeIntervalSince1970) / 2.0)
-        }
-
-        reloadItems()
-        save()
-    }
-
-    /// Move a placeholder to just after the target item.
-    func movePlaceholder(_ item: LogItem, after target: LogItem) {
-        guard item.isPlaceholder, item.id != target.id else { return }
-        let others = logItems.filter { $0.id != item.id }
-        guard let targetIndex = others.firstIndex(where: { $0.id == target.id }) else { return }
-
-        if targetIndex == others.count - 1 {
-            item.createdAt = others[targetIndex].createdAt.addingTimeInterval(1)
-        } else {
-            let a = others[targetIndex].createdAt
-            let b = others[targetIndex + 1].createdAt
-            item.createdAt = Date(timeIntervalSince1970: (a.timeIntervalSince1970 + b.timeIntervalSince1970) / 2.0)
-        }
-
-        reloadItems()
-        save()
-    }
-
-    /// Move a placeholder to after the last item.
-    func movePlaceholderToEnd(_ item: LogItem) {
-        guard item.isPlaceholder else { return }
-        let others = logItems.filter { $0.id != item.id }
-        let lastDate = others.last?.createdAt ?? Date()
-        item.createdAt = lastDate.addingTimeInterval(1)
-        reloadItems()
-        save()
+        await store.exportCSV()
     }
 
     /// Start the camera session if reference photos are enabled. Call on exposure screen appear.
@@ -727,19 +426,14 @@ final class FilmLogViewModel {
 
     // MARK: - Roll Management (optimistic + DataStore)
 
-    /// Begin observing a camera's rolls. Call when navigating to the roll list.
-    func observeCamera(_ cameraID: UUID) {
+    /// Navigate to a camera's roll list. Sets openCamera and begins roll observation.
+    func navigateToCamera(_ cameraID: UUID) {
+        openCamera = cameras.first(where: { $0.id == cameraID })
         Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             let snapshots = await self.store.observeCamera(cameraID)
             await MainActor.run { self.rolls = snapshots }
         }
-    }
-
-    /// Stop observing camera rolls. Call when navigating away from the roll list.
-    func stopObservingCamera() {
-        Task.detached(priority: .userInitiated) { await self.store.stopObservingCamera() }
-        rolls = []
     }
 
     func createRoll(cameraID: UUID, filmStock: String, capacity: Int = 36) -> UUID {
@@ -782,47 +476,13 @@ final class FilmLogViewModel {
         Task.detached(priority: .userInitiated) { await self.store.deleteRoll(id: id) }
     }
 
-    /// Switch to a roll by ID. Bridges snapshot world (roll list) to legacy model world (ELV).
-    /// TODO: Remove legacy switchToRoll(Roll) path when ELV is migrated.
+    /// Switch to a roll by ID. Sets openRoll/openCamera and begins observing.
     func switchToRoll(id rollID: UUID) {
-        let descriptor = FetchDescriptor<Roll>(predicate: #Predicate { $0.id == rollID })
-        if let roll = try? modelContext.fetch(descriptor).first {
-            switchToRoll(roll)
+        openRoll = rolls.first(where: { $0.id == rollID })
+        Task.detached(priority: .userInitiated) { [store, weak self] in
+            let items = await store.observeRoll(rollID)
+            await MainActor.run { self?.logItems = items }
         }
-    }
-
-    // MARK: - Legacy helpers (remove when ELV is migrated to DataStore)
-
-    private func activateRollIfNeeded(_ roll: Roll) {
-        guard !roll.isActive, let camera = roll.camera else { return }
-        for r in camera.rolls ?? [] where r.isActive {
-            r.isActive = false
-        }
-        roll.isActive = true
-    }
-
-    private func recomputeLastExposureDate(for roll: Roll, excluding excludedID: UUID? = nil) {
-        roll.cachedLastExposureDate = (roll.logItems ?? [])
-            .filter { $0.hasRealCreatedAt && $0.id != excludedID }
-            .map(\.createdAt)
-            .max()
-    }
-
-    func cycleExtraExposures() {
-        guard let roll = openRoll else { return }
-        let maxExtra = min(4, roll.cachedExposureCount)
-        let next = roll.extraExposures + 1
-        roll.extraExposures = next > maxExtra ? 0 : next
-        playHaptic(.cycleExtraExposures)
-        if let camera = roll.camera { syncCameraCache(camera) }
-        reloadItems()
-        save()
-    }
-
-    func switchToRoll(_ roll: Roll) {
-        openRoll = roll
-        reloadItems()
-        geocodeUngeocodedVisibleItems()
     }
 
     // MARK: - Camera Management (optimistic + DataStore)

@@ -228,7 +228,10 @@ struct ContentView: View {
                                 path.append(ExposureMarker())
                             }
                         )
-                        .onAppear { selectedCameraID = id }
+                        .onAppear {
+                            selectedCameraID = id
+                            viewModel.navigateToCamera(id)
+                        }
                     }
                 }
                 .navigationDestination(for: ExposureMarker.self) { _ in

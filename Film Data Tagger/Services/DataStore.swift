@@ -357,12 +357,15 @@ actor DataStore: ModelActor {
 
     // MARK: - Camera API
 
-    /// Fetch all cameras and publish to `camerasSubject`. Call on startup.
-    func loadCameras() {
+    /// Fetch all cameras, publish to `camerasSubject`, and return the result.
+    @discardableResult
+    func loadCameras() -> [CameraSnapshot] {
         #if DEBUG
         assertHighPriority()
         #endif
-        camerasSubject.send(fetchAllCameraSnapshots())
+        let cameras = fetchAllCameraSnapshots()
+        camerasSubject.send(cameras)
+        return cameras
     }
 
     /// Persist a new camera. The VM has already added the snapshot optimistically.

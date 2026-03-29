@@ -339,8 +339,6 @@ struct RollListView: View {
                 }.frame(width: UIScreen.currentWidth - 32, height: 44, alignment: .leading)
             }
         }
-        .onAppear { viewModel.observeCamera(cameraID) }
-        .onDisappear { viewModel.stopObservingCamera() }
     }
 }
 
