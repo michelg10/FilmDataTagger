@@ -347,8 +347,19 @@ final class FilmLogViewModel {
 
     /// Move an exposure to a different roll.
     func moveItem(_ item: LogItemSnapshot, toRollID: UUID) {
+        let sourceCamera = openCamera
+        let sourceRoll = openRoll
+
         // Remove from current roll
-        openRoll?.items.removeAll { $0.id == item.id }
+        sourceRoll?.items.removeAll { $0.id == item.id }
+
+        // Update source camera caches
+        if let sourceCamera {
+            sourceCamera.snapshot.totalExposureCount = max(0, sourceCamera.snapshot.totalExposureCount - 1)
+            if sourceCamera.activeRoll?.id == sourceRoll?.id {
+                sourceCamera.snapshot.activeExposureCount = sourceRoll?.items.count
+            }
+        }
 
         // Find target roll in the tree and add the item
         for camera in cameras {
@@ -357,6 +368,13 @@ final class FilmLogViewModel {
                 movedItem.rollID = toRollID
                 targetRoll.items.append(movedItem)
                 targetRoll.items.sort { $0.createdAt < $1.createdAt }
+
+                // Update target camera caches
+                camera.snapshot.totalExposureCount += 1
+                if camera.activeRoll?.id == toRollID {
+                    camera.snapshot.activeExposureCount = targetRoll.items.count
+                }
+
                 // Switch to the target roll
                 openCamera = camera
                 openRoll = targetRoll

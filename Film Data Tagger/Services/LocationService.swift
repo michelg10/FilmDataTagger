@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import SwiftData
 import CoreLocation
 
 enum GeocodingState: Equatable {
@@ -145,31 +144,6 @@ final class LocationService {
 
     func updateAccuracy(_ accuracy: CLLocationAccuracy) {
         locationManager.updateAccuracy(accuracy)
-    }
-
-    /// Backfill place names for recent items that were logged without geocoding.
-    /// Geocoding runs off-main; results are delivered via callback for the caller to write to its own context.
-    func geocodeRecentItems(container: ModelContainer, since cutoffDate: Date, onComplete: @MainActor @Sendable @escaping ([(UUID, GeocodingResult)]) -> Void) {
-        Task.detached(priority: .utility) {
-            let context = ModelContext(container)
-            let descriptor = FetchDescriptor<LogItem>(
-                predicate: #Predicate<LogItem> {
-                    $0.placeName == nil &&
-                    $0.latitude != nil &&
-                    $0.longitude != nil &&
-                    $0.createdAt >= cutoffDate
-                }
-            )
-
-            let items = (try? context.fetch(descriptor)) ?? []
-            let pending = items.compactMap { item -> (UUID, CLLocation)? in
-                guard let lat = item.latitude, let lon = item.longitude else { return nil }
-                return (item.id, CLLocation(latitude: lat, longitude: lon))
-            }
-
-            let results = await Geocoder.geocodeBatch(pending)
-            await MainActor.run { onComplete(results) }
-        }
     }
 
     // MARK: - Live Geocoding
