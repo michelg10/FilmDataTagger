@@ -43,9 +43,16 @@ actor DataStore: ModelActor {
         #if DEBUG
         assertHighPriority()
         #endif
-        let cameras = (try? modelContext.fetch(FetchDescriptor<Camera>(sortBy: [SortDescriptor(\.listOrder)]))) ?? []
-        let allRolls = (try? modelContext.fetch(FetchDescriptor<Roll>())) ?? []
-        let allItems = (try? modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)]))) ?? []
+        var cameras: [Camera] = []
+        var allRolls: [Roll] = []
+        var allItems: [LogItem] = []
+        do {
+            cameras = try modelContext.fetch(FetchDescriptor<Camera>(sortBy: [SortDescriptor(\.listOrder)]))
+            allRolls = try modelContext.fetch(FetchDescriptor<Roll>())
+            allItems = try modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)]))
+        } catch {
+            debugLog("loadAll fetch failed: \(error)")
+        }
 
         // Build snapshots and seed the diff cache
         let cameraSnapshots = cameras.map { $0.snapshot }

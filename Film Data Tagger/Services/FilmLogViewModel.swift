@@ -283,6 +283,18 @@ final class FilmLogViewModel {
 
         for _ in 0..<count {
             guard let targetRoll else { continue }
+
+            // Activate the roll if it isn't already (mirrors DataStore behavior)
+            if !targetRoll.snapshot.isActive, let camera = targetCamera {
+                camera.activeRoll?.snapshot.isActive = false
+                targetRoll.snapshot.isActive = true
+                camera.activeRoll = targetRoll
+                camera.snapshot.activeRollID = targetRoll.id
+                camera.snapshot.activeFilmStock = targetRoll.snapshot.filmStock
+                camera.snapshot.activeExposureCount = targetRoll.items.count
+                camera.snapshot.activeCapacity = targetRoll.snapshot.totalCapacity
+            }
+
             let id = UUID()
             let createdAt = Date()
 
@@ -577,6 +589,7 @@ final class FilmLogViewModel {
 
     // MARK: - Roll Management (optimistic + DataStore)
 
+    @discardableResult
     func createRoll(cameraID: UUID, filmStock: String, capacity: Int = 36) -> UUID {
         guard let camera = cameras.first(where: { $0.id == cameraID }) else { return UUID() }
         let id = UUID()
