@@ -793,38 +793,62 @@ actor DataStore: ModelActor {
     // MARK: - Internal
 
     /// Sync cached summary fields on all cameras. Call after remote changes.
+    /// Only saves if any cached values actually changed, to avoid triggering a feedback loop
+    /// with NSPersistentStoreRemoteChange notifications.
     private func syncAllCameraCaches() {
         let cameras = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
+        var didChange = false
         for camera in cameras {
-            // Also fix roll cached fields while we have them faulted
+            // Fix roll cached fields while we have them faulted
             for roll in camera.rolls ?? [] {
                 let items = roll.logItems ?? []
                 let actual = items.count
                 if roll.cachedExposureCount != actual {
                     roll.cachedExposureCount = actual
+                    didChange = true
                 }
                 let freshLastDate = items.filter(\.hasRealCreatedAt).map(\.createdAt).max()
                 if roll.cachedLastExposureDate != freshLastDate {
                     roll.cachedLastExposureDate = freshLastDate
+                    didChange = true
                 }
             }
-            syncCameraCache(camera)
+            if syncCameraCache(camera) { didChange = true }
         }
-        save()
+        if didChange { save() }
     }
 
     /// Update cached summary fields on a camera from its rolls.
-    /// Call after any write that changes roll count, exposure count, or active roll.
-    private func syncCameraCache(_ camera: Camera) {
+    /// Returns true if any value changed.
+    @discardableResult
+    private func syncCameraCache(_ camera: Camera) -> Bool {
         let rolls = camera.rolls ?? []
         let active = rolls.first(where: \.isActive)
-        camera.cachedRollCount = rolls.count
-        camera.cachedTotalExposureCount = rolls.reduce(0) { $0 + $1.cachedExposureCount }
-        camera.cachedLastUsedDate = rolls.compactMap { $0.cachedLastExposureDate ?? ($0.cachedExposureCount > 0 ? $0.createdAt : nil) }.max()
-        camera.cachedActiveRollID = active?.id
-        camera.cachedActiveFilmStock = active?.filmStock
-        camera.cachedActiveExposureCount = active?.cachedExposureCount
-        camera.cachedActiveCapacity = active?.totalCapacity
+        let newRollCount = rolls.count
+        let newTotalExposureCount = rolls.reduce(0) { $0 + $1.cachedExposureCount }
+        let newLastUsedDate = rolls.compactMap { $0.cachedLastExposureDate ?? ($0.cachedExposureCount > 0 ? $0.createdAt : nil) }.max()
+        let newActiveRollID = active?.id
+        let newActiveFilmStock = active?.filmStock
+        let newActiveExposureCount = active?.cachedExposureCount
+        let newActiveCapacity = active?.totalCapacity
+
+        guard camera.cachedRollCount != newRollCount ||
+              camera.cachedTotalExposureCount != newTotalExposureCount ||
+              camera.cachedLastUsedDate != newLastUsedDate ||
+              camera.cachedActiveRollID != newActiveRollID ||
+              camera.cachedActiveFilmStock != newActiveFilmStock ||
+              camera.cachedActiveExposureCount != newActiveExposureCount ||
+              camera.cachedActiveCapacity != newActiveCapacity
+        else { return false }
+
+        camera.cachedRollCount = newRollCount
+        camera.cachedTotalExposureCount = newTotalExposureCount
+        camera.cachedLastUsedDate = newLastUsedDate
+        camera.cachedActiveRollID = newActiveRollID
+        camera.cachedActiveFilmStock = newActiveFilmStock
+        camera.cachedActiveExposureCount = newActiveExposureCount
+        camera.cachedActiveCapacity = newActiveCapacity
+        return true
     }
 
     private func fetchCamera(_ id: UUID) -> Camera? {
