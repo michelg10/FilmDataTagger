@@ -292,7 +292,8 @@ actor DataStore: ModelActor {
     /// Not high priority: do not await
     func createRoll(id: UUID, cameraID: UUID, filmStock: String, capacity: Int) {
         guard let camera = fetchCamera(cameraID) else {
-            debugLog("createRoll: camera \(cameraID) not found")
+            debugLog("createRoll: camera \(cameraID) not found — triggering reload to reconcile")
+            remoteDataChanged.send()
             return
         }
         // Deactivate any currently active roll on this camera
@@ -518,6 +519,7 @@ actor DataStore: ModelActor {
             for roll in activeRolls where roll.id != keeper.id {
                 roll.isActive = false
             }
+            syncCameraCache(camera)
             didRepair = true
         }
         if didRepair { save() }
@@ -783,7 +785,12 @@ actor DataStore: ModelActor {
 
     private func fetchCamera(_ id: UUID) -> Camera? {
         let descriptor = FetchDescriptor<Camera>(predicate: #Predicate { $0.id == id })
-        return try? modelContext.fetch(descriptor).first
+        do {
+            return try modelContext.fetch(descriptor).first
+        } catch {
+            debugLog("fetchCamera(\(id)) failed: \(error)")
+            return nil
+        }
     }
 
     private func fetchAllCameraSnapshots() -> [CameraSnapshot] {
@@ -821,12 +828,22 @@ actor DataStore: ModelActor {
 
     private func fetchRoll(_ id: UUID) -> Roll? {
         let descriptor = FetchDescriptor<Roll>(predicate: #Predicate { $0.id == id })
-        return try? modelContext.fetch(descriptor).first
+        do {
+            return try modelContext.fetch(descriptor).first
+        } catch {
+            debugLog("fetchRoll(\(id)) failed: \(error)")
+            return nil
+        }
     }
 
     private func fetchLogItem(_ id: UUID) -> LogItem? {
         let descriptor = FetchDescriptor<LogItem>(predicate: #Predicate { $0.id == id })
-        return try? modelContext.fetch(descriptor).first
+        do {
+            return try modelContext.fetch(descriptor).first
+        } catch {
+            debugLog("fetchLogItem(\(id)) failed: \(error)")
+            return nil
+        }
     }
 
     private func recomputeLastExposureDate(for roll: Roll) {
