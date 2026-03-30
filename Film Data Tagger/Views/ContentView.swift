@@ -111,7 +111,12 @@ struct ExposureScreen: View {
                 scrollContextID: viewModel.openRoll?.id ?? viewModel.openCamera?.id,
                 onDelete: { viewModel.deleteItem($0) },
                 onMoveToRoll: { item, rollID in
+                    let previousCameraID = viewModel.openCamera?.id
                     viewModel.moveItem(item, toRollID: rollID)
+                    // If moveItem switched to a different camera, rebuild the nav path
+                    if let newCameraID = viewModel.openCamera?.id, newCameraID != previousCameraID {
+                        onCameraSwitched?(newCameraID)
+                    }
                 },
                 onMovePlaceholderBefore: { viewModel.movePlaceholder($0, before: $1) },
                 onMovePlaceholderAfter: { viewModel.movePlaceholder($0, after: $1) },
