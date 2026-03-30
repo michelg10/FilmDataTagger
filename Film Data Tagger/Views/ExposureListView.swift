@@ -123,7 +123,10 @@ private struct ExposureEndDropDelegate: DropDelegate {
     }
 }
 
-// TODO: audit
+// Equatable intentionally excludes cameras/currentRolls/currentRollID — the context menu
+// may show stale data after a cross-device edit, but that's a fine trade for skipping
+// re-evaluation on every row when the camera list changes. Users can pop and re-enter
+// the exposure list to refresh if needed.
 private struct ExposureRow: View, Equatable {
     let item: LogItemSnapshot
     let exposureNumber: Int?
@@ -166,7 +169,6 @@ private struct ExposureRow: View, Equatable {
 }
 
 /// Context menu content for moving an exposure to another roll.
-// TODO: audit
 private struct MoveToRollMenu: View {
     let item: LogItemSnapshot
     let onMove: (LogItemSnapshot, UUID) -> Void

@@ -48,11 +48,11 @@ private func randomCameraPlaceholder(instantFilm: Bool) -> String {
     }
 }
 
-// TODO: audit
 struct NewCameraSheet: View {
-    let viewModel: FilmLogViewModel
     var editingEntry: (any CameraListEntry)? = nil
     var onCameraCreated: ((UUID) -> Void)? = nil
+    var onCreateCamera: ((String) -> UUID)? = nil
+    var onRenameCamera: ((UUID, String) -> Void)? = nil
     let formIsAboveAnotherSheet = false
     @Environment(\.dismiss) private var dismiss
     @State private var cameraName: String = ""
@@ -117,10 +117,10 @@ struct NewCameraSheet: View {
             PrimaryButton(enabled: !cameraName.isEmpty && (SUPPORT_INSTANT_FILM || !isInstantFilm), action: {
                 playHaptic(.newRollOrCamera)
                 if let editingEntry {
-                    viewModel.renameCamera(id: editingEntry.id, name: cameraName)
+                    onRenameCamera?(editingEntry.id, cameraName)
                     dismiss()
-                } else {
-                    let id = viewModel.createCamera(name: cameraName)
+                } else if let onCreateCamera {
+                    let id = onCreateCamera(cameraName)
                     dismiss()
                     onCameraCreated?(id)
                 }
@@ -145,7 +145,6 @@ struct NewCameraSheet: View {
     }
 }
 
-// TODO: audit
 struct InstantFilmInfoSheet: View {
     @Environment(\.dismiss) private var dismiss
 

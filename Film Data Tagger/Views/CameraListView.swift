@@ -48,7 +48,6 @@ struct CameraRollProgress: View {
     }
 }
 
-// TODO: audit
 struct CameraListRow: View {
     let entry: any CameraListEntry
     var body: some View {
@@ -391,7 +390,10 @@ struct CameraListView: View {
             set: { if !$0 { editingEntry = nil } }
         )) {
             if let editingEntry {
-                NewCameraSheet(viewModel: viewModel, editingEntry: editingEntry)
+                NewCameraSheet(
+                    editingEntry: editingEntry,
+                    onRenameCamera: { viewModel.renameCamera(id: $0, name: $1) }
+                )
             }
         }
         .alert(

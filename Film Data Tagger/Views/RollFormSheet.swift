@@ -89,15 +89,15 @@ private let filmStockPlaceholders = [
     "Sprokbook 800"
 ]
 
-// TODO: audit
 struct RollFormSheet: View {
-    let viewModel: FilmLogViewModel
     let cameraID: UUID
     var editingRoll: RollSnapshot? = nil
     var defaultFilmStock: String? = nil
     var defaultCapacity: Int? = nil
     var allowSubmitWithPlaceholder: Bool = false
     var onRollCreated: (() -> Void)?
+    var onCreateRoll: ((UUID, String, Int) -> Void)?
+    var onEditRoll: ((UUID, String, Int) -> Void)?
     var formIsAboveAnotherSheet: Bool = false
     @Environment(\.dismiss) private var dismiss
     @State private var filmName: String = ""
@@ -173,9 +173,9 @@ struct RollFormSheet: View {
                 playHaptic(.newRollOrCamera)
                 let capacity = effectiveExposureCount
                 if let editingRoll {
-                    viewModel.editRoll(id: editingRoll.id, filmStock: effectiveFilmName, capacity: capacity)
+                    onEditRoll?(editingRoll.id, effectiveFilmName, capacity)
                 } else {
-                    viewModel.createRoll(cameraID: cameraID, filmStock: effectiveFilmName, capacity: capacity)
+                    onCreateRoll?(cameraID, effectiveFilmName, capacity)
                 }
                 dismiss()
                 onRollCreated?()

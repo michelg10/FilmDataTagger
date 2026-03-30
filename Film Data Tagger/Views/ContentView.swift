@@ -174,11 +174,12 @@ struct ExposureScreen: View {
         .onDisappear { viewModel.camera.scheduleStop() }
         .sheet(item: $newRollCameraID) { cameraID in
             RollFormSheet(
-                viewModel: viewModel,
                 cameraID: cameraID,
                 defaultFilmStock: viewModel.openRoll?.snapshot.filmStock,
                 defaultCapacity: viewModel.openRoll?.snapshot.capacity,
                 allowSubmitWithPlaceholder: true,
+                onCreateRoll: { viewModel.createRoll(cameraID: $0, filmStock: $1, capacity: $2) },
+                onEditRoll: { viewModel.editRoll(id: $0, filmStock: $1, capacity: $2) },
                 formIsAboveAnotherSheet: true
             )
         }
@@ -318,9 +319,10 @@ struct ContentView: View {
                 path.append(id)
             }
         }) {
-            NewCameraSheet(viewModel: viewModel, onCameraCreated: { id in
-                pendingCameraNavigation = id
-            })
+            NewCameraSheet(
+                onCameraCreated: { id in pendingCameraNavigation = id },
+                onCreateCamera: { viewModel.createCamera(name: $0) }
+            )
         }
         .sheet(item: $newRollCameraID, onDismiss: {
             if pendingRollNavigation {
@@ -330,14 +332,15 @@ struct ContentView: View {
         }) { cameraID in
             let activeRoll = viewModel.openCamera?.activeRoll?.snapshot
             RollFormSheet(
-                viewModel: viewModel,
                 cameraID: cameraID,
                 defaultFilmStock: activeRoll?.filmStock,
                 defaultCapacity: activeRoll?.capacity,
                 allowSubmitWithPlaceholder: activeRoll != nil,
                 onRollCreated: {
                     pendingRollNavigation = true
-                }
+                },
+                onCreateRoll: { viewModel.createRoll(cameraID: $0, filmStock: $1, capacity: $2) },
+                onEditRoll: { viewModel.editRoll(id: $0, filmStock: $1, capacity: $2) }
             )
         }
         .preferredColorScheme(.dark)

@@ -78,7 +78,6 @@ private struct BlockProgressBar: View {
     }
 }
 
-// TODO: audit
 struct RollListRow: View {
     let roll: RollSnapshot
     var maxCapacity: Int = 36
@@ -308,9 +307,10 @@ struct RollListView: View {
         .navigationBarBackButtonHidden()
         .sheet(item: $rollToEdit) { roll in
             RollFormSheet(
-                viewModel: viewModel,
                 cameraID: camera.id,
-                editingRoll: roll
+                editingRoll: roll,
+                onCreateRoll: { viewModel.createRoll(cameraID: $0, filmStock: $1, capacity: $2) },
+                onEditRoll: { viewModel.editRoll(id: $0, filmStock: $1, capacity: $2) }
             )
         }
         .toolbar {
