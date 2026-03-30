@@ -84,6 +84,77 @@ private struct LocationInfoRow: View {
     }
 }
 
+private struct ReferencePhotoPreview: View {
+    let camera: CameraController
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            if camera.permissionDenied || camera.unavailable {
+                ZStack {
+                    Rectangle()
+                        .foregroundStyle(Color(hex: 0x454545))
+                    VStack(spacing: 6) {
+                        Image(systemName: camera.unavailable
+                              ? "camera.fill" : "hand.raised.slash.fill")
+                        Text(camera.unavailable
+                             ? "no camera\navailable" : "no camera\naccess")
+                            .multilineTextAlignment(.center)
+                    }
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white)
+                    .opacity(0.62)
+                    .frame(width: 120)
+                }
+                .transition(.opacity)
+            } else if camera.referencePhotosEnabled, camera.isRunning {
+                CameraPreview(previewView: camera.previewView)
+                    .transition(.opacity)
+            } else if camera.referencePhotosEnabled {
+                ZStack {
+                    Color(hex: 0x454545)
+                    ProgressView()
+                        .tint(.white)
+                }
+                .transition(.opacity)
+            } else {
+                ZStack {
+                    Rectangle()
+                        .foregroundStyle(Color(hex: 0x454545))
+                    VStack(spacing: 6) {
+                        Image(systemName: "eye.slash")
+                        Text("reference photo\noff")
+                            .multilineTextAlignment(.center)
+                    }
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white)
+                    .opacity(0.62)
+                    .frame(width: 120)
+                }
+                .transition(.opacity)
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .animation(.easeInOut(duration: 0.25), value: camera.referencePhotosEnabled)
+        .animation(.easeInOut(duration: 0.25), value: camera.isRunning)
+        .animation(.easeInOut(duration: 0.25), value: camera.permissionDenied)
+        .onTapGesture {
+            playHaptic(.viewfinderToggle)
+            if camera.unavailable {
+                // No camera hardware — nothing to do
+            } else if camera.permissionDenied {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            } else {
+                camera.toggle()
+            }
+        }
+        .accessibilityLabel(camera.referencePhotosEnabled ? "Hide camera preview" : "Show camera preview")
+    }
+}
+
 private struct CaptureSheetFullContent: View {
     let camera: CameraController
     let lastCaptureDate: Date?
@@ -93,70 +164,7 @@ private struct CaptureSheetFullContent: View {
 
     var body: some View {
         HStack(spacing: 18) {
-            // reference photo
-            ZStack {
-                if camera.permissionDenied || camera.unavailable {
-                    ZStack {
-                        Rectangle()
-                            .foregroundStyle(Color(hex: 0x454545))
-                        VStack(spacing: 6) {
-                            Image(systemName: camera.unavailable
-                                  ? "camera.fill" : "hand.raised.slash.fill")
-                            Text(camera.unavailable
-                                 ? "no camera\navailable" : "no camera\naccess")
-                                .multilineTextAlignment(.center)
-                        }
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.white)
-                        .opacity(0.62)
-                        .frame(width: 120)
-                    }
-                    .transition(.opacity)
-                } else if camera.referencePhotosEnabled, camera.isRunning {
-                    CameraPreview(previewView: camera.previewView)
-                        .transition(.opacity)
-                } else if camera.referencePhotosEnabled {
-                    ZStack {
-                        Color(hex: 0x454545)
-                        ProgressView()
-                            .tint(.white)
-                    }
-                    .transition(.opacity)
-                } else {
-                    ZStack {
-                        Rectangle()
-                            .foregroundStyle(Color(hex: 0x454545))
-                        VStack(spacing: 6) {
-                            Image(systemName: "eye.slash")
-                            Text("reference photo\noff")
-                                .multilineTextAlignment(.center)
-                        }
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.white)
-                        .opacity(0.62)
-                        .frame(width: 120)
-                    }
-                    .transition(.opacity)
-                }
-            }
-            .frame(width: referencePhotoSize, height: referencePhotoSize)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .animation(.easeInOut(duration: 0.25), value: camera.referencePhotosEnabled)
-            .animation(.easeInOut(duration: 0.25), value: camera.isRunning)
-            .animation(.easeInOut(duration: 0.25), value: camera.permissionDenied)
-            .onTapGesture {
-                playHaptic(.viewfinderToggle)
-                if camera.unavailable {
-                    // No camera hardware — nothing to do
-                } else if camera.permissionDenied {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
-                } else {
-                    camera.toggle()
-                }
-            }
-            .accessibilityLabel(camera.referencePhotosEnabled ? "Hide camera preview" : "Show camera preview")
+            ReferencePhotoPreview(camera: camera, size: referencePhotoSize)
 
             VStack(alignment: .leading, spacing: 10) {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
