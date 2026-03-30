@@ -627,7 +627,7 @@ actor DataStore: ModelActor {
             return (item.id, CLLocation(latitude: lat, longitude: lon))
         }
         let results = await Geocoder.geocodeBatch(pending)
-        await applyGeocodingResults(results)
+        applyGeocodingResults(results)
     }
 
     /// Geocode items missing place names in a specific roll.
@@ -650,6 +650,18 @@ actor DataStore: ModelActor {
         }
         let results = await Geocoder.geocodeBatch(pending)
         applyGeocodingResults(results)
+    }
+
+    /// Persist geocoded place/city names for specific items. No tree reload — caller
+    /// updates in-memory snapshots directly.
+    func applyGeocoding(itemIDs: [UUID], placeName: String, cityName: String?) {
+        for id in itemIDs {
+            if let item = fetchLogItem(id) {
+                item.placeName = placeName
+                if let cityName { item.cityName = cityName }
+            }
+        }
+        save()
     }
 
     /// Core: write geocoding results and signal remote data changed if any items were updated.

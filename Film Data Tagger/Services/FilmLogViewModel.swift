@@ -424,6 +424,26 @@ final class FilmLogViewModel {
                 await ImageCache.shared.persistThumbnails(for: capturedIDs, image: rawData.thumbnailImage)
             }
         }
+
+        // Geocode if we captured with coordinates but no place name.
+        // Fires independently — geocodes the location, updates snapshots in-memory,
+        // and tells the DataStore to persist without a full tree reload.
+        if let location, placeName == nil {
+            let ids = capturedIDs
+            Task.detached(priority: .medium) { [store, weak self] in
+                let result = await Geocoder.geocode(location)
+                guard let name = result.placeName else { return }
+                await MainActor.run {
+                    guard let self, let roll = self.openRoll else { return }
+                    for i in roll.items.indices where ids.contains(roll.items[i].id) {
+                        roll.items[i].placeName = name
+                        roll.items[i].cityName = result.cityName
+                    }
+                    self.persistOpenState()
+                }
+                await store.applyGeocoding(itemIDs: ids, placeName: name, cityName: result.cityName)
+            }
+        }
     }
 
     func logPlaceholder() {
