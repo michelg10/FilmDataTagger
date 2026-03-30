@@ -277,7 +277,6 @@ private struct CameraSwitcherMenu: View {
     }
 }
 
-// TODO: audit
 struct ExposureListView: View {
     let logItems: [LogItemSnapshot]
     var cameraName: String = ""
@@ -381,19 +380,14 @@ struct ExposureListView: View {
     var body: some View {
         Group {
             if logItems.isEmpty {
-                if hasRoll {
-                    Text("start your roll!")
-                        .font(.system(size: 25, weight: .bold, design: .default))
-                        .fontWidth(.expanded)
-                        .foregroundStyle(Color.white.opacity(0.5))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(.bottom, 153)
-                        .padding(.top, 18)
-                        .offset(y: -21)
-                } else {
-                    Color.clear
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
+                Text("start your roll!")
+                    .font(.system(size: 25, weight: .bold, design: .default))
+                    .fontWidth(.expanded)
+                    .foregroundStyle(Color.white.opacity(0.5))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.bottom, 153)
+                    .padding(.top, 18)
+                    .offset(y: -21)
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
