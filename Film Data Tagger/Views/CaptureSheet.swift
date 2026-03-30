@@ -184,7 +184,6 @@ private struct CaptureSheetFullContent: View {
     }
 }
 
-// TODO: audit
 private struct CaptureSheetCompactContent: View {
     let referencePhotosEnabled: Bool
     let cameraUnavailable: Bool
@@ -234,31 +233,26 @@ private struct CaptureSheetCompactContent: View {
     }
 }
 
-// TODO: audit
 private struct CaptureButton: View {
-    let hasRoll: Bool
     let frameCount: Int
     let frameNumber: Int
     let onCapture: () -> Void
     let onAddPlaceholder: () -> Void
 
     var body: some View {
-        PrimaryButton(enabled: hasRoll && frameCount < 999, action: {
+        PrimaryButton(enabled: frameCount < 999, action: {
             playHaptic(.capture)
             onCapture()
         }, showShadow: false) {
-            if hasRoll {
-                HStack(spacing: 0) {
-                    Text("\(frameNumber) •")
-                        .opacity(0.5)
-                    Text(" Capture")
-                }
-            } else {
-                Text("Capture")
+            HStack(spacing: 0) {
+                Text("\(frameNumber) •")
+                    .opacity(0.5)
+                Text(" Capture")
             }
         }
         .contextMenu {
             Button {
+                playHaptic(.addPlaceholder)
                 onAddPlaceholder()
             } label: {
                 Label("Add placeholder", systemImage: "questionmark.square.dashed")
@@ -271,7 +265,6 @@ private struct CaptureButton: View {
 
 // MARK: - CaptureSheet
 
-// TODO: audit
 struct CaptureSheet: View {
     private static let referencePhotoSize = (143.0 / 347.0) * (UIScreen.currentWidth - 2 * (15 + 8))
     private static let handleAreaHeight: CGFloat = 15
@@ -291,12 +284,15 @@ struct CaptureSheet: View {
         }
     }
 
-    let viewModel: FilmLogViewModel
+    let camera: CameraController
+    let locationService: LocationService
+    let roll: RollState?
+    let onCapture: () async -> Void
+    let onAddPlaceholder: () -> Void
 
-    private var items: [LogItemSnapshot] { viewModel.openRoll?.items ?? [] }
-    private var frameCount: Int { items.count }
-    private var frameNumber: Int { items.count - (viewModel.openRoll?.snapshot.extraExposures ?? 0) + 1}
-    private var lastCaptureDate: Date? { items.last(where: { $0.hasRealCreatedAt })?.createdAt }
+    private var frameCount: Int { roll?.snapshot.exposureCount ?? 0 }
+    private var frameNumber: Int { frameCount - (roll?.snapshot.extraExposures ?? 0) + 1 }
+    private var lastCaptureDate: Date? { roll?.snapshot.lastExposureDate }
 
     private static let captureButtonHeight: CGFloat = 63 + 26
 
@@ -356,31 +352,31 @@ struct CaptureSheet: View {
 
                 ZStack(alignment: .top) {
                     CaptureSheetFullContent(
-                        camera: viewModel.camera,
+                        camera: camera,
                         lastCaptureDate: lastCaptureDate,
                         referencePhotoSize: Self.referencePhotoSize,
-                        locationText: viewModel.locationService.displayLocationText,
-                        locationSubtext: viewModel.locationService.displayLocationSubtext
+                        locationText: locationService.displayLocationText,
+                        locationSubtext: locationService.displayLocationSubtext
                     ).padding(.top, 10)
                     .opacity(showsFullContent ? 1 : 0)
                     .offset(y: showsFullContent ? 0 : -10)
                     .allowsHitTesting(showsFullContent)
 
                     CaptureSheetCompactContent(
-                        referencePhotosEnabled: viewModel.camera.referencePhotosEnabled,
-                        cameraUnavailable: viewModel.camera.unavailable,
-                        permissionDenied: viewModel.camera.permissionDenied,
-                        locationText: viewModel.locationService.displayLocationText,
+                        referencePhotosEnabled: camera.referencePhotosEnabled,
+                        cameraUnavailable: camera.unavailable,
+                        permissionDenied: camera.permissionDenied,
+                        locationText: locationService.displayLocationText,
                         lastCaptureDate: lastCaptureDate,
                         onEyeTapped: {
-                            if viewModel.camera.unavailable {
+                            if camera.unavailable {
                                 // No camera hardware
-                            } else if viewModel.camera.permissionDenied {
+                            } else if camera.permissionDenied {
                                 if let url = URL(string: UIApplication.openSettingsURLString) {
                                     UIApplication.shared.open(url)
                                 }
                             } else {
-                                viewModel.camera.toggle()
+                                camera.toggle()
                             }
                         }
                     )
@@ -398,14 +394,10 @@ struct CaptureSheet: View {
             .simultaneousGesture(sheetDragGesture)
 
             CaptureButton(
-                hasRoll: viewModel.openRoll != nil,
                 frameCount: frameCount,
                 frameNumber: frameNumber,
-                onCapture: { Task { await viewModel.logExposure() } },
-                onAddPlaceholder: {
-                    playHaptic(.addPlaceholder)
-                    viewModel.logPlaceholder()
-                }
+                onCapture: { Task { await onCapture() } },
+                onAddPlaceholder: onAddPlaceholder
             )
         }
         .frame(maxWidth: .infinity)
@@ -461,7 +453,13 @@ struct CaptureSheet: View {
     let vm = FilmLogViewModel(store: PreviewSampleData.makeStore(container: container))
     ZStack(alignment: .bottom) {
         Color.black.ignoresSafeArea()
-        CaptureSheet(viewModel: vm)
-            .padding([.bottom, .leading, .trailing], 8)
+        CaptureSheet(
+            camera: vm.camera,
+            locationService: vm.locationService,
+            roll: nil,
+            onCapture: {},
+            onAddPlaceholder: {}
+        )
+        .padding([.bottom, .leading, .trailing], 8)
     }
 }

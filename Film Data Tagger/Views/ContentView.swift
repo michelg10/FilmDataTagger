@@ -144,7 +144,13 @@ struct ExposureScreen: View {
             let captureSheetRectangle = UnevenRoundedRectangle(
                 topLeadingRadius: 35, bottomLeadingRadius: screenCornerRadius - 8, bottomTrailingRadius: screenCornerRadius - 8, topTrailingRadius: 35, style: .continuous)
 
-            CaptureSheet(viewModel: viewModel)
+            CaptureSheet(
+                camera: viewModel.camera,
+                locationService: viewModel.locationService,
+                roll: viewModel.openRoll,
+                onCapture: { await viewModel.logExposure() },
+                onAddPlaceholder: { viewModel.logPlaceholder() }
+            )
             .clipShape(captureSheetRectangle)
             .glassEffectCompat(in: captureSheetRectangle)
             .overlay(alignment: .top) {
