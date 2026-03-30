@@ -142,7 +142,6 @@ struct RollListRow: View {
     }
 }
 
-// TODO: audit
 struct RollListView: View {
     let camera: CameraState
     let viewModel: FilmLogViewModel
