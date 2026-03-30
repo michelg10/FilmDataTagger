@@ -296,27 +296,25 @@ final class FilmLogViewModel {
         let location = settings.locationEnabled ? locationService.currentLocation : nil
         let placeName = locationService.geocodingState.persistablePlaceName
         let cityName = locationService.geocodingState.persistableCityName
-        // If the camera isn't ready yet, capturePhoto returns nil — that's fine,
-        // the exposure still logs timestamp + location. Speed of capture matters more than blocking for a photo.
+        // Grab the latest video frame instantly — no async wait.
+        // If the camera isn't ready yet, captureFrame returns nil — that's fine,
+        // the exposure still logs timestamp + location.
         let maxDimension = settings.photoQuality.maxDimension
         let compressionQuality = settings.photoQuality.compressionQuality
-        let rawPhotoData: Data? = if referencePhotosEnabled {
-            await cameraManager.capturePhoto()
-        } else {
-            nil
-        }
+        let pixelBuffer = referencePhotosEnabled ? cameraManager.captureFrame() : nil
 
-        // Resize + generate thumbnail off-main so the main thread stays responsive.
-        // We await the result so the row appears with its image — no flicker.
-        let (photoData, thumbnailData): (Data?, Data?) = if let rawPhotoData {
+        // All image work off-main: pixel buffer → CGImage → scale → encode + thumbnail.
+        let (photoData, thumbnailData): (Data?, Data?) = if let pixelBuffer {
             await Task.detached(priority: .userInitiated) {
-                let resized: Data? = if let maxDimension {
-                    CameraManager.resized(rawPhotoData, maxDimension: maxDimension, quality: compressionQuality)
+                guard let frame = CameraManager.createImage(from: pixelBuffer) else { return (nil, nil) }
+                let scaled: CGImage = if let maxDimension {
+                    CameraManager.scaled(frame, maxDimension: maxDimension)
                 } else {
-                    rawPhotoData
+                    frame
                 }
-                let thumb = resized.flatMap { CameraManager.generateThumbnail(from: $0) }
-                return (resized, thumb)
+                let photo = CameraManager.encode(scaled, quality: compressionQuality)
+                let thumb = CameraManager.generateThumbnail(from: scaled)
+                return (photo, thumb)
             }.value
         } else {
             (nil, nil)

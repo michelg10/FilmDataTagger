@@ -25,7 +25,7 @@ final class CameraManager: NSObject {
     nonisolated(unsafe) private var frameSkip = 6
     // frameCounter is only accessed from videoOutputQueue (serial) — no lock needed
     nonisolated(unsafe) private var frameCounter = 0
-    nonisolated(unsafe) private var _latestFrame: CGImage?
+    nonisolated(unsafe) private var _latestPixelBuffer: CVPixelBuffer?
     nonisolated(unsafe) private let frameLock = NSLock()
 
     private var stopTimer: Task<Void, Never>?
@@ -77,7 +77,7 @@ final class CameraManager: NSObject {
         stopTimer?.cancel()
         stopTimer = nil
         frameLock.lock()
-        _latestFrame = nil
+        _latestPixelBuffer = nil
         frameLock.unlock()
         sessionQueue.async {
             if self.session.isRunning {
@@ -191,95 +191,100 @@ final class CameraManager: NSObject {
         }
     }
 
-    /// Return the latest buffered video frame as image data, or nil if unavailable.
-    func capturePhoto() async -> Data? {
+    /// Grab the latest pixel buffer (instant — lock + pointer read). Safe to call on main.
+    func captureFrame() -> CVPixelBuffer? {
         guard isRunning else { return nil }
 
         frameLock.lock()
-        let frame = _latestFrame
+        let pb = _latestPixelBuffer
         frameLock.unlock()
-
-        guard let frame else { return nil }
-
-        // Convert CGImage to HEIC data off-main
-        return await Task.detached(priority: .userInitiated) {
-            let data = NSMutableData()
-            if let dest = CGImageDestinationCreateWithData(data, "public.heic" as CFString, 1, nil) {
-                CGImageDestinationAddImage(dest, frame, [kCGImageDestinationLossyCompressionQuality: 0.8] as CFDictionary)
-                if CGImageDestinationFinalize(dest) {
-                    return data as Data
-                }
-            }
-            // Fallback to JPEG
-            debugLog("CameraManager: HEIC encoding failed, falling back to JPEG")
-            return UIImage(cgImage: frame).jpegData(compressionQuality: 0.8)
-        }.value
+        return pb
     }
 
-    nonisolated static func resized(_ data: Data, maxDimension: CGFloat, quality: CGFloat) -> Data? {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                  kCGImageSourceThumbnailMaxPixelSize: maxDimension,
-                  kCGImageSourceCreateThumbnailFromImageAlways: true,
-                  kCGImageSourceCreateThumbnailWithTransform: true,
-              ] as CFDictionary) else {
-            debugLog("CameraManager: resize failed — could not create thumbnail, returning full-size data")
-            return data
-        }
-
-        guard let opaqueImage = stripAlpha(thumbnail) else {
-            debugLog("CameraManager: resize failed — could not strip alpha, returning full-size data")
-            return data
-        }
-
-        let heifData = NSMutableData()
-        guard let dest = CGImageDestinationCreateWithData(heifData, "public.heic" as CFString, 1, nil) else {
-            debugLog("CameraManager: resize failed — could not create HEIC destination, returning full-size data")
-            return data
-        }
-        CGImageDestinationAddImage(dest, opaqueImage, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
-        CGImageDestinationFinalize(dest)
-        return heifData as Data
+    /// Convert a pixel buffer to a CGImage. Call off-main.
+    nonisolated static func createImage(from pixelBuffer: CVPixelBuffer) -> CGImage? {
+        var cgImage: CGImage?
+        VTCreateCGImageFromCVPixelBuffer(pixelBuffer, options: nil, imageOut: &cgImage)
+        return cgImage
     }
 
-    /// Generate a 180×180 square JPEG thumbnail (scale-to-fill + center crop).
-    nonisolated static func generateThumbnail(from data: Data, size: Int = 180) -> Data? {
-        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-              let fullW = properties[kCGImagePropertyPixelWidth] as? Int,
-              let fullH = properties[kCGImagePropertyPixelHeight] as? Int,
-              fullW > 0, fullH > 0 else {
-            debugLog("CameraManager: generateThumbnail failed — could not read image source or properties")
+    /// Scale a CGImage so its longest edge fits within maxDimension.
+    nonisolated static func scaled(_ image: CGImage, maxDimension: CGFloat) -> CGImage {
+        let w = image.width, h = image.height
+        guard CGFloat(max(w, h)) > maxDimension else { return image }
+
+        let scale = maxDimension / CGFloat(max(w, h))
+        let newW = Int(CGFloat(w) * scale)
+        let newH = Int(CGFloat(h) * scale)
+
+        guard let ctx = CGContext(
+            data: nil, width: newW, height: newH,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
+        ) else { return image }
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: newW, height: newH))
+        return ctx.makeImage() ?? image
+    }
+
+    /// Encode a CGImage to HEIC data (JPEG fallback).
+    nonisolated static func encode(_ image: CGImage, quality: CGFloat) -> Data? {
+        guard let opaque = stripAlpha(image) else {
+            debugLog("CameraManager: encode — stripAlpha failed")
             return nil
         }
+        let data = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(data, "public.heic" as CFString, 1, nil) else {
+            debugLog("CameraManager: encode — HEIC destination failed, falling back to JPEG")
+            return UIImage(cgImage: opaque).jpegData(compressionQuality: quality)
+        }
+        CGImageDestinationAddImage(dest, opaque, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+        guard CGImageDestinationFinalize(dest) else {
+            debugLog("CameraManager: encode — HEIC finalize failed, falling back to JPEG")
+            return UIImage(cgImage: opaque).jpegData(compressionQuality: quality)
+        }
+        return data as Data
+    }
 
-        // Decode so the short edge == size (scale-to-fill)
-        let shortEdge = min(fullW, fullH)
-        let longEdge = max(fullW, fullH)
-        let maxPixelSize = Int(ceil(Double(longEdge) * Double(size) / Double(shortEdge)))
+    /// Generate a 180×180 square JPEG thumbnail from a CGImage (scale-to-fill + center crop).
+    nonisolated static func generateThumbnail(from image: CGImage, size: Int = 180) -> Data? {
+        let w = image.width, h = image.height
+        guard w > 0, h > 0 else { return nil }
 
-        guard let decoded = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                  kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
-                  kCGImageSourceCreateThumbnailFromImageAlways: true,
-                  kCGImageSourceCreateThumbnailWithTransform: true,
-              ] as CFDictionary) else {
-            debugLog("CameraManager: generateThumbnail failed — could not decode thumbnail at index")
+        // Scale so the short edge == size
+        let shortEdge = min(w, h)
+        let scale = CGFloat(size) / CGFloat(shortEdge)
+        let scaledW = Int(ceil(CGFloat(w) * scale))
+        let scaledH = Int(ceil(CGFloat(h) * scale))
+
+        guard let ctx = CGContext(
+            data: nil, width: scaledW, height: scaledH,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
+        ) else {
+            debugLog("CameraManager: generateThumbnail — scale context failed")
+            return nil
+        }
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: scaledW, height: scaledH))
+        guard let scaled = ctx.makeImage() else {
+            debugLog("CameraManager: generateThumbnail — makeImage failed")
             return nil
         }
 
         // Center crop to square
-        let w = decoded.width, h = decoded.height
-        let cropRect = if w > h {
-            CGRect(x: (w - h) / 2, y: 0, width: h, height: h)
+        let cropRect = if scaledW > scaledH {
+            CGRect(x: (scaledW - scaledH) / 2, y: 0, width: scaledH, height: scaledH)
         } else {
-            CGRect(x: 0, y: (h - w) / 2, width: w, height: w)
+            CGRect(x: 0, y: (scaledH - scaledW) / 2, width: scaledW, height: scaledW)
         }
-        guard let cropped = decoded.cropping(to: cropRect),
-              let opaque = stripAlpha(cropped) else {
-            debugLog("CameraManager: generateThumbnail failed — crop or strip alpha failed")
+        guard let cropped = scaled.cropping(to: cropRect) else {
+            debugLog("CameraManager: generateThumbnail — crop failed")
             return nil
         }
-        return UIImage(cgImage: opaque).jpegData(compressionQuality: 0.7)
+        return UIImage(cgImage: cropped).jpegData(compressionQuality: 0.7)
     }
 
     /// Re-draw a CGImage without alpha channel.
@@ -307,12 +312,9 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         guard frameCounter % frameSkip == 0 else { return }
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        var cgImage: CGImage?
-        VTCreateCGImageFromCVPixelBuffer(pixelBuffer, options: nil, imageOut: &cgImage)
-        guard let cgImage else { return }
 
         frameLock.lock()
-        _latestFrame = cgImage
+        _latestPixelBuffer = pixelBuffer
         frameLock.unlock()
     }
 }
