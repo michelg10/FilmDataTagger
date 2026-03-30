@@ -152,6 +152,8 @@ actor DataStore: ModelActor {
         item.exposureSource = source
         item.photoData = photoData
         item.thumbnailData = thumbnailData
+        item.cachedHasPhoto = photoData != nil
+        item.cachedHasThumbnail = thumbnailData != nil
         if let location {
             item.setLocation(location)
             item.placeName = placeName
@@ -789,6 +791,27 @@ actor DataStore: ModelActor {
             let existingRollIDs = Set(allRolls.map(\.id))
             await ImageCache.shared.bookkeeper.purgeStaleEntries(existingRollIDs: existingRollIDs)
 
+            // --- 3. Recompute media flags ---
+
+            let allItems = (try? context.fetch(FetchDescriptor<LogItem>())) ?? []
+            var mediaFlagsChanged = false
+            for item in allItems {
+                let hasPhoto = item.photoData != nil
+                let hasThumbnail = item.thumbnailData != nil
+                if item.cachedHasPhoto != hasPhoto {
+                    item.cachedHasPhoto = hasPhoto
+                    mediaFlagsChanged = true
+                }
+                if item.cachedHasThumbnail != hasThumbnail {
+                    item.cachedHasThumbnail = hasThumbnail
+                    mediaFlagsChanged = true
+                }
+            }
+            if mediaFlagsChanged {
+                debugLog("Media flags recompute: corrected \(allItems.count) item(s)")
+                try? context.save()
+            }
+
             // --- Done ---
 
             defaults.set(Date(), forKey: AppSettingsKeys.lastDataCleanDate)
@@ -929,7 +952,7 @@ actor DataStore: ModelActor {
     private func fetchLogItemIDs(forRoll rollID: UUID, withThumbnailsOnly: Bool = false) -> [UUID] {
         let descriptor = FetchDescriptor<LogItem>(
             predicate: #Predicate<LogItem> {
-                $0.roll?.id == rollID && (!withThumbnailsOnly || $0.thumbnailData != nil)
+                $0.roll?.id == rollID && (!withThumbnailsOnly || $0.cachedHasThumbnail)
             }
         )
         return ((try? modelContext.fetch(descriptor)) ?? []).map(\.id)

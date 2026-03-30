@@ -72,6 +72,12 @@ final class LogItem {
     /// How this exposure was created (raw storage for ExposureSource enum)
     var source: String?
 
+    /// Cached flag: whether photoData is non-nil (avoids faulting external storage on snapshot)
+    var cachedHasPhoto: Bool = false
+
+    /// Cached flag: whether thumbnailData is non-nil (avoids faulting inline blob on snapshot)
+    var cachedHasThumbnail: Bool = false
+
     /// Typed accessor for `source`
     @Transient var exposureSource: ExposureSource {
         get { source.map(ExposureSource.init) ?? .app }
@@ -148,8 +154,8 @@ final class LogItem {
             timeZoneIdentifier: timeZoneIdentifier,
             isPlaceholder: isPlaceholder,
             source: source,
-            hasThumbnail: thumbnailData != nil,
-            hasPhoto: photoData != nil,
+            hasThumbnail: cachedHasThumbnail,
+            hasPhoto: cachedHasPhoto,
             formattedTime: createdAt.formatted(capTimeFmt),
             formattedDate: createdAt.formatted(capDateFmt),
             localFormattedTime: createdAt.formatted(.dateTime.hour().minute()),
