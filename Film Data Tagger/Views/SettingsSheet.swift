@@ -425,7 +425,6 @@ private struct ExportPage: View {
     }
 }
 
-// TODO: audit
 private struct AboutPage: View {
     let cameras: [CameraState]
     @State private var showBuildNumber = false

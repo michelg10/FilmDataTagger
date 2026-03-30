@@ -229,7 +229,6 @@ private struct CameraEndDropDelegate: DropDelegate {
     }
 }
 
-// TODO: audit
 struct CameraListView: View {
     let viewModel: FilmLogViewModel
     @State private var editingEntry: (any CameraListEntry)?
