@@ -116,6 +116,8 @@ final class LocationService {
             geocodeTask = nil
             locationManager.stopUpdating()
             lastGeocodedLocation = nil
+            fallbackPlaceName = nil
+            fallbackID = nil
             geocodingState = .notAuthorized
         default:
             break
@@ -139,6 +141,8 @@ final class LocationService {
             locationManager.stopUpdating()
             geocodingState = .disabled
             lastGeocodedLocation = nil
+            fallbackPlaceName = nil
+            fallbackID = nil
         }
     }
 

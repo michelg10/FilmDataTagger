@@ -9,7 +9,7 @@ import UIKit
 import os
 
 /// Toggle to true to log timing + thread info for all cache operations.
-private let profileCache = true
+private let profileCache = false
 
 private func cacheLog(_ message: @autoclosure () -> String) {
     guard profileCache else { return }
