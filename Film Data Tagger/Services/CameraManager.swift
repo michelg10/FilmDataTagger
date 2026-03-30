@@ -16,6 +16,12 @@ enum CameraStatus: Sendable {
     case unavailable
 }
 
+/// Raw capture data from the fast path — CGImages only, no encoding.
+struct CaptureRawData: Sendable {
+    let fullImage: CGImage
+    let thumbnailImage: CGImage
+}
+
 final class CameraManager: NSObject, @unchecked Sendable {
     let session = AVCaptureSession()
     private let videoOutput = AVCaptureVideoDataOutput()
@@ -182,44 +188,37 @@ final class CameraManager: NSObject, @unchecked Sendable {
         return data as Data
     }
 
-    /// Generate a 180×180 square JPEG thumbnail from a CGImage (scale-to-fill + center crop).
-    static func generateThumbnail(from image: CGImage, size: Int = 180) -> Data? {
+    /// Generate a 180×180 square CGImage thumbnail (single-pass scale+crop, no encoding).
+    static func generateThumbnail(from image: CGImage, size: Int = 180) -> CGImage? {
         let w = image.width, h = image.height
         guard w > 0, h > 0 else { return nil }
 
-        // Scale so the short edge == size
+        // Draw directly into a size×size context — scale-to-fill with centered offset.
+        // Single draw, no intermediate CGImage.
         let shortEdge = min(w, h)
         let scale = CGFloat(size) / CGFloat(shortEdge)
-        let scaledW = Int(ceil(CGFloat(w) * scale))
-        let scaledH = Int(ceil(CGFloat(h) * scale))
+        let scaledW = CGFloat(w) * scale
+        let scaledH = CGFloat(h) * scale
+        let offsetX = (CGFloat(size) - scaledW) / 2
+        let offsetY = (CGFloat(size) - scaledH) / 2
 
         guard let ctx = CGContext(
-            data: nil, width: scaledW, height: scaledH,
+            data: nil, width: size, height: size,
             bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
         ) else {
-            debugLog("CameraManager: generateThumbnail — scale context failed")
+            debugLog("CameraManager: generateThumbnail — context failed")
             return nil
         }
-        ctx.interpolationQuality = .high
-        ctx.draw(image, in: CGRect(x: 0, y: 0, width: scaledW, height: scaledH))
-        guard let scaled = ctx.makeImage() else {
-            debugLog("CameraManager: generateThumbnail — makeImage failed")
-            return nil
-        }
+        ctx.interpolationQuality = .medium
+        ctx.draw(image, in: CGRect(x: offsetX, y: offsetY, width: scaledW, height: scaledH))
+        return ctx.makeImage()
+    }
 
-        // Center crop to square
-        let cropRect = if scaledW > scaledH {
-            CGRect(x: (scaledW - scaledH) / 2, y: 0, width: scaledH, height: scaledH)
-        } else {
-            CGRect(x: 0, y: (scaledH - scaledW) / 2, width: scaledW, height: scaledW)
-        }
-        guard let cropped = scaled.cropping(to: cropRect) else {
-            debugLog("CameraManager: generateThumbnail — crop failed")
-            return nil
-        }
-        return UIImage(cgImage: cropped).jpegData(compressionQuality: 0.7)
+    /// JPEG-encode an already-generated thumbnail CGImage for persistence.
+    static func formatThumbnailForPersist(_ thumbnail: CGImage) -> Data? {
+        UIImage(cgImage: thumbnail).jpegData(compressionQuality: 0.7)
     }
 
     // MARK: - Private

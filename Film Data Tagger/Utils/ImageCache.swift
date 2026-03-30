@@ -9,7 +9,7 @@ import UIKit
 import os
 
 /// Toggle to true to log timing + thread info for all cache operations.
-private let profileCache = false
+private let profileCache = true
 
 private func cacheLog(_ message: @autoclosure () -> String) {
     guard profileCache else { return }
@@ -194,12 +194,16 @@ private final class CachedImage: @unchecked Sendable {
 ///
 /// L1: in-memory NSCache (iOS handles eviction via memory pressure).
 /// L2: disk BGRA — raw pixels, zero-decode load. For priority thumbnails.
-/// L3: disk JPEG — smaller footprint, needs decode. For everything else.
+/// L3: disk JPEG — durable baseline, always present. Needs decode on load.
 ///
-/// New thumbnails always enter as BGRA. On app launch, the DataStore provides
+/// On app launch, the DataStore provides
 /// relationship data (cameras, rolls) and the bookkeeper decides which rolls
 /// to warm. The DataStore then fetches item IDs only for those rolls and passes
-/// them to `warmOnLaunch(priorityIDs:)`. Non-priority BGRA files are demoted to JPEG.
+/// them to `warmOnLaunch(priorityIDs:)`. 
+/// 
+/// JPEG is the durable tier — once written, it is never deleted (except on explicit evict).
+/// BGRA is an acceleration layer added on top for priority thumbnails and removed
+/// on launch for non-priority items. This means at least one disk tier is always present.
 ///
 /// Thread safety: NSCache is thread-safe. Disk I/O is idempotent per thumbnail.
 /// Roll access tracking is fire-and-forget to the CacheBookkeeper actor.
@@ -288,6 +292,38 @@ final class ImageCache: @unchecked Sendable {
         evictionTracker.register(itemID: itemID, rollID: rollID)
     }
 
+    // MARK: - Fast-path write (synchronous, memory only)
+
+    /// Cache a CGImage thumbnail directly in L1 memory. No disk I/O, no encoding.
+    /// Caller promises to follow up with `persistThumbnails` for durable storage.
+    func cacheInMemory(for id: UUID, image: CGImage, rollID: UUID? = nil) {
+        let start = CFAbsoluteTimeGetCurrent()
+        let uiImage = UIImage(cgImage: image)
+        memorySet(id, image: uiImage, rollID: rollID)
+        cacheLog("cacheInMemory(\(id)): \(image.width)×\(image.height) — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
+    }
+
+    /// Persist thumbnail CGImage to disk (BGRA + JPEG) for one or more item UUIDs.
+    /// Encodes JPEG once, writes per-UUID. Call from background after the hot loop.
+    @concurrent func persistThumbnails(for ids: [UUID], image: CGImage) async {
+        let start = CFAbsoluteTimeGetCurrent()
+        let uiImage = UIImage(cgImage: image)
+        guard let jpegData = uiImage.jpegData(compressionQuality: 0.8) else {
+            debugLog("persistThumbnails: JPEG encode failed")
+            return
+        }
+        cacheLog("persistThumbnails: JPEG encoded \(jpegData.count / 1024)KB — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
+        for id in ids {
+            saveBGRA(id: id, image: uiImage)
+            do {
+                try jpegData.write(to: jpegPath(for: id), options: .atomic)
+            } catch {
+                debugLog("persistThumbnails: JPEG write failed for \(id): \(error)")
+            }
+        }
+        cacheLog("persistThumbnails: \(ids.count) items total — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
+    }
+
     // MARK: - Write (callable from any thread — NSCache is thread-safe, disk writes are idempotent)
 
     /// Decode + cache a thumbnail. Promotes JPEG→BGRA if the item was previously demoted.
@@ -311,10 +347,11 @@ final class ImageCache: @unchecked Sendable {
             cacheLog("preload(\(id)): JPEG hit+promote — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
             return
         }
-        // Full miss — decode from source data
+        // Full miss — decode from source data, save both tiers
         guard let image = UIImage(data: data) else { return }
         memorySet(id, image: image, rollID: rollID)
         saveBGRA(id: id, image: image)
+        saveJPEG(id: id, image: image)
         cacheLog("preload(\(id)): full decode+save — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
     }
 
@@ -341,6 +378,7 @@ final class ImageCache: @unchecked Sendable {
         guard let image = UIImage(data: data) else { return nil }
         memorySet(id, image: image)
         saveBGRA(id: id, image: image)
+        saveJPEG(id: id, image: image)
         cacheLog("decodeAndCache(\(id)): full decode+save — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
         return image
     }
@@ -385,25 +423,19 @@ final class ImageCache: @unchecked Sendable {
         }
         cacheLog("warmOnLaunch: warmed \(count)/\(priorityIDs.count) items (bgra:\(bgraHits) jpeg:\(jpegHits) miss:\(misses)) — \(String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - warmStart) * 1000))ms")
 
-        // Demote non-priority BGRA files to JPEG
+        // Demote non-priority BGRA files — just delete, JPEG is always present
         let demoteStart = CFAbsoluteTimeGetCurrent()
         var demoted = 0
         if let files = try? FileManager.default.contentsOfDirectory(at: bgraURL, includingPropertiesForKeys: nil) {
-            count = 0
             for file in files {
                 guard let id = UUID(uuidString: file.lastPathComponent),
                       !priorityIDs.contains(id) else { continue }
-                if let image = loadBGRA(url: file) {
-                    if saveJPEG(id: id, image: image) {
-                        try? FileManager.default.removeItem(at: file)
-                        demoted += 1
-                    }
-                }
-                count += 1
-                if count % 10 == 0 { await Task.yield() }
+                try? FileManager.default.removeItem(at: file)
+                demoted += 1
+                if demoted % 10 == 0 { await Task.yield() }
             }
         }
-        cacheLog("warmOnLaunch: demoted \(demoted) BGRA→JPEG — \(String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - demoteStart) * 1000))ms")
+        cacheLog("warmOnLaunch: demoted \(demoted) BGRA — \(String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - demoteStart) * 1000))ms")
     }
 
     // MARK: - Disk — BGRA (raw pixels, zero decode)
@@ -483,15 +515,13 @@ final class ImageCache: @unchecked Sendable {
         fileData.append(Data(bytes: data, count: width * height * 4))
         do {
             try fileData.write(to: bgraPath(for: id), options: .atomic)
-            // Only remove JPEG after BGRA write confirmed
-            try? FileManager.default.removeItem(at: jpegPath(for: id))
             cacheLog("saveBGRA(\(id)): \(width)×\(height) \(fileData.count / 1024)KB — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
         } catch {
             debugLog("saveBGRA(\(id)): write failed: \(error)")
         }
     }
 
-    // MARK: - Disk — JPEG (compact fallback, needs decode)
+    // MARK: - Disk — JPEG (durable baseline, needs decode)
 
     private func jpegPath(for id: UUID) -> URL {
         jpegURL.appendingPathComponent(id.uuidString)

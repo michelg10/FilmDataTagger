@@ -291,21 +291,16 @@ final class FilmLogViewModel {
         let compressionQuality = settings.photoQuality.compressionQuality
         let pixelBuffer = camera.captureFrame()
 
-        // All image work off-main: pixel buffer → CGImage → scale → encode + thumbnail.
-        let (photoData, thumbnailData): (Data?, Data?) = if let pixelBuffer {
+        // Phase 1 — Fast capture: pixel buffer → CGImage → thumbnail CGImage.
+        // No encoding — just a VT call and a small scale+crop.
+        let rawData: CaptureRawData? = if let pixelBuffer {
             await Task.detached(priority: .userInitiated) {
-                guard let frame = CameraManager.createImage(from: pixelBuffer) else { return (nil, nil) }
-                let scaled: CGImage = if let maxDimension {
-                    CameraManager.scaled(frame, maxDimension: maxDimension)
-                } else {
-                    frame
-                }
-                let photo = CameraManager.encode(scaled, quality: compressionQuality)
-                let thumb = CameraManager.generateThumbnail(from: scaled)
-                return (photo, thumb)
+                guard let frame = CameraManager.createImage(from: pixelBuffer) else { return nil as CaptureRawData? }
+                guard let thumb = CameraManager.generateThumbnail(from: frame) else { return nil as CaptureRawData? }
+                return CaptureRawData(fullImage: frame, thumbnailImage: thumb)
             }.value
         } else {
-            (nil, nil)
+            nil
         }
 
         // Drain the counter — any taps during the await are included
@@ -319,6 +314,10 @@ final class FilmLogViewModel {
             targetRoll = targetRoll.flatMap { roll($0.id) }
             targetCamera = targetCamera.flatMap { camera($0.id) }
         }
+
+        // Phase 2 — Hot loop: cache thumbnails in memory, build snapshots, append to roll.
+        var capturedIDs: [UUID] = []
+        var capturedDates: [Date] = []
 
         for _ in 0..<count {
             guard let targetRoll else {
@@ -340,6 +339,12 @@ final class FilmLogViewModel {
             let id = UUID()
             let createdAt = Date()
 
+            // Cache thumbnail in memory BEFORE appending snapshot
+            // so the view's .task(id:) hits L1 immediately when the row appears
+            if let thumb = rawData?.thumbnailImage {
+                ImageCache.shared.cacheInMemory(for: id, image: thumb)
+            }
+
             // Build snapshot optimistically
             let snapshot = LogItemSnapshot(
                 id: id,
@@ -353,8 +358,8 @@ final class FilmLogViewModel {
                 timeZoneIdentifier: TimeZone.current.identifier,
                 isPlaceholder: false,
                 source: ExposureSource.app.rawValue,
-                hasThumbnail: thumbnailData != nil,
-                hasPhoto: photoData != nil,
+                hasThumbnail: rawData?.thumbnailImage != nil,
+                hasPhoto: rawData != nil,
                 formattedTime: createdAt.formatted(.dateTime.hour().minute()),
                 formattedDate: createdAt.formatted(.dateTime.month().day().year()),
                 localFormattedTime: createdAt.formatted(.dateTime.hour().minute()),
@@ -377,26 +382,48 @@ final class FilmLogViewModel {
                 camera.snapshot.lastUsedDate = createdAt
             }
 
-            // Pre-cache thumbnail so the row displays without decoding
-            if let thumbnailData {
-                await ImageCache.shared.preload(for: id, data: thumbnailData)
-            }
-
             // Cache location for Shortcuts
             if let location {
                 AppSettings.shared.cacheShortcutLocation(location)
             }
 
-            // Fire-and-forget persistence
-            Task.detached(priority: .userInitiated) { [store] in
+            capturedIDs.append(id)
+            capturedDates.append(createdAt)
+        }
+        persistOpenState()
+
+        // Phase 3 — Deferred: HEIC encode, persist, disk-cache thumbnails.
+        // All encoding and I/O happens here, off the critical path.
+        guard !capturedIDs.isEmpty, let targetRoll else { return }
+        let rollID = targetRoll.id
+        Task.detached(priority: .userInitiated) { [store] in
+            // Encode once — shared across all items
+            var photoData: Data? = nil
+            var thumbnailData: Data? = nil
+            if let rawData {
+                let scaled: CGImage = if let maxDimension {
+                    CameraManager.scaled(rawData.fullImage, maxDimension: maxDimension)
+                } else {
+                    rawData.fullImage
+                }
+                photoData = CameraManager.encode(scaled, quality: compressionQuality)
+                thumbnailData = CameraManager.formatThumbnailForPersist(rawData.thumbnailImage)
+            }
+
+            // Persist each item
+            for (id, createdAt) in zip(capturedIDs, capturedDates) {
                 await store.logExposure(
-                    id: id, rollID: targetRoll.id, createdAt: createdAt,
+                    id: id, rollID: rollID, createdAt: createdAt,
                     source: .app, photoData: photoData, thumbnailData: thumbnailData,
                     location: location, placeName: placeName, cityName: cityName
                 )
             }
+
+            // Disk-cache thumbnails (BGRA, encoding once, saving per-UUID)
+            if let rawData {
+                await ImageCache.shared.persistThumbnails(for: capturedIDs, image: rawData.thumbnailImage)
+            }
         }
-        persistOpenState()
     }
 
     func logPlaceholder() {
