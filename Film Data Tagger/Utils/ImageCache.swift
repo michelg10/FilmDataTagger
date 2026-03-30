@@ -91,7 +91,6 @@ actor CacheBookkeeper {
     }
 
     private func scheduleSave() {
-        guard !isDirty else { return }
         isDirty = true
         saveTask?.cancel()
         saveTask = Task(priority: .background) {
