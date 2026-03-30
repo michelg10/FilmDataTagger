@@ -35,7 +35,7 @@ actor CacheBookkeeper {
     private var saveTask: Task<Void, Never>?
 
     private static let priorityCameraCount = 8
-    private static let lruRollBudget = 32
+    private static let lruRollBudget = 64
 
     private static let file: URL = {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -89,7 +89,7 @@ actor CacheBookkeeper {
             result.insert(activeRollID)
         }
 
-        // 2. LRU: rolls by recency, up to 32 rolls total
+        // 2. LRU: rolls by recency, up to 64 rolls total
         let rollsByAccess = rollAccessDates.sorted { $0.value > $1.value }
         for (rollID, _) in rollsByAccess {
             result.insert(rollID)
@@ -277,7 +277,7 @@ final class ImageCache: @unchecked Sendable {
                 misses += 1
             }
             count += 1
-            if count % 50 == 0 { await Task.yield() }
+            if count % 10 == 0 { await Task.yield() }
         }
         cacheLog("warmOnLaunch: warmed \(count)/\(priorityIDs.count) items (bgra:\(bgraHits) jpeg:\(jpegHits) miss:\(misses)) — \(String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - warmStart) * 1000))ms")
 
@@ -296,7 +296,7 @@ final class ImageCache: @unchecked Sendable {
                     }
                 }
                 count += 1
-                if count % 50 == 0 { await Task.yield() }
+                if count % 10 == 0 { await Task.yield() }
             }
         }
         cacheLog("warmOnLaunch: demoted \(demoted) BGRA→JPEG — \(String(format: "%.0f", (CFAbsoluteTimeGetCurrent() - demoteStart) * 1000))ms")
