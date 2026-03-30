@@ -73,6 +73,16 @@ final class LocationService {
         geocodingState.persistablePlaceName ?? fallbackPlaceName
     }
 
+    /// Display-ready location text for the UI.
+    var displayLocationText: String {
+        displayPlaceName ?? geocodingState.displayText
+    }
+
+    /// Display-ready location subtext (coordinates or status).
+    var displayLocationSubtext: String {
+        geocodingState.displaySubtext
+    }
+
     deinit {
         geocodeTask?.cancel()
     }

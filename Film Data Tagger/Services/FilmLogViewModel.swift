@@ -48,14 +48,6 @@ final class FilmLogViewModel {
         cameras.flatMap(\.rolls).first(where: { $0.id == id })
     }
 
-    // MARK: - Location (proxied from LocationService)
-
-    var geocodingState: GeocodingState { locationService.geocodingState }
-    /// Display-friendly location text that avoids flashing "Locating..." during re-geocoding.
-    var displayLocationText: String {
-        locationService.displayPlaceName ?? geocodingState.displayText
-    }
-
     init(store: DataStore) {
         self.store = store
 

@@ -352,8 +352,8 @@ struct CaptureSheet: View {
                         viewModel: viewModel,
                         lastCaptureDate: lastCaptureDate,
                         referencePhotoSize: Self.referencePhotoSize,
-                        locationText: viewModel.displayLocationText,
-                        locationSubtext: viewModel.geocodingState.displaySubtext
+                        locationText: viewModel.locationService.displayLocationText,
+                        locationSubtext: viewModel.locationService.displayLocationSubtext
                     ).padding(.top, 10)
                     .opacity(showsFullContent ? 1 : 0)
                     .offset(y: showsFullContent ? 0 : -10)
@@ -363,7 +363,7 @@ struct CaptureSheet: View {
                         referencePhotosEnabled: viewModel.camera.referencePhotosEnabled,
                         cameraUnavailable: viewModel.camera.unavailable,
                         permissionDenied: viewModel.camera.permissionDenied,
-                        locationText: viewModel.displayLocationText,
+                        locationText: viewModel.locationService.displayLocationText,
                         lastCaptureDate: lastCaptureDate,
                         onEyeTapped: {
                             if viewModel.camera.unavailable {
