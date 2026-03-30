@@ -840,6 +840,12 @@ actor DataStore: ModelActor {
     }
 
 
+    /// Fetch thumbnail data from SwiftData for a single item.
+    /// Used as a cache-miss recovery path when the disk cache has been purged.
+    func fetchThumbnailData(for id: UUID) -> Data? {
+        fetchLogItem(id)?.thumbnailData
+    }
+
     #if DEBUG
     private func assertOffMain(caller: String = #function) {
         if Thread.isMainThread {

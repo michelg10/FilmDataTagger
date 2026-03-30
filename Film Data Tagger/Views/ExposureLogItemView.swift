@@ -36,13 +36,23 @@ struct ExposureLogItemView: View {
                 decodedImage = cached
                 return
             }
-            // Slow path: check disk cache (BGRA then JPEG)
+            // Disk cache (BGRA then JPEG)
             let id = item.id
             let image = await Task.detached(priority: .userInteractive) {
                 await ImageCache.shared.loadFromDiskAndCache(for: id)
             }.value
-            if !Task.isCancelled {
+            if !Task.isCancelled, let image {
                 decodedImage = image
+                return
+            }
+            // Cache miss — recover from SwiftData (disk cache may have been purged by iOS)
+            guard !Task.isCancelled else { return }
+            let recovered = await Task.detached(priority: .userInitiated) {
+                guard let data = await SharedDataStore.shared.fetchThumbnailData(for: id) else { return nil as UIImage? }
+                return await ImageCache.shared.decodeAndCache(for: id, data: data)
+            }.value
+            if !Task.isCancelled {
+                decodedImage = recovered
             }
         }
     }
