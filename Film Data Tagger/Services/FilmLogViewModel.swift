@@ -15,12 +15,8 @@ import Combine
 final class FilmLogViewModel {
     let store: DataStore
     private let settings = AppSettings.shared
-    let cameraManager = CameraManager()
+    let camera = CameraController()
     let locationService = LocationService()
-
-    var referencePhotosEnabled: Bool {
-        didSet { settings.referencePhotosEnabled = referencePhotosEnabled }
-    }
 
     // MARK: - In-memory data tree
 
@@ -62,7 +58,6 @@ final class FilmLogViewModel {
 
     init(store: DataStore) {
         self.store = store
-        self.referencePhotosEnabled = AppSettings.shared.referencePhotosEnabled
 
         // Sync restore from disk — sets openCamera/openRoll before ContentView.init reads them
         restoreOpenStateFromDisk()
@@ -76,11 +71,7 @@ final class FilmLogViewModel {
     // MARK: - Setup
 
     func setup() {
-        switch settings.referencePhotoStartup {
-        case .preserveLast: break
-        case .on: referencePhotosEnabled = true
-        case .off: referencePhotosEnabled = false
-        }
+        camera.setup()
         locationService.setup()
 
         // Full async load — replaces the minimal persisted state with the real tree
@@ -301,7 +292,7 @@ final class FilmLogViewModel {
         // the exposure still logs timestamp + location.
         let maxDimension = settings.photoQuality.maxDimension
         let compressionQuality = settings.photoQuality.compressionQuality
-        let pixelBuffer = referencePhotosEnabled ? cameraManager.captureFrame() : nil
+        let pixelBuffer = camera.captureFrame()
 
         // All image work off-main: pixel buffer → CGImage → scale → encode + thumbnail.
         let (photoData, thumbnailData): (Data?, Data?) = if let pixelBuffer {
@@ -611,43 +602,6 @@ final class FilmLogViewModel {
 
     func exportCSV() async -> URL? {
         await store.exportCSV()
-    }
-
-    // MARK: - Camera session
-    /// Start the camera session if reference photos are enabled. Call on exposure screen appear.
-    func ensureCameraRunning() {
-        guard referencePhotosEnabled else { return }
-        Task(priority: .userInitiated) {
-            let granted = await cameraManager.requestPermission()
-            if granted {
-                cameraManager.start()
-            } else {
-                referencePhotosEnabled = false
-            }
-        }
-    }
-
-    /// Schedule camera stop after a delay. Call on exposure screen disappear.
-    func scheduleCameraStop() {
-        cameraManager.scheduleStop()
-    }
-
-    func toggleReferencePhotos() {
-        if !referencePhotosEnabled {
-            // Turning on — check permission first
-            Task(priority: .userInitiated) {
-                let granted = await cameraManager.requestPermission()
-                if granted {
-                    referencePhotosEnabled = true
-                    cameraManager.start()
-                }
-                // If denied, iOS won't re-prompt — user must go to Settings.
-                // permissionDenied is set on CameraManager for the UI to react to.
-            }
-        } else {
-            referencePhotosEnabled = false
-            cameraManager.stop()
-        }
     }
 
     // MARK: - Roll Management (optimistic + DataStore)

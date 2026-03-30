@@ -10,72 +10,55 @@ import UIKit
 import ImageIO
 import VideoToolbox
 
-@Observable @MainActor
-final class CameraManager: NSObject {
-    // nonisolated so the session and output can be used from sessionQueue
-    nonisolated(unsafe) let session = AVCaptureSession()
-    nonisolated(unsafe) private let videoOutput = AVCaptureVideoDataOutput()
+enum CameraStatus: Sendable {
+    case running
+    case stopped
+    case unavailable
+}
+
+final class CameraManager: NSObject, @unchecked Sendable {
+    let session = AVCaptureSession()
+    private let videoOutput = AVCaptureVideoDataOutput()
     private let sessionQueue = DispatchQueue(label: "camera.session")
     private let videoOutputQueue = DispatchQueue(label: "camera.videoOutput", qos: .userInitiated)
     // Only accessed from sessionQueue — serial queue provides synchronization.
-    nonisolated(unsafe) private var isConfigured = false
+    private var isConfigured = false
 
     // Frame capture — skip interval computed dynamically from device frame rate
-    nonisolated private static let targetCapturesPerSecond = 5
-    nonisolated(unsafe) private var frameSkip = 6
+    private static let targetCapturesPerSecond = 5
+    private var frameSkip = 6
     // frameCounter is only accessed from videoOutputQueue (serial) — no lock needed
-    nonisolated(unsafe) private var frameCounter = 0
-    nonisolated(unsafe) private var _latestPixelBuffer: CVPixelBuffer?
-    nonisolated(unsafe) private let frameLock = NSLock()
+    private var frameCounter = 0
+    private var _latestPixelBuffer: CVPixelBuffer?
+    private let frameLock = NSLock()
 
-    private var stopTimer: Task<Void, Never>?
-    private var _previewView: CameraPreviewUIView?
-
-    /// Persistent preview view. Created once, reused across navigation.
-    var previewView: CameraPreviewUIView {
-        if let existing = _previewView { return existing }
-        let view = CameraPreviewUIView()
-        view.previewLayer.session = session
-        view.previewLayer.videoGravity = .resizeAspectFill
-        _previewView = view
-        return view
+    static func requestPermission() async -> Bool {
+        await AVCaptureDevice.requestAccess(for: .video)
     }
 
-    var isRunning = false
-    var permissionDenied = false
-    var cameraUnavailable = false
-
-    /// Request camera permission. Returns true if granted, false if denied.
-    @discardableResult
-    func requestPermission() async -> Bool {
-        let granted = await AVCaptureDevice.requestAccess(for: .video)
-        permissionDenied = !granted
-        return granted
-    }
-
-    func start() {
-        stopTimer?.cancel()
-        stopTimer = nil
-        let camera = AppSettings.shared.preferredCamera
-        let deviceType = camera.deviceType
-        let position = camera.position
-        let preset = AppSettings.shared.photoQuality.sessionPreset
-        sessionQueue.async {
-            if !self.isConfigured {
-                self.isConfigured = true
-                self.configureSession(deviceType: deviceType, position: position, preset: preset)
+    func start(
+        deviceType: AVCaptureDevice.DeviceType,
+        position: AVCaptureDevice.Position,
+        preset: AVCaptureSession.Preset
+    ) async -> CameraStatus {
+        await withCheckedContinuation { continuation in
+            sessionQueue.async {
+                if !self.isConfigured {
+                    self.isConfigured = true
+                    if !self.configureSession(deviceType: deviceType, position: position, preset: preset) {
+                        continuation.resume(returning: .unavailable)
+                        return
+                    }
+                }
+                if !self.session.isRunning {
+                    self.session.startRunning()
+                }
+                continuation.resume(returning: self.session.isRunning ? .running : .stopped)
             }
-            if !self.session.isRunning {
-                self.session.startRunning()
-            }
-            let running = self.session.isRunning
-            Task { @MainActor in self.isRunning = running }
         }
     }
 
     func stop() {
-        stopTimer?.cancel()
-        stopTimer = nil
         frameLock.lock()
         _latestPixelBuffer = nil
         frameLock.unlock()
@@ -83,82 +66,14 @@ final class CameraManager: NSObject {
             if self.session.isRunning {
                 self.session.stopRunning()
             }
-            Task { @MainActor in self.isRunning = false }
         }
     }
 
-    /// Schedule a stop after a delay. Cancelled if `start()` or `stop()` is called first.
-    func scheduleStop(after seconds: TimeInterval = 30) {
-        stopTimer?.cancel()
-        stopTimer = Task(priority: .utility) {
-            try? await Task.sleep(for: .seconds(seconds))
-            guard !Task.isCancelled else { return }
-            stop()
-        }
-    }
-
-    private nonisolated func configureSession(
+    func reconfigure(
         deviceType: AVCaptureDevice.DeviceType,
         position: AVCaptureDevice.Position,
         preset: AVCaptureSession.Preset
     ) {
-        session.beginConfiguration()
-        session.sessionPreset = preset
-
-        let device: AVCaptureDevice? =
-            AVCaptureDevice.default(deviceType, for: .video, position: position)
-            ?? AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
-            ?? AVCaptureDevice.default(for: .video)
-
-        guard let device,
-              let input = try? AVCaptureDeviceInput(device: device) else {
-            session.commitConfiguration()
-            self.isConfigured = false
-            debugLog("CameraManager: configureSession failed — no camera device available")
-            Task { @MainActor in self.cameraUnavailable = true }
-            return
-        }
-
-        if session.canAddInput(input) {
-            session.addInput(input)
-        } else {
-            debugLog("CameraManager: could not add input to session")
-        }
-
-        // Lock frame rate — prefer 60fps, fall back to device max
-        let maxSupported = device.activeFormat.videoSupportedFrameRateRanges
-            .map(\.maxFrameRate).max() ?? 30
-        let targetFPS = min(60, maxSupported)
-        try? device.lockForConfiguration()
-        device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
-        device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
-        device.unlockForConfiguration()
-
-        // Compute frame skip to hit ~5 captures/sec
-        self.frameSkip = max(1, Int(targetFPS) / Self.targetCapturesPerSecond)
-        videoOutput.alwaysDiscardsLateVideoFrames = true
-        videoOutput.setSampleBufferDelegate(self, queue: videoOutputQueue)
-        if session.canAddOutput(videoOutput) {
-            session.addOutput(videoOutput)
-        } else {
-            debugLog("CameraManager: could not add video output to session")
-        }
-
-        session.commitConfiguration()
-
-        // Set portrait orientation on the video connection
-        if let connection = videoOutput.connection(with: .video),
-           connection.isVideoRotationAngleSupported(90) {
-            connection.videoRotationAngle = 90
-        }
-    }
-
-    /// Re-read preferred camera and quality from AppSettings and reconfigure the session.
-    func reconfigure() {
-        let camera = AppSettings.shared.preferredCamera
-        let deviceType = camera.deviceType
-        let position = camera.position
-        let preset = AppSettings.shared.photoQuality.sessionPreset
         sessionQueue.async {
             guard self.isConfigured else { return }
 
@@ -183,18 +98,34 @@ final class CameraManager: NSObject {
                 if self.session.canAddInput(newInput) {
                     self.session.addInput(newInput)
                 }
+
+                // Reapply frame rate and recalculate frame skip
+                let maxSupported = newDevice.activeFormat.videoSupportedFrameRateRanges
+                    .map(\.maxFrameRate).max() ?? 30
+                let targetFPS = min(60, maxSupported)
+                try? newDevice.lockForConfiguration()
+                newDevice.activeVideoMinFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
+                newDevice.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
+                newDevice.unlockForConfiguration()
+                self.frameLock.lock()
+                self.frameSkip = max(1, Int(targetFPS) / Self.targetCapturesPerSecond)
+                self.frameLock.unlock()
             } else {
                 debugLog("CameraManager: reconfigure failed for requested device")
             }
 
             self.session.commitConfiguration()
+
+            // Reapply portrait orientation
+            if let connection = self.videoOutput.connection(with: .video),
+               connection.isVideoRotationAngleSupported(90) {
+                connection.videoRotationAngle = 90
+            }
         }
     }
 
-    /// Grab the latest pixel buffer (instant — lock + pointer read). Safe to call on main.
+    /// Grab the latest pixel buffer (instant — lock + pointer read). Safe to call on any thread.
     func captureFrame() -> CVPixelBuffer? {
-        guard isRunning else { return nil }
-
         frameLock.lock()
         let pb = _latestPixelBuffer
         frameLock.unlock()
@@ -202,14 +133,14 @@ final class CameraManager: NSObject {
     }
 
     /// Convert a pixel buffer to a CGImage. Call off-main.
-    nonisolated static func createImage(from pixelBuffer: CVPixelBuffer) -> CGImage? {
+    static func createImage(from pixelBuffer: CVPixelBuffer) -> CGImage? {
         var cgImage: CGImage?
         VTCreateCGImageFromCVPixelBuffer(pixelBuffer, options: nil, imageOut: &cgImage)
         return cgImage
     }
 
     /// Scale a CGImage so its longest edge fits within maxDimension.
-    nonisolated static func scaled(_ image: CGImage, maxDimension: CGFloat) -> CGImage {
+    static func scaled(_ image: CGImage, maxDimension: CGFloat) -> CGImage {
         let w = image.width, h = image.height
         guard CGFloat(max(w, h)) > maxDimension else { return image }
 
@@ -229,7 +160,7 @@ final class CameraManager: NSObject {
     }
 
     /// Encode a CGImage to HEIC data (JPEG fallback).
-    nonisolated static func encode(_ image: CGImage, quality: CGFloat) -> Data? {
+    static func encode(_ image: CGImage, quality: CGFloat) -> Data? {
         guard let opaque = stripAlpha(image) else {
             debugLog("CameraManager: encode — stripAlpha failed")
             return nil
@@ -248,7 +179,7 @@ final class CameraManager: NSObject {
     }
 
     /// Generate a 180×180 square JPEG thumbnail from a CGImage (scale-to-fill + center crop).
-    nonisolated static func generateThumbnail(from image: CGImage, size: Int = 180) -> Data? {
+    static func generateThumbnail(from image: CGImage, size: Int = 180) -> Data? {
         let w = image.width, h = image.height
         guard w > 0, h > 0 else { return nil }
 
@@ -287,8 +218,69 @@ final class CameraManager: NSObject {
         return UIImage(cgImage: cropped).jpegData(compressionQuality: 0.7)
     }
 
+    // MARK: - Private
+
+    /// Returns true on success, false if camera hardware is unavailable.
+    private func configureSession(
+        deviceType: AVCaptureDevice.DeviceType,
+        position: AVCaptureDevice.Position,
+        preset: AVCaptureSession.Preset
+    ) -> Bool {
+        session.beginConfiguration()
+        session.sessionPreset = preset
+
+        let device: AVCaptureDevice? =
+            AVCaptureDevice.default(deviceType, for: .video, position: position)
+            ?? AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
+            ?? AVCaptureDevice.default(for: .video)
+
+        guard let device,
+              let input = try? AVCaptureDeviceInput(device: device) else {
+            session.commitConfiguration()
+            self.isConfigured = false
+            debugLog("CameraManager: configureSession failed — no camera device available")
+            return false
+        }
+
+        if session.canAddInput(input) {
+            session.addInput(input)
+        } else {
+            debugLog("CameraManager: could not add input to session")
+        }
+
+        // Lock frame rate — prefer 60fps, fall back to device max
+        let maxSupported = device.activeFormat.videoSupportedFrameRateRanges
+            .map(\.maxFrameRate).max() ?? 30
+        let targetFPS = min(60, maxSupported)
+        try? device.lockForConfiguration()
+        device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
+        device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
+        device.unlockForConfiguration()
+
+        // Compute frame skip to hit ~5 captures/sec
+        frameLock.lock()
+        self.frameSkip = max(1, Int(targetFPS) / Self.targetCapturesPerSecond)
+        frameLock.unlock()
+        videoOutput.alwaysDiscardsLateVideoFrames = true
+        videoOutput.setSampleBufferDelegate(self, queue: videoOutputQueue)
+        if session.canAddOutput(videoOutput) {
+            session.addOutput(videoOutput)
+        } else {
+            debugLog("CameraManager: could not add video output to session")
+        }
+
+        session.commitConfiguration()
+
+        // Set portrait orientation on the video connection
+        if let connection = videoOutput.connection(with: .video),
+           connection.isVideoRotationAngleSupported(90) {
+            connection.videoRotationAngle = 90
+        }
+        return true
+    }
+
     /// Re-draw a CGImage without alpha channel.
-    nonisolated private static func stripAlpha(_ image: CGImage) -> CGImage? {
+    private static func stripAlpha(_ image: CGImage) -> CGImage? {
         guard let ctx = CGContext(
             data: nil, width: image.width, height: image.height,
             bitsPerComponent: 8, bytesPerRow: 0,
@@ -303,13 +295,16 @@ final class CameraManager: NSObject {
 // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
 
 extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
-    nonisolated func captureOutput(
+    func captureOutput(
         _ output: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
         frameCounter += 1
-        guard frameCounter % frameSkip == 0 else { return }
+        frameLock.lock()
+        let skip = frameSkip
+        frameLock.unlock()
+        guard frameCounter % skip == 0 else { return }
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 

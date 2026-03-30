@@ -540,8 +540,8 @@ struct SettingsSheet: View {
         }
         .environment(\.dismissSheet, { dismiss() })
         .background(Color(hex: 0x121212))
-        .onChange(of: settings.preferredCamera) { viewModel.cameraManager.reconfigure() }
-        .onChange(of: settings.photoQuality) { viewModel.cameraManager.reconfigure() }
+        .onChange(of: settings.preferredCamera) { viewModel.camera.reconfigure() }
+        .onChange(of: settings.photoQuality) { viewModel.camera.reconfigure() }
         .onChange(of: settings.locationEnabled) { viewModel.locationService.setEnabled(settings.locationEnabled) }
         .onChange(of: settings.locationAccuracy) { viewModel.locationService.updateAccuracy(settings.locationAccuracy.clAccuracy) }
         .task {

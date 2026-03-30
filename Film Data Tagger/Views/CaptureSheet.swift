@@ -92,14 +92,14 @@ private struct CaptureSheetFullContent: View {
         HStack(spacing: 18) {
             // reference photo
             ZStack {
-                if viewModel.cameraManager.permissionDenied || viewModel.cameraManager.cameraUnavailable {
+                if viewModel.camera.permissionDenied || viewModel.camera.unavailable {
                     ZStack {
                         Rectangle()
                             .foregroundStyle(Color(hex: 0x454545))
                         VStack(spacing: 6) {
-                            Image(systemName: viewModel.cameraManager.cameraUnavailable
+                            Image(systemName: viewModel.camera.unavailable
                                   ? "camera.fill" : "hand.raised.slash.fill")
-                            Text(viewModel.cameraManager.cameraUnavailable
+                            Text(viewModel.camera.unavailable
                                  ? "no camera\navailable" : "no camera\naccess")
                                 .multilineTextAlignment(.center)
                         }
@@ -109,10 +109,10 @@ private struct CaptureSheetFullContent: View {
                         .frame(width: 120)
                     }
                     .transition(.opacity)
-                } else if viewModel.referencePhotosEnabled, viewModel.cameraManager.isRunning {
-                    CameraPreview(previewView: viewModel.cameraManager.previewView)
+                } else if viewModel.camera.referencePhotosEnabled, viewModel.camera.isRunning {
+                    CameraPreview(previewView: viewModel.camera.previewView)
                         .transition(.opacity)
-                } else if viewModel.referencePhotosEnabled {
+                } else if viewModel.camera.referencePhotosEnabled {
                     ZStack {
                         Color(hex: 0x454545)
                         ProgressView()
@@ -138,22 +138,22 @@ private struct CaptureSheetFullContent: View {
             }
             .frame(width: referencePhotoSize, height: referencePhotoSize)
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .animation(.easeInOut(duration: 0.25), value: viewModel.referencePhotosEnabled)
-            .animation(.easeInOut(duration: 0.25), value: viewModel.cameraManager.isRunning)
-            .animation(.easeInOut(duration: 0.25), value: viewModel.cameraManager.permissionDenied)
+            .animation(.easeInOut(duration: 0.25), value: viewModel.camera.referencePhotosEnabled)
+            .animation(.easeInOut(duration: 0.25), value: viewModel.camera.isRunning)
+            .animation(.easeInOut(duration: 0.25), value: viewModel.camera.permissionDenied)
             .onTapGesture {
                 playHaptic(.viewfinderToggle)
-                if viewModel.cameraManager.cameraUnavailable {
+                if viewModel.camera.unavailable {
                     // No camera hardware — nothing to do
-                } else if viewModel.cameraManager.permissionDenied {
+                } else if viewModel.camera.permissionDenied {
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(url)
                     }
                 } else {
-                    viewModel.toggleReferencePhotos()
+                    viewModel.camera.toggle()
                 }
             }
-            .accessibilityLabel(viewModel.referencePhotosEnabled ? "Hide camera preview" : "Show camera preview")
+            .accessibilityLabel(viewModel.camera.referencePhotosEnabled ? "Hide camera preview" : "Show camera preview")
 
             VStack(alignment: .leading, spacing: 10) {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -351,20 +351,20 @@ struct CaptureSheet: View {
                     .allowsHitTesting(showsFullContent)
 
                     CaptureSheetCompactContent(
-                        referencePhotosEnabled: viewModel.referencePhotosEnabled,
-                        cameraUnavailable: viewModel.cameraManager.cameraUnavailable,
-                        permissionDenied: viewModel.cameraManager.permissionDenied,
+                        referencePhotosEnabled: viewModel.camera.referencePhotosEnabled,
+                        cameraUnavailable: viewModel.camera.unavailable,
+                        permissionDenied: viewModel.camera.permissionDenied,
                         locationText: viewModel.displayLocationText,
                         lastCaptureDate: lastCaptureDate,
                         onEyeTapped: {
-                            if viewModel.cameraManager.cameraUnavailable {
+                            if viewModel.camera.unavailable {
                                 // No camera hardware
-                            } else if viewModel.cameraManager.permissionDenied {
+                            } else if viewModel.camera.permissionDenied {
                                 if let url = URL(string: UIApplication.openSettingsURLString) {
                                     UIApplication.shared.open(url)
                                 }
                             } else {
-                                viewModel.toggleReferencePhotos()
+                                viewModel.camera.toggle()
                             }
                         }
                     )

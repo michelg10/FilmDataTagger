@@ -9,7 +9,7 @@ import SwiftUI
 import AVFoundation
 
 /// UIView backed by an AVCaptureVideoPreviewLayer.
-/// Created once on CameraManager and reused across navigation to avoid
+/// Created once on CameraController and reused across navigation to avoid
 /// the ~150ms cost of reconnecting the layer to the capture session.
 class CameraPreviewUIView: UIView {
     override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
@@ -19,7 +19,7 @@ class CameraPreviewUIView: UIView {
     }
 }
 
-/// Hosts CameraManager's cached preview view via reparenting.
+/// Hosts CameraController's cached preview view via reparenting.
 /// Creating this SwiftUI view is cheap — it just moves the existing UIView
 /// into a new container rather than creating a new AVCaptureVideoPreviewLayer.
 struct CameraPreview: UIViewRepresentable {
