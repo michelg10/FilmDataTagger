@@ -100,16 +100,42 @@ final class FilmLogViewModel {
         let deleteIDs = Set(optimisticDeletes.keys)
 
         for camera in tree {
+            var cameraCountDelta = 0
             for roll in camera.rolls {
+                let countBefore = roll.items.count
+
                 // 1. Filter out deletes and items in the optimistic set (handles moves — removes from old location)
                 roll.items = roll.items.filter { item in
                     !deleteIDs.contains(item.id) && !optimisticIDs.contains(item.id)
                 }
+                let removed = countBefore - roll.items.count
+
                 // 2. Re-insert optimistic items that belong to this roll
+                var added = 0
                 if let optimistic = itemsByRoll[roll.id] {
                     roll.items.append(contentsOf: optimistic)
                     roll.items.sort { $0.createdAt < $1.createdAt }
+                    added = optimistic.count
                 }
+
+                // 3. Replay roll snapshot caches
+                let delta = added - removed
+                if delta != 0 {
+                    roll.snapshot.exposureCount = roll.items.count
+                    roll.snapshot.lastExposureDate = roll.items.last(where: { $0.hasRealCreatedAt })?.createdAt
+                    cameraCountDelta += delta
+
+                    // Update active roll caches on camera
+                    if camera.activeRoll?.id == roll.id {
+                        camera.snapshot.activeExposureCount = roll.items.count
+                    }
+                }
+            }
+            if cameraCountDelta != 0 {
+                camera.snapshot.totalExposureCount += cameraCountDelta
+                camera.snapshot.lastUsedDate = camera.rolls.compactMap {
+                    $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil)
+                }.max()
             }
         }
     }
@@ -422,7 +448,7 @@ final class FilmLogViewModel {
             // Cache thumbnail in memory BEFORE appending snapshot
             // so the view's .task(id:) hits L1 immediately when the row appears
             if let thumb = rawData?.thumbnailImage {
-                ImageCache.shared.cacheInMemory(for: id, image: thumb)
+                ImageCache.shared.cacheInMemory(for: id, image: thumb, rollID: targetRoll.id)
             }
 
             // Build snapshot optimistically
