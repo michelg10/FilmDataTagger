@@ -8,18 +8,26 @@
 @preconcurrency import AVFoundation
 import UIKit
 import ImageIO
+import VideoToolbox
 
 @Observable @MainActor
 final class CameraManager: NSObject {
     // nonisolated so the session and output can be used from sessionQueue
     nonisolated(unsafe) let session = AVCaptureSession()
-    nonisolated(unsafe) private let output = AVCapturePhotoOutput()
+    nonisolated(unsafe) private let videoOutput = AVCaptureVideoDataOutput()
     private let sessionQueue = DispatchQueue(label: "camera.session")
+    private let videoOutputQueue = DispatchQueue(label: "camera.videoOutput", qos: .userInitiated)
     // Only accessed from sessionQueue — serial queue provides synchronization.
     nonisolated(unsafe) private var isConfigured = false
-    private var photoContinuation: CheckedContinuation<Data?, Never>?
-    private var isCaptureInFlight = false
-    private var captureGeneration = 0
+
+    // Frame capture — skip interval computed dynamically from device frame rate
+    nonisolated private static let targetCapturesPerSecond = 5
+    nonisolated(unsafe) private var frameSkip = 6
+    // frameCounter is only accessed from videoOutputQueue (serial) — no lock needed
+    nonisolated(unsafe) private var frameCounter = 0
+    nonisolated(unsafe) private var _latestFrame: CGImage?
+    nonisolated(unsafe) private let frameLock = NSLock()
+
     private var stopTimer: Task<Void, Never>?
     private var _previewView: CameraPreviewUIView?
 
@@ -68,6 +76,9 @@ final class CameraManager: NSObject {
     func stop() {
         stopTimer?.cancel()
         stopTimer = nil
+        frameLock.lock()
+        _latestFrame = nil
+        frameLock.unlock()
         sessionQueue.async {
             if self.session.isRunning {
                 self.session.stopRunning()
@@ -113,13 +124,33 @@ final class CameraManager: NSObject {
         } else {
             debugLog("CameraManager: could not add input to session")
         }
-        if session.canAddOutput(output) {
-            session.addOutput(output)
+
+        // Lock frame rate — prefer 60fps, fall back to device max
+        let maxSupported = device.activeFormat.videoSupportedFrameRateRanges
+            .map(\.maxFrameRate).max() ?? 30
+        let targetFPS = min(60, maxSupported)
+        try? device.lockForConfiguration()
+        device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
+        device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
+        device.unlockForConfiguration()
+
+        // Compute frame skip to hit ~5 captures/sec
+        self.frameSkip = max(1, Int(targetFPS) / Self.targetCapturesPerSecond)
+        videoOutput.alwaysDiscardsLateVideoFrames = true
+        videoOutput.setSampleBufferDelegate(self, queue: videoOutputQueue)
+        if session.canAddOutput(videoOutput) {
+            session.addOutput(videoOutput)
         } else {
-            debugLog("CameraManager: could not add output to session")
+            debugLog("CameraManager: could not add video output to session")
         }
 
         session.commitConfiguration()
+
+        // Set portrait orientation on the video connection
+        if let connection = videoOutput.connection(with: .video),
+           connection.isVideoRotationAngleSupported(90) {
+            connection.videoRotationAngle = 90
+        }
     }
 
     /// Re-read preferred camera and quality from AppSettings and reconfigure the session.
@@ -160,53 +191,29 @@ final class CameraManager: NSObject {
         }
     }
 
-    /// Capture a photo and return the image data (or nil on failure/timeout).
-    ///
-    /// Three code paths can resume `photoContinuation`: `didFinishProcessingPhoto`,
-    /// `didFinishCaptureFor` (Apple's terminal callback), and a 5-second safety timeout.
-    /// This is safe because all three dispatch via `Task { @MainActor in }`, which
-    /// serializes on the main actor — whichever runs first nils out the continuation,
-    /// and the others no-op via optional chaining (`?.resume`).
+    /// Return the latest buffered video frame as image data, or nil if unavailable.
     func capturePhoto() async -> Data? {
         guard isRunning else { return nil }
-        // Only one capture at a time — flag set before the await so reentrancy can't sneak in
-        guard !isCaptureInFlight else { return nil }
-        isCaptureInFlight = true
-        captureGeneration &+= 1
-        let generation = captureGeneration
 
-        let data: Data? = await withCheckedContinuation { continuation in
-            self.photoContinuation = continuation
+        frameLock.lock()
+        let frame = _latestFrame
+        frameLock.unlock()
 
-            // All AVCapturePhotoOutput access must happen on the session queue
-            self.sessionQueue.async {
-                let photoSettings: AVCapturePhotoSettings
-                if self.output.availablePhotoCodecTypes.contains(.hevc) {
-                    photoSettings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.hevc])
-                } else {
-                    photoSettings = AVCapturePhotoSettings()
+        guard let frame else { return nil }
+
+        // Convert CGImage to HEIC data off-main
+        return await Task.detached(priority: .userInitiated) {
+            let data = NSMutableData()
+            if let dest = CGImageDestinationCreateWithData(data, "public.heic" as CFString, 1, nil) {
+                CGImageDestinationAddImage(dest, frame, [kCGImageDestinationLossyCompressionQuality: 0.8] as CFDictionary)
+                if CGImageDestinationFinalize(dest) {
+                    return data as Data
                 }
-                photoSettings.photoQualityPrioritization = .speed
-                if self.output.isShutterSoundSuppressionSupported {
-                    photoSettings.isShutterSoundSuppressionEnabled = true
-                }
-                self.output.capturePhoto(with: photoSettings, delegate: self)
             }
-
-            // Safety timeout — if neither delegate callback resumes the continuation, unblock after 5s
-            Task { @MainActor in
-                try? await Task.sleep(for: .seconds(5))
-                guard self.captureGeneration == generation else { return }
-                if self.photoContinuation != nil {
-                    debugLog("CameraManager: photo capture timed out after 5s")
-                }
-                self.photoContinuation?.resume(returning: nil)
-                self.photoContinuation = nil
-            }
-        }
-
-        isCaptureInFlight = false
-        return data
+            // Fallback to JPEG
+            debugLog("CameraManager: HEIC encoding failed, falling back to JPEG")
+            return UIImage(cgImage: frame).jpegData(compressionQuality: 0.8)
+        }.value
     }
 
     nonisolated static func resized(_ data: Data, maxDimension: CGFloat, quality: CGFloat) -> Data? {
@@ -288,37 +295,24 @@ final class CameraManager: NSObject {
     }
 }
 
-// MARK: - AVCapturePhotoCaptureDelegate
+// MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
 
-extension CameraManager: AVCapturePhotoCaptureDelegate {
-    nonisolated func photoOutput(
-        _ output: AVCapturePhotoOutput,
-        didFinishProcessingPhoto photo: AVCapturePhoto,
-        error: Error?
+extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
+    nonisolated func captureOutput(
+        _ output: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
     ) {
-        if let error {
-            debugLog("CameraManager: photoOutput error: \(error.localizedDescription)")
-        }
-        let data = photo.fileDataRepresentation()
-        Task { @MainActor in
-            self.photoContinuation?.resume(returning: data)
-            self.photoContinuation = nil
-        }
-    }
+        frameCounter += 1
+        guard frameCounter % frameSkip == 0 else { return }
 
-    /// Terminal callback — guaranteed to fire for every capture request.
-    /// Safety net: if didFinishProcessingPhoto never fired, resume with nil.
-    nonisolated func photoOutput(
-        _ output: AVCapturePhotoOutput,
-        didFinishCaptureFor resolvedSettings: AVCaptureResolvedPhotoSettings,
-        error: Error?
-    ) {
-        if let error {
-            debugLog("CameraManager: didFinishCapture error: \(error.localizedDescription)")
-        }
-        Task { @MainActor in
-            self.photoContinuation?.resume(returning: nil)
-            self.photoContinuation = nil
-        }
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        var cgImage: CGImage?
+        VTCreateCGImageFromCVPixelBuffer(pixelBuffer, options: nil, imageOut: &cgImage)
+        guard let cgImage else { return }
+
+        frameLock.lock()
+        _latestFrame = cgImage
+        frameLock.unlock()
     }
 }
