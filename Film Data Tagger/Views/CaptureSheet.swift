@@ -69,16 +69,16 @@ private struct FullInfoRow<Icon: View>: View {
 // MARK: - Subviews
 
 /// Isolated so that GPS updates only re-render the text, not the camera preview.
-// TODO: audit
 private struct LocationInfoRow: View {
-    let viewModel: FilmLogViewModel
+    let text: String
+    let subtext: String
 
     var body: some View {
         FullInfoRow(
             icon: Image(systemName: "location.fill")
                 .font(.system(size: 17, weight: .semibold, design: .default)),
-            text: viewModel.displayLocationText,
-            subtext: viewModel.geocodingState.displaySubtext,
+            text: text,
+            subtext: subtext,
             textSubtextPadding: 3.0
         )
     }
@@ -89,6 +89,8 @@ private struct CaptureSheetFullContent: View {
     let viewModel: FilmLogViewModel
     let lastCaptureDate: Date?
     let referencePhotoSize: CGFloat
+    let locationText: String
+    let locationSubtext: String
 
     var body: some View {
         HStack(spacing: 18) {
@@ -166,7 +168,7 @@ private struct CaptureSheetFullContent: View {
                         subtext: lastCaptureDate != nil ? "since last capture" : "no captures yet"
                     )
                 }
-                LocationInfoRow(viewModel: viewModel)
+                LocationInfoRow(text: locationText, subtext: locationSubtext)
             }
         }
         .padding(.bottom, 21)
@@ -349,7 +351,9 @@ struct CaptureSheet: View {
                     CaptureSheetFullContent(
                         viewModel: viewModel,
                         lastCaptureDate: lastCaptureDate,
-                        referencePhotoSize: Self.referencePhotoSize
+                        referencePhotoSize: Self.referencePhotoSize,
+                        locationText: viewModel.displayLocationText,
+                        locationSubtext: viewModel.geocodingState.displaySubtext
                     ).padding(.top, 10)
                     .opacity(showsFullContent ? 1 : 0)
                     .offset(y: showsFullContent ? 0 : -10)
