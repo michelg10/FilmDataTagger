@@ -460,6 +460,45 @@ actor DataStore: ModelActor {
         }
     }
 
+    private var lastHistoryToken: DefaultHistoryToken?
+
+    /// Check persistent history for real changes since our last token.
+    /// Returns true if there are new transactions, false if the notification was a ghost.
+    private func hasNewHistoryTransactions() -> Bool {
+        var descriptor = HistoryDescriptor<DefaultHistoryTransaction>()
+        if let lastHistoryToken {
+            descriptor.predicate = #Predicate { $0.token > lastHistoryToken }
+        }
+        let context = ModelContext(modelContainer)
+        guard let transactions = try? context.fetchHistory(descriptor), !transactions.isEmpty else {
+            debugLog("Remote change: no new history transactions, skipping")
+            return false
+        }
+        #if DEBUG
+        // We're disabling this code for now as we've fixed the CloudKit issues, but leave this here for future debugging.
+        if false {
+            for transaction in transactions {
+                let author = transaction.author ?? "nil"
+                let changes = transaction.changes
+                debugLog("Remote change (author: \(author)): \(changes.count) change(s)")
+                for change in changes {
+                    let entity = change.changedPersistentIdentifier.entityName
+                    switch change {
+                    case .insert(_):
+                        debugLog("  INSERT \(entity)")
+                    case .update(_):
+                        debugLog("  UPDATE \(entity)")
+                    case .delete(_):
+                        debugLog("  DELETE \(entity)")
+                    }
+                }
+            }
+        }
+        #endif
+        lastHistoryToken = transactions.last?.token
+        return true
+    }
+
     // Cached flat snapshots for diffing remote changes
     private var lastCameras: [CameraSnapshot] = []
     private var lastRolls: [RollSnapshot] = []
@@ -469,7 +508,8 @@ actor DataStore: ModelActor {
     /// Re-fetches flat snapshots, diffs against cached copies.
     /// Only rebuilds tree and signals the VM if something actually changed.
     private func handleRemoteChange() {
-        debugLog("Remote change notification received")
+        // Skip ghost notifications — CloudKit fires many per save, most have no real changes
+        guard hasNewHistoryTransactions() else { return }
 
         // Sync caches so snapshots are correct (only saves if something changed)
         syncAllCameraCaches()
