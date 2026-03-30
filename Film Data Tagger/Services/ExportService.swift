@@ -18,6 +18,7 @@ nonisolated struct ExportService {
 
     @concurrent static func exportJSON(context: ModelContext) async throws -> URL {
         let iso8601 = ISO8601DateFormatter()
+        iso8601.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let cameras = try context.fetch(FetchDescriptor<Camera>())
         let rolls = try context.fetch(FetchDescriptor<Roll>())
         let exposures = try context.fetch(FetchDescriptor<LogItem>())
@@ -96,6 +97,7 @@ nonisolated struct ExportService {
 
     @concurrent static func exportCSV(context: ModelContext) async throws -> URL {
         let iso8601 = ISO8601DateFormatter()
+        iso8601.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let exposures = try context.fetch(FetchDescriptor<LogItem>())
 
         var csv = "id,rollID,cameraID,cameraName,filmStock,createdAt,isPlaceholder,notes,"
