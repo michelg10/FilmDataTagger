@@ -143,8 +143,11 @@ final class FilmLogViewModel {
             debugLog("restoreOpenStateFromDisk: could not read plist: \(error)")
             return
         }
-        guard let state = try? PropertyListDecoder().decode(PersistedOpenState.self, from: data) else {
-            debugLog("restoreOpenStateFromDisk: could not decode plist")
+        let state: PersistedOpenState
+        do {
+            state = try PropertyListDecoder().decode(PersistedOpenState.self, from: data)
+        } catch {
+            debugLog("restoreOpenStateFromDisk: decode failed: \(error)")
             return
         }
         guard let cameraID = state.roll.cameraID else {
