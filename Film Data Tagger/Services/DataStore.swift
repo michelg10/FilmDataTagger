@@ -39,6 +39,7 @@ actor DataStore: ModelActor {
         #if DEBUG
         assertHighPriority()
         #endif
+        let fetchStart = CFAbsoluteTimeGetCurrent()
         var cameras: [Camera] = []
         var allRolls: [Roll] = []
         var allItems: [LogItem] = []
@@ -50,12 +51,11 @@ actor DataStore: ModelActor {
             debugLog("loadAll fetch failed: \(error)")
         }
 
-        let buildStart = CFAbsoluteTimeGetCurrent()
-
         // Build snapshots and seed the diff cache (minimal — own fields only)
         let cameraSnapshots = cameras.map { $0.snapshot }
         let rollSnapshots = allRolls.map { $0.snapshot }
         let itemSnapshots = allItems.map { $0.snapshot }
+        let fetchMs = (CFAbsoluteTimeGetCurrent() - fetchStart) * 1000
         lastCameras = cameraSnapshots
         lastRolls = rollSnapshots
         lastItems = itemSnapshots
@@ -94,8 +94,8 @@ actor DataStore: ModelActor {
             return CameraState(snapshot: snapshot, rolls: rollStates)
         }
 
-        let buildMs = (CFAbsoluteTimeGetCurrent() - buildStart) * 1000
-        debugLog("loadAll: tree built in \(String(format: "%.2f", buildMs))ms (\(cameras.count) cameras, \(allRolls.count) rolls, \(allItems.count) items)")
+        let treeMs = (CFAbsoluteTimeGetCurrent() - fetchStart) * 1000 - fetchMs
+        debugLog("loadAll: fetch \(String(format: "%.1f", fetchMs))ms + tree \(String(format: "%.1f", treeMs))ms (\(cameras.count) cameras, \(allRolls.count) rolls, \(allItems.count) items)")
 
         return tree
     }
