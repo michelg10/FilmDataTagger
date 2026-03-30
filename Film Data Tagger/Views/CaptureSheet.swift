@@ -84,9 +84,8 @@ private struct LocationInfoRow: View {
     }
 }
 
-// TODO: audit
 private struct CaptureSheetFullContent: View {
-    let viewModel: FilmLogViewModel
+    let camera: CameraController
     let lastCaptureDate: Date?
     let referencePhotoSize: CGFloat
     let locationText: String
@@ -96,14 +95,14 @@ private struct CaptureSheetFullContent: View {
         HStack(spacing: 18) {
             // reference photo
             ZStack {
-                if viewModel.camera.permissionDenied || viewModel.camera.unavailable {
+                if camera.permissionDenied || camera.unavailable {
                     ZStack {
                         Rectangle()
                             .foregroundStyle(Color(hex: 0x454545))
                         VStack(spacing: 6) {
-                            Image(systemName: viewModel.camera.unavailable
+                            Image(systemName: camera.unavailable
                                   ? "camera.fill" : "hand.raised.slash.fill")
-                            Text(viewModel.camera.unavailable
+                            Text(camera.unavailable
                                  ? "no camera\navailable" : "no camera\naccess")
                                 .multilineTextAlignment(.center)
                         }
@@ -113,10 +112,10 @@ private struct CaptureSheetFullContent: View {
                         .frame(width: 120)
                     }
                     .transition(.opacity)
-                } else if viewModel.camera.referencePhotosEnabled, viewModel.camera.isRunning {
-                    CameraPreview(previewView: viewModel.camera.previewView)
+                } else if camera.referencePhotosEnabled, camera.isRunning {
+                    CameraPreview(previewView: camera.previewView)
                         .transition(.opacity)
-                } else if viewModel.camera.referencePhotosEnabled {
+                } else if camera.referencePhotosEnabled {
                     ZStack {
                         Color(hex: 0x454545)
                         ProgressView()
@@ -142,22 +141,22 @@ private struct CaptureSheetFullContent: View {
             }
             .frame(width: referencePhotoSize, height: referencePhotoSize)
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .animation(.easeInOut(duration: 0.25), value: viewModel.camera.referencePhotosEnabled)
-            .animation(.easeInOut(duration: 0.25), value: viewModel.camera.isRunning)
-            .animation(.easeInOut(duration: 0.25), value: viewModel.camera.permissionDenied)
+            .animation(.easeInOut(duration: 0.25), value: camera.referencePhotosEnabled)
+            .animation(.easeInOut(duration: 0.25), value: camera.isRunning)
+            .animation(.easeInOut(duration: 0.25), value: camera.permissionDenied)
             .onTapGesture {
                 playHaptic(.viewfinderToggle)
-                if viewModel.camera.unavailable {
+                if camera.unavailable {
                     // No camera hardware — nothing to do
-                } else if viewModel.camera.permissionDenied {
+                } else if camera.permissionDenied {
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(url)
                     }
                 } else {
-                    viewModel.camera.toggle()
+                    camera.toggle()
                 }
             }
-            .accessibilityLabel(viewModel.camera.referencePhotosEnabled ? "Hide camera preview" : "Show camera preview")
+            .accessibilityLabel(camera.referencePhotosEnabled ? "Hide camera preview" : "Show camera preview")
 
             VStack(alignment: .leading, spacing: 10) {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -349,7 +348,7 @@ struct CaptureSheet: View {
 
                 ZStack(alignment: .top) {
                     CaptureSheetFullContent(
-                        viewModel: viewModel,
+                        camera: viewModel.camera,
                         lastCaptureDate: lastCaptureDate,
                         referencePhotoSize: Self.referencePhotoSize,
                         locationText: viewModel.locationService.displayLocationText,
