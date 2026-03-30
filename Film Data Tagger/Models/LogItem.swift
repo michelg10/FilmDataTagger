@@ -81,7 +81,7 @@ final class LogItem {
     /// Reference photo captured at time of logging (HEIC data, stored externally by SwiftData)
     @Attribute(.externalStorage) var photoData: Data?
 
-    /// Small thumbnail for list display (~120px HEIC, inline in the database)
+    /// Small thumbnail for list display (~180px HEIC, inline in the database)
     var thumbnailData: Data?
 
     init(roll: Roll) {

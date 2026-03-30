@@ -187,6 +187,9 @@ final class CameraManager: NSObject {
                     photoSettings = AVCapturePhotoSettings()
                 }
                 photoSettings.photoQualityPrioritization = .speed
+                if self.output.isShutterSoundSuppressionSupported {
+                    photoSettings.isShutterSoundSuppressionEnabled = true
+                }
                 self.output.capturePhoto(with: photoSettings, delegate: self)
             }
 
