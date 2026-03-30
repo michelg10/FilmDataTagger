@@ -150,33 +150,18 @@ struct RollListView: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    private var rolls: [RollSnapshot] { camera.rolls.map(\.snapshot) }
+    private var activeRoll: RollSnapshot? { camera.activeRoll?.snapshot }
+    private var pastRolls: [RollSnapshot] { camera.pastRolls }
+    private var maxCapacity: Int { camera.maxRollCapacity }
+    private var totalExposures: Int { camera.totalExposureCount }
     private var cameraName: String { camera.name }
-
-    private var activeRoll: RollSnapshot? {
-        camera.activeRoll?.snapshot
-    }
-
-    private var pastRolls: [RollSnapshot] {
-        rolls.filter { !$0.isActive }.sorted {
-            ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt)
-        }
-    }
 
     @State private var rollToDelete: RollSnapshot?
     @State private var rollToEdit: RollSnapshot?
 
-    private var totalExposures: Int {
-        rolls.reduce(0) { $0 + $1.exposureCount }
-    }
-
-    private var maxCapacity: Int {
-        rolls.map(\.totalCapacity).max() ?? 36
-    }
-
     var body: some View {
         ZStack {
-            if !rolls.isEmpty {
+            if !camera.rolls.isEmpty {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
@@ -271,7 +256,7 @@ struct RollListView: View {
                 }.padding(.bottom, 54)
             }
         }
-        .animation(.easeOut(duration: 0.25), value: rolls.isEmpty)
+        .animation(.easeOut(duration: 0.25), value: camera.rolls.isEmpty)
         .overlay(alignment: .bottom) {
             let terminalColor = Color.black.opacity(bottomGradientOpacity)
             VStack(spacing: 0) {
@@ -332,8 +317,9 @@ struct RollListView: View {
                             .fontWidth(.expanded)
                             .foregroundStyle(Color.white)
                         let exposureTextAndSeparator = Text(" exposure\(totalExposures == 1 ? "" : "s") •").foregroundStyle(Color.white.opacity(0.5))
-                        let rollTextAndSeparator = Text(" roll\(rolls.count == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5))
-                        Text("\(totalExposures.formatted())\(exposureTextAndSeparator) \(rolls.count.formatted())\(rollTextAndSeparator)")
+                        let rollCount = camera.rollCount
+                        let rollTextAndSeparator = Text(" roll\(rollCount == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5))
+                        Text("\(totalExposures.formatted())\(exposureTextAndSeparator) \(rollCount.formatted())\(rollTextAndSeparator)")
                             .foregroundStyle(Color.white)
                             .font(.system(size: 15, weight: .medium, design: .default))
                             .fontWidth(.expanded)

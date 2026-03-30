@@ -437,6 +437,7 @@ final class FilmLogViewModel {
                 targetRoll.snapshot.isActive = true
                 camera.activeRoll = targetRoll
                 camera.snapshot.activeRoll = targetRoll.snapshot
+                camera.recomputeRollDisplayData()
             }
 
             let id = UUID()
@@ -739,6 +740,7 @@ final class FilmLogViewModel {
     }
 
     func cycleExtraExposures() {
+        playHaptic(.cycleExtraExposures)
         guard let roll = openRoll else {
             debugLog("cycleExtraExposures: no open roll");
             return
@@ -751,7 +753,7 @@ final class FilmLogViewModel {
         if let camera = openCamera, camera.activeRoll?.id == roll.id {
             camera.snapshot.activeRoll = roll.snapshot
         }
-        playHaptic(.cycleExtraExposures)
+        openCamera?.recomputeRollDisplayData()
         persistOpenState()
         let count = roll.snapshot.extraExposures
         Task.detached(priority: .userInitiated) { [store] in
@@ -801,6 +803,7 @@ final class FilmLogViewModel {
         // Update camera snapshot caches
         camera.snapshot.rollCount += 1
         camera.snapshot.activeRoll = newRoll.snapshot
+        camera.recomputeRollDisplayData()
         Task.detached(priority: .userInitiated) { [store] in
             await store.createRoll(id: id, cameraID: cameraID, filmStock: filmStock, capacity: capacity)
         }
@@ -816,6 +819,7 @@ final class FilmLogViewModel {
             if openCamera?.activeRoll?.id == id {
                 openCamera?.snapshot.activeRoll = roll.snapshot
             }
+            openCamera?.recomputeRollDisplayData()
         }
         persistOpenState()
         Task.detached(priority: .userInitiated) { [store] in
@@ -841,6 +845,7 @@ final class FilmLogViewModel {
             camera.activeRoll = nil
             camera.snapshot.activeRoll = nil
         }
+        camera.recomputeRollDisplayData()
         Task.detached(priority: .userInitiated) { [store] in
             await store.deleteRoll(id: id)
         }
