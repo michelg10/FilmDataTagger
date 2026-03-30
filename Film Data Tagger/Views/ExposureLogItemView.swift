@@ -9,21 +9,20 @@ import SwiftUI
 import SwiftData
 
 /// Bridges a LogItemSnapshot to LogItemView
-// TODO: audit
 struct ExposureLogItemView: View {
     let item: LogItemSnapshot
     let exposureNumber: Int?
     var isPreFrame: Bool = false
     var onCycleExtraExposures: (() -> Void)?
     @State private var showingLocalTime = false
-    @State private var decodedImage: UIImage?
+    @State private var previewImage: Image?
 
     var body: some View {
         LogItemView(
             exposureNumber: exposureNumber,
             isPreFrame: isPreFrame,
             onFrameNumberTapped: onCycleExtraExposures,
-            previewImage: decodedImage.map { Image(uiImage: $0) },
+            previewImage: previewImage,
             isFromShortcut: item.source == ExposureSource.shortcut.rawValue,
             timeText: timeText,
             timeSecondaryText: timeSecondaryText,
@@ -34,16 +33,16 @@ struct ExposureLogItemView: View {
             guard item.hasThumbnail else { return }
             // Fast path: already cached (no decode needed)
             if let cached = ImageCache.shared.cachedImage(for: item.id) {
-                decodedImage = cached
+                previewImage = Image(uiImage: cached)
                 return
             }
             // Disk cache (BGRA then JPEG)
             let id = item.id
-            let image = await Task.detached(priority: .userInteractive) {
+            let image = await Task.detached(priority: .userInitiated) {
                 await ImageCache.shared.loadFromDiskAndCache(for: id)
             }.value
             if !Task.isCancelled, let image {
-                decodedImage = image
+                previewImage = Image(uiImage: image)
                 return
             }
             // Cache miss — recover from SwiftData (disk cache may have been purged by iOS)
@@ -52,8 +51,8 @@ struct ExposureLogItemView: View {
                 guard let data = await SharedDataStore.shared.fetchThumbnailData(for: id) else { return nil as UIImage? }
                 return await ImageCache.shared.decodeAndCache(for: id, data: data)
             }.value
-            if !Task.isCancelled {
-                decodedImage = recovered
+            if !Task.isCancelled, let recovered {
+                previewImage = Image(uiImage: recovered)
             }
         }
     }
