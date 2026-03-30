@@ -311,7 +311,7 @@ struct ExposureListView: View {
                     onCycleExtraExposures: onCycleExtraExposures
                 )
                 .equatable()
-                .transition(.asymmetric(insertion: .opacity, removal: .identity))
+                .transition(.asymmetric(insertion: .opacity.animation(.easeOut(duration: 0.12)), removal: .identity))
                 .contentShape(Rectangle())
                 .id(item.id)
                 .if(item.isPlaceholder) { view in
