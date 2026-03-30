@@ -514,10 +514,18 @@ actor DataStore: ModelActor {
         // Sync caches so snapshots are correct (only saves if something changed)
         syncAllCameraCaches()
 
-        // Re-fetch flat snapshots
-        let freshCameras = fetchAllCameraSnapshots()
-        let freshRolls = ((try? modelContext.fetch(FetchDescriptor<Roll>())) ?? []).map { $0.snapshot }
-        let freshItems = ((try? modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)]))) ?? []).map { $0.snapshot }
+        // Re-fetch flat snapshots — bail if any fetch fails to avoid diffing against empty data
+        let freshCameras: [CameraSnapshot]
+        let freshRolls: [RollSnapshot]
+        let freshItems: [LogItemSnapshot]
+        do {
+            freshCameras = try modelContext.fetch(FetchDescriptor<Camera>(sortBy: [SortDescriptor(\.listOrder)])).map { $0.snapshot }
+            freshRolls = try modelContext.fetch(FetchDescriptor<Roll>()).map { $0.snapshot }
+            freshItems = try modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)])).map { $0.snapshot }
+        } catch {
+            debugLog("handleRemoteChange: fetch failed, skipping: \(error)")
+            return
+        }
 
         // Diff against cached copies
         let changed = freshCameras != lastCameras || freshRolls != lastRolls || freshItems != lastItems
@@ -831,12 +839,6 @@ actor DataStore: ModelActor {
             debugLog("fetchCamera(\(id)) failed: \(error)")
             return nil
         }
-    }
-
-    private func fetchAllCameraSnapshots() -> [CameraSnapshot] {
-        let descriptor = FetchDescriptor<Camera>(sortBy: [SortDescriptor(\.listOrder)])
-        let cameras = (try? modelContext.fetch(descriptor)) ?? []
-        return cameras.map { $0.snapshot }
     }
 
 

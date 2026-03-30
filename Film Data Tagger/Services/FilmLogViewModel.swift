@@ -455,7 +455,7 @@ final class FilmLogViewModel {
             if let roll = openRoll, camera.activeRoll?.id == roll.id {
                 camera.snapshot.activeExposureCount = roll.items.count
             }
-            camera.snapshot.lastUsedDate = camera.rolls.compactMap(\.snapshot.lastExposureDate).max()
+            camera.snapshot.lastUsedDate = camera.rolls.map { $0.snapshot.lastExposureDate ?? $0.snapshot.createdAt }.max()
         }
         persistOpenState()
         Task.detached(priority: .userInitiated) { [store] in
@@ -483,7 +483,7 @@ final class FilmLogViewModel {
             if sourceCamera.activeRoll?.id == sourceRoll?.id {
                 sourceCamera.snapshot.activeExposureCount = sourceRoll?.items.count
             }
-            sourceCamera.snapshot.lastUsedDate = sourceCamera.rolls.compactMap(\.snapshot.lastExposureDate).max()
+            sourceCamera.snapshot.lastUsedDate = sourceCamera.rolls.map { $0.snapshot.lastExposureDate ?? $0.snapshot.createdAt }.max()
         }
 
         // Find target roll in the tree and add the item
@@ -507,7 +507,7 @@ final class FilmLogViewModel {
                 if targetCamera.activeRoll?.id == toRollID {
                     targetCamera.snapshot.activeExposureCount = targetRoll.items.count
                 }
-                targetCamera.snapshot.lastUsedDate = targetCamera.rolls.compactMap(\.snapshot.lastExposureDate).max()
+                targetCamera.snapshot.lastUsedDate = targetCamera.rolls.map { $0.snapshot.lastExposureDate ?? $0.snapshot.createdAt }.max()
                 openCamera = targetCamera
             }
             openRoll = targetRoll
@@ -677,7 +677,7 @@ final class FilmLogViewModel {
         camera.rolls.removeAll { $0.id == id }
         camera.snapshot.rollCount = max(0, camera.snapshot.rollCount - 1)
         camera.snapshot.totalExposureCount = max(0, camera.snapshot.totalExposureCount - deletedExposureCount)
-        camera.snapshot.lastUsedDate = camera.rolls.compactMap(\.snapshot.lastExposureDate).max()
+        camera.snapshot.lastUsedDate = camera.rolls.map { $0.snapshot.lastExposureDate ?? $0.snapshot.createdAt }.max()
         if wasActive {
             camera.activeRoll = nil
             camera.snapshot.activeRollID = nil
