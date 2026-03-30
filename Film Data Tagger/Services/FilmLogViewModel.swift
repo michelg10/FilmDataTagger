@@ -497,6 +497,15 @@ final class FilmLogViewModel {
                 )
             }
 
+            // After persistence, apply geocoding
+            // This guarantees the rows exist in the DB before we try to update them.
+            if let location, placeName == nil {
+                let result = await Geocoder.geocode(location)
+                if let name = result.placeName {
+                    await store.applyGeocoding(itemIDs: capturedIDs, placeName: name, cityName: result.cityName)
+                }
+            }
+
             // Disk-cache thumbnails (BGRA, encoding once, saving per-UUID)
             if let rawData {
                 await ImageCache.shared.persistThumbnails(for: capturedIDs, image: rawData.thumbnailImage)

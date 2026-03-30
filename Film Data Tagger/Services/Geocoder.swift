@@ -59,13 +59,49 @@ private enum Geocoder_Legacy {
     }
 }
 
-enum Geocoder {
-    @concurrent static func geocode(_ location: CLLocation) async -> GeocodingResult {
-        if #available(iOS 26, *) {
-            return await Geocoder_iOS26.geocode(location)
-        } else {
-            return await Geocoder_Legacy.geocode(location)
+// MARK: - Cache
+
+/// Deduplicates in-flight geocoding requests and caches resolved results for the app session.
+/// Keyed by exact (latitude, longitude) — callers sharing the same CLLocation get the same result.
+private actor GeocodingCache {
+    private enum Entry {
+        case inflight(Task<GeocodingResult, Never>)
+        case resolved(GeocodingResult)
+    }
+
+    private struct Key: Hashable {
+        let latitude: Double
+        let longitude: Double
+    }
+
+    private var entries: [Key: Entry] = [:]
+
+    func geocode(_ location: CLLocation) async -> GeocodingResult {
+        let key = Key(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+        switch entries[key] {
+        case .inflight(let task):
+            return await task.value
+        case .resolved(let result):
+            return result
+        case nil:
+            break
         }
+        let task = Task { await Geocoder.performGeocode(location) }
+        entries[key] = .inflight(task)
+        let result = await task.value
+        entries[key] = .resolved(result)
+        return result
+    }
+}
+
+// MARK: - Public API
+
+enum Geocoder {
+    private static let cache = GeocodingCache()
+
+    /// Geocode a location, deduplicating in-flight requests and caching results.
+    @concurrent static func geocode(_ location: CLLocation) async -> GeocodingResult {
+        await cache.geocode(location)
     }
 
     /// Geocode a batch of locations sequentially with rate-limiting delays.
@@ -81,6 +117,15 @@ enum Geocoder {
             try? await Task.sleep(for: .milliseconds(20))
         }
         return results
+    }
+
+    /// Raw geocode — no caching. Called by the cache actor.
+    fileprivate static func performGeocode(_ location: CLLocation) async -> GeocodingResult {
+        if #available(iOS 26, *) {
+            return await Geocoder_iOS26.geocode(location)
+        } else {
+            return await Geocoder_Legacy.geocode(location)
+        }
     }
 }
 
