@@ -155,9 +155,11 @@ final class FilmLogViewModel {
             await store.observeRemoteChanges()
             await store.startTimezoneChangeDetection()
             await store.warmThumbnailCache()
+            
+            guard let self else { return }
 
             // Warm thumbnails for the open roll (if any)
-            if let rollID = await MainActor.run(body: { self?.openRoll?.id }) {
+            if let rollID = await MainActor.run(body: { self.openRoll?.id }) {
                 await store.warmRollThumbnails(rollID)
             }
 
@@ -256,13 +258,13 @@ final class FilmLogViewModel {
                     return
                 }
                 do {
-                    try data.write(to: Self.openStateURL, options: .atomic)
+                    try await data.write(to: Self.openStateURL, options: .atomic)
                 } catch {
                     debugLog("persistOpenState: failed to write: \(error)")
                 }
             } else {
                 // No open roll — remove persisted state
-                try? FileManager.default.removeItem(at: Self.openStateURL)
+                try? await FileManager.default.removeItem(at: Self.openStateURL)
             }
         }
     }
@@ -293,8 +295,9 @@ final class FilmLogViewModel {
     private func handleRemoteDataChanged() {
         Task.detached(priority: .userInitiated) { [store, weak self] in
             let tree = await store.loadAll()
+            guard let self else { return }
             await MainActor.run {
-                self?.applyFullTree(tree)
+                self.applyFullTree(tree)
             }
         }
     }
@@ -517,15 +520,18 @@ final class FilmLogViewModel {
         // and tells the DataStore to persist without a full tree reload.
         if let location, placeName == nil {
             let ids = capturedIDs
+            let capturedRoll = targetRoll
             Task.detached(priority: .medium) { [store, weak self] in
                 let result = await Geocoder.geocode(location)
                 guard let name = result.placeName else { return }
+                guard let self else { return }
                 await MainActor.run {
-                    guard let self, let roll = self.openRoll else { return }
-                    for i in roll.items.indices where ids.contains(roll.items[i].id) {
-                        roll.items[i].placeName = name
-                        roll.items[i].cityName = result.cityName
-                        self.recordOptimistic(roll.items[i])
+                    // Use captured roll reference, not self.openRoll —
+                    // the user may have switched rolls while geocoding was in-flight.
+                    for i in capturedRoll.items.indices where ids.contains(capturedRoll.items[i].id) {
+                        capturedRoll.items[i].placeName = name
+                        capturedRoll.items[i].cityName = result.cityName
+                        self.recordOptimistic(capturedRoll.items[i])
                     }
                     self.persistOpenState()
                 }

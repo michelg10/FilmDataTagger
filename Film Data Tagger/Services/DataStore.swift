@@ -430,7 +430,7 @@ actor DataStore: ModelActor {
                     lastKnownUTCOffset = currentOffset
                     // Spawn at high priority — this updates the UI
                     Task(priority: .userInitiated) {
-                        await self.refreshFormattedSnapshots()
+                        self.refreshFormattedSnapshots()
                     }
                 }
             }
@@ -443,7 +443,7 @@ actor DataStore: ModelActor {
         if currentOffset != lastKnownUTCOffset {
             debugLog("Device timezone changed on foreground: offset \(lastKnownUTCOffset) → \(currentOffset)")
             lastKnownUTCOffset = currentOffset
-            await refreshFormattedSnapshots()
+            refreshFormattedSnapshots()
         }
     }
 
@@ -499,6 +499,8 @@ actor DataStore: ModelActor {
                         debugLog("  UPDATE \(entity)")
                     case .delete(_):
                         debugLog("  DELETE \(entity)")
+                    @unknown default:
+                        debugLog("  UNKNOWN SWIFTDATA OPERATION")
                     }
                 }
             }
