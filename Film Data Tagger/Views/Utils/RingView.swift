@@ -17,7 +17,10 @@ struct RingView: View {
     var overflowShadowRadius: CGFloat = 2.9
 
     private var clampedProgress: Double { min(max(progress, 0), 1) }
-    private var overflow: Double { max(progress - 1, 0) }
+    private var overflow: Double {
+        guard progress > 1 else { return 0 }
+        return progress - Double(Int(progress))
+    }
 
     private var showShadow: Bool {
         if progress >= 1 { return true }
