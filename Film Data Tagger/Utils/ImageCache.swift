@@ -258,9 +258,9 @@ final class ImageCache: @unchecked Sendable {
                 guard let id = UUID(uuidString: file.lastPathComponent),
                       !priorityIDs.contains(id) else { continue }
                 if let image = loadBGRA(url: file) {
-                    saveJPEG(id: id, image: image)
-                    // Only delete BGRA after JPEG write succeeded
-                    try? FileManager.default.removeItem(at: file)
+                    if saveJPEG(id: id, image: image) {
+                        try? FileManager.default.removeItem(at: file)
+                    }
                 }
                 count += 1
                 if count % 50 == 0 { await Task.yield() }
@@ -336,9 +336,13 @@ final class ImageCache: @unchecked Sendable {
         var header = BitmapHeader(version: BitmapHeader.currentVersion, width: UInt16(width), height: UInt16(height), scale: UInt16(image.scale))
         var fileData = Data(bytes: &header, count: Self.headerSize)
         fileData.append(Data(bytes: data, count: width * height * 4))
-        try? fileData.write(to: bgraPath(for: id), options: .atomic)
-        // Remove JPEG version if it exists (promoted back to BGRA)
-        try? FileManager.default.removeItem(at: jpegPath(for: id))
+        do {
+            try fileData.write(to: bgraPath(for: id), options: .atomic)
+            // Only remove JPEG after BGRA write confirmed
+            try? FileManager.default.removeItem(at: jpegPath(for: id))
+        } catch {
+            debugLog("saveBGRA(\(id)): write failed: \(error)")
+        }
     }
 
     // MARK: - Disk — JPEG (compact fallback, needs decode)
@@ -352,8 +356,15 @@ final class ImageCache: @unchecked Sendable {
         return UIImage(data: data)
     }
 
-    private func saveJPEG(id: UUID, image: UIImage) {
-        guard let data = image.jpegData(compressionQuality: 0.8) else { return }
-        try? data.write(to: jpegPath(for: id), options: .atomic)
+    @discardableResult
+    private func saveJPEG(id: UUID, image: UIImage) -> Bool {
+        guard let data = image.jpegData(compressionQuality: 0.8) else { return false }
+        do {
+            try data.write(to: jpegPath(for: id), options: .atomic)
+            return true
+        } catch {
+            debugLog("saveJPEG(\(id)): write failed: \(error)")
+            return false
+        }
     }
 }
