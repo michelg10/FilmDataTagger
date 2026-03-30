@@ -22,6 +22,8 @@ private struct BitmapHeader {
 /// decides which thumbnails to warm into BGRA memory.
 actor CacheBookkeeper {
     private var rollAccessDates: [UUID: Date] = [:]
+    private var isDirty = false
+    private var saveTask: Task<Void, Never>?
 
     private static let priorityCameraCount = 8
     private static let lruRollBudget = 32
@@ -41,14 +43,14 @@ actor CacheBookkeeper {
 
     func recordAccess(_ rollID: UUID) {
         rollAccessDates[rollID] = Date()
-        save()
+        scheduleSave()
     }
 
     /// Remove access dates for rolls that no longer exist.
     func purgeStaleEntries(existingRollIDs: Set<UUID>) {
         let before = rollAccessDates.count
         rollAccessDates = rollAccessDates.filter { existingRollIDs.contains($0.key) }
-        if rollAccessDates.count != before { save() }
+        if rollAccessDates.count != before { scheduleSave() }
     }
 
     /// Determine which rolls should be warmed, given camera/roll metadata.
@@ -88,8 +90,24 @@ actor CacheBookkeeper {
         return result
     }
 
-    private func save() {
-        guard let data = try? PropertyListEncoder().encode(rollAccessDates) else { return }
+    private func scheduleSave() {
+        guard !isDirty else { return }
+        isDirty = true
+        saveTask?.cancel()
+        saveTask = Task(priority: .background) {
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled else { return }
+            flush()
+        }
+    }
+
+    private func flush() {
+        guard isDirty else { return }
+        isDirty = false
+        guard let data = try? PropertyListEncoder().encode(rollAccessDates) else {
+            debugLog("CacheBookkeeper: failed to encode rollAccessDates")
+            return
+        }
         try? data.write(to: Self.file, options: .atomic)
     }
 }
