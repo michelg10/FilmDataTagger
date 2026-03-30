@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+// TODO: audit
 struct LogItemView: View {
     /// Exposure number to display, must be <100
     let exposureNumber: Int?

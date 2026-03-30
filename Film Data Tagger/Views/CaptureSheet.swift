@@ -69,6 +69,7 @@ private struct FullInfoRow<Icon: View>: View {
 // MARK: - Subviews
 
 /// Isolated so that GPS updates only re-render the text, not the camera preview.
+// TODO: audit
 private struct LocationInfoRow: View {
     let viewModel: FilmLogViewModel
 
@@ -83,6 +84,7 @@ private struct LocationInfoRow: View {
     }
 }
 
+// TODO: audit
 private struct CaptureSheetFullContent: View {
     let viewModel: FilmLogViewModel
     let lastCaptureDate: Date?
@@ -173,6 +175,7 @@ private struct CaptureSheetFullContent: View {
     }
 }
 
+// TODO: audit
 private struct CaptureSheetCompactContent: View {
     let referencePhotosEnabled: Bool
     let cameraUnavailable: Bool
@@ -222,6 +225,7 @@ private struct CaptureSheetCompactContent: View {
     }
 }
 
+// TODO: audit
 private struct CaptureButton: View {
     let hasRoll: Bool
     let frameCount: Int
@@ -258,6 +262,7 @@ private struct CaptureButton: View {
 
 // MARK: - CaptureSheet
 
+// TODO: audit
 struct CaptureSheet: View {
     private static let referencePhotoSize = (143.0 / 347.0) * (UIScreen.currentWidth - 2 * (15 + 8))
     private static let handleAreaHeight: CGFloat = 15

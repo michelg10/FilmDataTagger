@@ -123,6 +123,7 @@ private struct ExposureEndDropDelegate: DropDelegate {
     }
 }
 
+// TODO: audit
 private struct ExposureRow: View, Equatable {
     let item: LogItemSnapshot
     let exposureNumber: Int?
@@ -165,6 +166,7 @@ private struct ExposureRow: View, Equatable {
 }
 
 /// Context menu content for moving an exposure to another roll.
+// TODO: audit
 private struct MoveToRollMenu: View {
     let item: LogItemSnapshot
     let onMove: (LogItemSnapshot, UUID) -> Void
@@ -218,6 +220,7 @@ private struct MoveToRollMenu: View {
 }
 
 /// Camera switcher menu. Receives camera snapshots from ExposureListView.
+// TODO: audit
 private struct CameraSwitcherMenu: View {
     let cameraName: String
     let filmStock: String
@@ -262,6 +265,7 @@ private struct CameraSwitcherMenu: View {
     }
 }
 
+// TODO: audit
 struct ExposureListView: View {
     let logItems: [LogItemSnapshot]
     var cameraName: String = ""

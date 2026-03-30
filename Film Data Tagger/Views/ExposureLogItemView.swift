@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 
 /// Bridges a LogItemSnapshot to LogItemView
+// TODO: audit
 struct ExposureLogItemView: View {
     let item: LogItemSnapshot
     let exposureNumber: Int?

@@ -48,6 +48,7 @@ private func randomCameraPlaceholder(instantFilm: Bool) -> String {
     }
 }
 
+// TODO: audit
 struct NewCameraSheet: View {
     let viewModel: FilmLogViewModel
     var editingEntry: (any CameraListEntry)? = nil
@@ -144,6 +145,7 @@ struct NewCameraSheet: View {
     }
 }
 
+// TODO: audit
 struct InstantFilmInfoSheet: View {
     @Environment(\.dismiss) private var dismiss
 

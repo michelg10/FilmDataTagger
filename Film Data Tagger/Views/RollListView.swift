@@ -78,6 +78,7 @@ private struct BlockProgressBar: View {
     }
 }
 
+// TODO: audit
 struct RollListRow: View {
     let roll: RollSnapshot
     var maxCapacity: Int = 36
@@ -142,6 +143,7 @@ struct RollListRow: View {
     }
 }
 
+// TODO: audit
 struct RollListView: View {
     let camera: CameraState
     let viewModel: FilmLogViewModel

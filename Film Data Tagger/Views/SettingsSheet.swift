@@ -318,6 +318,7 @@ private struct BackButton: View {
 
 // MARK: - Sub-Pages
 
+// TODO: audit
 private struct ReferencePhotoPage: View {
     @Bindable private var settings = AppSettings.shared
     @State private var availableCameras: [PreferredCamera] = []
@@ -347,6 +348,7 @@ private struct ReferencePhotoPage: View {
     }
 }
 
+// TODO: audit
 private struct LocationPage: View {
     @Bindable private var settings = AppSettings.shared
 
@@ -370,6 +372,7 @@ private struct LocationPage: View {
     }
 }
 
+// TODO: audit
 private struct ExportPage: View {
     let viewModel: FilmLogViewModel
     @State private var activeExport: ExportType?
@@ -425,6 +428,7 @@ private struct ExportPage: View {
     }
 }
 
+// TODO: audit
 private struct AboutPage: View {
     let cameras: [CameraState]
     @State private var showBuildNumber = false
@@ -478,6 +482,7 @@ private struct AboutPage: View {
 
 // MARK: - Settings Sheet
 
+// TODO: audit
 struct SettingsSheet: View {
     let viewModel: FilmLogViewModel
     @Environment(\.dismiss) private var dismiss
