@@ -103,10 +103,14 @@ final class CameraManager: NSObject, @unchecked Sendable {
                 let maxSupported = newDevice.activeFormat.videoSupportedFrameRateRanges
                     .map(\.maxFrameRate).max() ?? 30
                 let targetFPS = min(60, maxSupported)
-                try? newDevice.lockForConfiguration()
-                newDevice.activeVideoMinFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
-                newDevice.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
-                newDevice.unlockForConfiguration()
+                do {
+                    try newDevice.lockForConfiguration()
+                    newDevice.activeVideoMinFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
+                    newDevice.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
+                    newDevice.unlockForConfiguration()
+                } catch {
+                    debugLog("CameraManager: lockForConfiguration failed in reconfigure: \(error)")
+                }
                 self.frameLock.lock()
                 self.frameSkip = max(1, Int(targetFPS) / Self.targetCapturesPerSecond)
                 self.frameLock.unlock()
@@ -252,10 +256,14 @@ final class CameraManager: NSObject, @unchecked Sendable {
         let maxSupported = device.activeFormat.videoSupportedFrameRateRanges
             .map(\.maxFrameRate).max() ?? 30
         let targetFPS = min(60, maxSupported)
-        try? device.lockForConfiguration()
-        device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
-        device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
-        device.unlockForConfiguration()
+        do {
+            try device.lockForConfiguration()
+            device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
+            device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
+            device.unlockForConfiguration()
+        } catch {
+            debugLog("CameraManager: lockForConfiguration failed in configureSession: \(error)")
+        }
 
         // Compute frame skip to hit ~5 captures/sec
         frameLock.lock()
