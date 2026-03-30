@@ -38,6 +38,82 @@ final class FilmLogViewModel {
     /// Lets code spanning an await detect whether the tree was swapped underneath it.
     private(set) var treeGeneration = UUID()
 
+    // MARK: - Optimistic State
+    //
+    // Bounded-TTL optimistic entries that survive tree replacements from the DataStore.
+    // When applyFullTree receives a new tree, it merges these entries in so that
+    // in-flight mutations (adds, edits, moves, deletes) aren't clobbered by stale data.
+
+    private struct OptimisticEntry {
+        let item: LogItemSnapshot
+        let modifiedAt: Date
+    }
+
+    private var optimisticItems: [UUID: OptimisticEntry] = [:]
+    private var optimisticDeletes: [UUID: Date] = [:]
+    private var sweepTask: Task<Void, Never>?
+
+    private static let optimisticTTL: TimeInterval = 8
+    private static let sweepInterval: TimeInterval = 4
+
+    private func recordOptimistic(_ item: LogItemSnapshot) {
+        optimisticItems[item.id] = OptimisticEntry(item: item, modifiedAt: Date())
+        ensureSweepRunning()
+    }
+
+    private func recordOptimisticDelete(_ id: UUID) {
+        optimisticDeletes[id] = Date()
+        optimisticItems.removeValue(forKey: id)
+        ensureSweepRunning()
+    }
+
+    private func ensureSweepRunning() {
+        guard sweepTask == nil else { return }
+        sweepTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Self.sweepInterval))
+                guard !Task.isCancelled, let self else { break }
+                let cutoff = Date().addingTimeInterval(-Self.optimisticTTL)
+                self.optimisticItems = self.optimisticItems.filter { $0.value.modifiedAt > cutoff }
+                self.optimisticDeletes = self.optimisticDeletes.filter { $0.value > cutoff }
+                if self.optimisticItems.isEmpty && self.optimisticDeletes.isEmpty {
+                    self.sweepTask = nil
+                    break
+                }
+            }
+        }
+    }
+
+    /// Merge optimistic entries into an incoming tree from the DataStore.
+    /// No TTL filtering here — the sweep task handles expiry.
+    private func mergeOptimisticState(into tree: [CameraState]) {
+        guard !optimisticItems.isEmpty || !optimisticDeletes.isEmpty else { return }
+
+        // Group optimistic items by rollID
+        var itemsByRoll: [UUID: [LogItemSnapshot]] = [:]
+        for (_, entry) in optimisticItems {
+            guard let rollID = entry.item.rollID else { continue }
+            itemsByRoll[rollID, default: []].append(entry.item)
+        }
+
+        let optimisticIDs = Set(optimisticItems.keys)
+        let deleteIDs = Set(optimisticDeletes.keys)
+
+        for camera in tree {
+            for roll in camera.rolls {
+                // 1. Filter out deletes and items in the optimistic set (handles moves — removes from old location)
+                roll.items = roll.items.filter { item in
+                    !deleteIDs.contains(item.id) && !optimisticIDs.contains(item.id)
+                }
+                // 2. Re-insert optimistic items that belong to this roll
+                if let optimistic = itemsByRoll[roll.id] {
+                    roll.items.append(contentsOf: optimistic)
+                    roll.items.sort { $0.createdAt < $1.createdAt }
+                }
+            }
+        }
+    }
+
     // MARK: - Tree lookups
 
     private func camera(_ id: UUID) -> CameraState? {
@@ -198,6 +274,7 @@ final class FilmLogViewModel {
         let oldCameraID = openCamera?.id
         let oldRollID = openRoll?.id
 
+        mergeOptimisticState(into: tree)
         cameras = tree
 
         if let cameraID = oldCameraID {
@@ -368,6 +445,7 @@ final class FilmLogViewModel {
                 capturedTZLabel: nil
             )
             targetRoll.items.append(snapshot)
+            recordOptimistic(snapshot)
 
             // Update roll snapshot caches
             targetRoll.snapshot.exposureCount = targetRoll.items.count
@@ -438,6 +516,7 @@ final class FilmLogViewModel {
                     for i in roll.items.indices where ids.contains(roll.items[i].id) {
                         roll.items[i].placeName = name
                         roll.items[i].cityName = result.cityName
+                        self.recordOptimistic(roll.items[i])
                     }
                     self.persistOpenState()
                 }
@@ -469,6 +548,7 @@ final class FilmLogViewModel {
             capturedTZLabel: nil
         )
         roll.items.append(snapshot)
+        recordOptimistic(snapshot)
         // Update roll snapshot caches
         roll.snapshot.exposureCount = roll.items.count
         // Update camera snapshot caches
@@ -486,6 +566,7 @@ final class FilmLogViewModel {
 
     func deleteItem(_ item: LogItemSnapshot) {
         openRoll?.items.removeAll { $0.id == item.id }
+        recordOptimisticDelete(item.id)
         // Update roll snapshot caches
         if let roll = openRoll {
             roll.snapshot.exposureCount = roll.items.count
@@ -534,6 +615,7 @@ final class FilmLogViewModel {
             movedItem.rollID = toRollID
             targetRoll.items.append(movedItem)
             targetRoll.items.sort { $0.createdAt < $1.createdAt }
+            recordOptimistic(movedItem)
 
             // Update target roll snapshot caches
             targetRoll.snapshot.exposureCount = targetRoll.items.count
@@ -609,6 +691,7 @@ final class FilmLogViewModel {
         }
         if let i = roll.items.firstIndex(where: { $0.id == id }) {
             roll.items[i].createdAt = newTimestamp
+            recordOptimistic(roll.items[i])
             roll.items.sort { $0.createdAt < $1.createdAt }
         }
         persistOpenState()
