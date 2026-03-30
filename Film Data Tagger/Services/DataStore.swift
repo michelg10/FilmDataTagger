@@ -106,7 +106,7 @@ actor DataStore: ModelActor {
 
         var priorityIDs = Set<UUID>()
         for rollID in rollsToWarm {
-            let ids = fetchLogItemIDs(forRoll: rollID)
+            let ids = fetchLogItemIDs(forRoll: rollID, withThumbnailsOnly: true)
             priorityIDs.formUnion(ids)
         }
 
@@ -901,9 +901,11 @@ actor DataStore: ModelActor {
             .max()
     }
 
-    private func fetchLogItemIDs(forRoll rollID: UUID) -> [UUID] {
+    private func fetchLogItemIDs(forRoll rollID: UUID, withThumbnailsOnly: Bool = false) -> [UUID] {
         let descriptor = FetchDescriptor<LogItem>(
-            predicate: #Predicate<LogItem> { $0.roll?.id == rollID }
+            predicate: #Predicate<LogItem> {
+                $0.roll?.id == rollID && (!withThumbnailsOnly || $0.thumbnailData != nil)
+            }
         )
         return ((try? modelContext.fetch(descriptor)) ?? []).map(\.id)
     }
