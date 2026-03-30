@@ -74,6 +74,10 @@ final class FilmLogViewModel {
         camera.setup()
         locationService.setup()
 
+        // Capture previous launch date before overwriting — the detached task needs it for geocoding cutoff
+        let previousLaunchDate = settings.lastAppLaunchDate
+        recordAppLaunch()
+
         // Full async load — replaces the minimal persisted state with the real tree
         Task.detached(priority: .userInitiated) { [store, weak self] in
             let tree = await store.loadAll()
@@ -90,15 +94,13 @@ final class FilmLogViewModel {
             }
 
             // Background maintenance
-            let defaults = UserDefaults.standard
             let cutoffDate = min(
                 Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
-                defaults.object(forKey: AppSettingsKeys.lastAppLaunchDate) as? Date ?? Date.distantPast
+                previousLaunchDate ?? Date.distantPast
             )
             await store.geocodeItemsIfNeeded(since: cutoffDate)
             await store.runPeriodicCleanupIfNeeded()
         }
-        recordAppLaunch()
     }
 
     /// Called when the app returns to the foreground.
