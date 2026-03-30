@@ -65,7 +65,9 @@ nonisolated struct ExportService {
         obj.append(("extraExposures", r.extraExposures))
         obj.append(("isActive", r.isActive))
         obj.append(("createdAt", iso8601.string(from: r.createdAt)))
-        if let date = r.cachedLastExposureDate { obj.append(("lastExposureDate", iso8601.string(from: date))) }
+        if let date = (r.logItems ?? []).filter(\.hasRealCreatedAt).map(\.createdAt).max() {
+            obj.append(("lastExposureDate", iso8601.string(from: date)))
+        }
         return obj
     }
 

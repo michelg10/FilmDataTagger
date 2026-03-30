@@ -20,6 +20,7 @@ final class CameraState: Identifiable, Sendable {
         self.snapshot = snapshot
         self.rolls = rolls
         self.activeRoll = rolls.first(where: { $0.snapshot.isActive })
+        self.snapshot.activeRoll = self.activeRoll?.snapshot
     }
 }
 

@@ -31,14 +31,6 @@ final class Roll {
 
     var createdAt: Date = Date.distantPast
 
-    /// The date of the most recent real (non-placeholder) exposure on this roll.
-    /// Maintained by the DataStore; nil if the roll has no real exposures yet.
-    var cachedLastExposureDate: Date?
-
-    /// Cached count of logItems. Maintained by the DataStore to avoid faulting
-    /// the logItems relationship just to get a count (expensive in view bodies).
-    var cachedExposureCount: Int = 0
-
     /// The log items (frames) in this roll
     @Relationship(deleteRule: .cascade, inverse: \LogItem.roll)
     var logItems: [LogItem]?
@@ -54,7 +46,7 @@ final class Roll {
     /// Total capacity including extra pre-first-frame exposures
     var totalCapacity: Int { capacity + extraExposures }
 
-    // MARK: - Snapshot
+    // MARK: - Snapshot (Roll's own fields only — derived data computed by loadAll)
 
     var snapshot: RollSnapshot {
         RollSnapshot(
@@ -65,8 +57,8 @@ final class Roll {
             extraExposures: extraExposures,
             isActive: isActive,
             createdAt: createdAt,
-            lastExposureDate: cachedLastExposureDate,
-            exposureCount: cachedExposureCount,
+            lastExposureDate: nil,
+            exposureCount: 0,
             totalCapacity: totalCapacity
         )
     }

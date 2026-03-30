@@ -127,7 +127,7 @@ final class FilmLogViewModel {
 
                     // Update active roll caches on camera
                     if camera.activeRoll?.id == roll.id {
-                        camera.snapshot.activeExposureCount = roll.items.count
+                        camera.snapshot.activeRoll = roll.snapshot
                     }
                 }
             }
@@ -436,10 +436,7 @@ final class FilmLogViewModel {
                 camera.activeRoll?.snapshot.isActive = false
                 targetRoll.snapshot.isActive = true
                 camera.activeRoll = targetRoll
-                camera.snapshot.activeRollID = targetRoll.id
-                camera.snapshot.activeFilmStock = targetRoll.snapshot.filmStock
-                camera.snapshot.activeExposureCount = targetRoll.items.count
-                camera.snapshot.activeCapacity = targetRoll.snapshot.totalCapacity
+                camera.snapshot.activeRoll = targetRoll.snapshot
             }
 
             let id = UUID()
@@ -484,7 +481,7 @@ final class FilmLogViewModel {
             if let camera = targetCamera {
                 camera.snapshot.totalExposureCount += 1
                 if camera.activeRoll?.id == targetRoll.id {
-                    camera.snapshot.activeExposureCount = targetRoll.items.count
+                    camera.snapshot.activeRoll = targetRoll.snapshot
                 }
                 camera.snapshot.lastUsedDate = createdAt
             }
@@ -596,7 +593,7 @@ final class FilmLogViewModel {
         if let camera = openCamera {
             camera.snapshot.totalExposureCount += 1
             if camera.activeRoll?.id == roll.id {
-                camera.snapshot.activeExposureCount = roll.items.count
+                camera.snapshot.activeRoll = roll.snapshot
             }
         }
         persistOpenState()
@@ -617,7 +614,7 @@ final class FilmLogViewModel {
         if let camera = openCamera {
             camera.snapshot.totalExposureCount = max(0, camera.snapshot.totalExposureCount - 1)
             if let roll = openRoll, camera.activeRoll?.id == roll.id {
-                camera.snapshot.activeExposureCount = roll.items.count
+                camera.snapshot.activeRoll = roll.snapshot
             }
             camera.snapshot.lastUsedDate = camera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
         }
@@ -644,8 +641,8 @@ final class FilmLogViewModel {
         // Update source camera caches
         if let sourceCamera {
             sourceCamera.snapshot.totalExposureCount = max(0, sourceCamera.snapshot.totalExposureCount - 1)
-            if sourceCamera.activeRoll?.id == sourceRoll?.id {
-                sourceCamera.snapshot.activeExposureCount = sourceRoll?.items.count
+            if let sourceRoll, sourceCamera.activeRoll?.id == sourceRoll.id {
+                sourceCamera.snapshot.activeRoll = sourceRoll.snapshot
             }
             sourceCamera.snapshot.lastUsedDate = sourceCamera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
         }
@@ -670,7 +667,7 @@ final class FilmLogViewModel {
             if let targetCamera = targetRoll.snapshot.cameraID.flatMap({ camera($0) }) {
                 targetCamera.snapshot.totalExposureCount += 1
                 if targetCamera.activeRoll?.id == toRollID {
-                    targetCamera.snapshot.activeExposureCount = targetRoll.items.count
+                    targetCamera.snapshot.activeRoll = targetRoll.snapshot
                 }
                 targetCamera.snapshot.lastUsedDate = targetCamera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
                 openCamera = targetCamera
@@ -752,7 +749,7 @@ final class FilmLogViewModel {
         roll.snapshot.totalCapacity = roll.snapshot.capacity + roll.snapshot.extraExposures
         // Update camera snapshot if this is the active roll
         if let camera = openCamera, camera.activeRoll?.id == roll.id {
-            camera.snapshot.activeCapacity = roll.snapshot.totalCapacity
+            camera.snapshot.activeRoll = roll.snapshot
         }
         playHaptic(.cycleExtraExposures)
         persistOpenState()
@@ -803,10 +800,7 @@ final class FilmLogViewModel {
         openRoll = newRoll
         // Update camera snapshot caches
         camera.snapshot.rollCount += 1
-        camera.snapshot.activeRollID = id
-        camera.snapshot.activeFilmStock = filmStock
-        camera.snapshot.activeExposureCount = 0
-        camera.snapshot.activeCapacity = capacity
+        camera.snapshot.activeRoll = newRoll.snapshot
         Task.detached(priority: .userInitiated) { [store] in
             await store.createRoll(id: id, cameraID: cameraID, filmStock: filmStock, capacity: capacity)
         }
@@ -820,8 +814,7 @@ final class FilmLogViewModel {
             roll.snapshot.totalCapacity = capacity + roll.snapshot.extraExposures
             // Update camera snapshot if this is the active roll
             if openCamera?.activeRoll?.id == id {
-                openCamera?.snapshot.activeFilmStock = filmStock
-                openCamera?.snapshot.activeCapacity = capacity + roll.snapshot.extraExposures
+                openCamera?.snapshot.activeRoll = roll.snapshot
             }
         }
         persistOpenState()
@@ -846,10 +839,7 @@ final class FilmLogViewModel {
         camera.snapshot.lastUsedDate = camera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
         if wasActive {
             camera.activeRoll = nil
-            camera.snapshot.activeRollID = nil
-            camera.snapshot.activeFilmStock = nil
-            camera.snapshot.activeExposureCount = nil
-            camera.snapshot.activeCapacity = nil
+            camera.snapshot.activeRoll = nil
         }
         Task.detached(priority: .userInitiated) { [store] in
             await store.deleteRoll(id: id)

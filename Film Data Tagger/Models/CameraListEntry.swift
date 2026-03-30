@@ -11,13 +11,13 @@ import Foundation
 /// Display-only — no SwiftData.
 ///
 /// Properties accessed from view bodies must be cheap — no relationship faulting.
-/// CameraSnapshot uses cached summary fields maintained by the DataStore.
+/// CameraSnapshot and RollSnapshot are value types with all display data pre-computed by loadAll.
 ///
 /// Date semantics:
 /// - Cameras own no dates. Their displayed "last used" is the latest roll date.
-/// - Rolls own one stored date: `createdAt` (immutable). They also cache
-///   `cachedLastExposureDate` (latest real exposure's createdAt, maintained by the DataStore).
-///   The displayed "last used" is `cachedLastExposureDate ?? createdAt`.
+/// - Rolls own one stored date: `createdAt` (immutable). `lastExposureDate` (latest real
+///   exposure's createdAt) is computed by loadAll from items.
+///   The displayed "last used" is `lastExposureDate ?? createdAt`.
 /// - Exposures own one immutable date: `createdAt`.
 protocol CameraListEntry: Identifiable where ID == UUID {
     var id: UUID { get }
@@ -50,7 +50,9 @@ extension CameraListEntry {
 // MARK: - CameraSnapshot conformance
 
 extension CameraSnapshot: CameraListEntry {
-    var isInstantFilm: Bool {
-        false
-    }
+    var isInstantFilm: Bool { false }
+    var activeRollID: UUID? { activeRoll?.id }
+    var activeFilmStock: String? { activeRoll?.filmStock }
+    var activeExposureCount: Int? { activeRoll?.exposureCount }
+    var activeCapacity: Int? { activeRoll?.totalCapacity }
 }

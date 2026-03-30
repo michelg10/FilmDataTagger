@@ -220,7 +220,6 @@ private struct MoveToRollMenu: View {
 }
 
 /// Camera switcher menu. Receives camera snapshots from ExposureListView.
-// TODO: audit
 private struct CameraSwitcherMenu: View {
     let cameraName: String
     let filmStock: String
@@ -229,7 +228,17 @@ private struct CameraSwitcherMenu: View {
     var onCameraSelected: ((UUID) -> Void)?
 
     private var camerasWithActiveRolls: [CameraSnapshot] {
-        cameras.filter { $0.activeRollID != nil }
+        cameras.filter { $0.activeRoll != nil }
+    }
+
+    private static func subtitle(for camera: CameraSnapshot) -> String {
+        guard let roll = camera.activeRoll else { return "" }
+        var result = "Frame \(roll.exposureCount - roll.extraExposures + 1)"
+        if let lastDate = camera.lastUsedDate {
+            let ago = relativeTimeString(from: lastDate, suffix: true)
+            result += " · \(ago)"
+        }
+        return result
     }
 
     var body: some View {
@@ -243,6 +252,7 @@ private struct CameraSwitcherMenu: View {
                     } else {
                         Text(camera.name)
                     }
+                    Text(Self.subtitle(for: camera))
                 }
             }
         } label: {

@@ -15,8 +15,5 @@ struct CameraSnapshot: Identifiable, Hashable, Sendable {
     var rollCount: Int
     var totalExposureCount: Int
     var lastUsedDate: Date?
-    var activeRollID: UUID?
-    var activeFilmStock: String?
-    var activeExposureCount: Int?
-    var activeCapacity: Int?
+    var activeRoll: RollSnapshot?
 }

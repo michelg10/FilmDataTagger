@@ -50,7 +50,9 @@ actor DataStore: ModelActor {
             debugLog("loadAll fetch failed: \(error)")
         }
 
-        // Build snapshots and seed the diff cache
+        let buildStart = CFAbsoluteTimeGetCurrent()
+
+        // Build snapshots and seed the diff cache (minimal — own fields only)
         let cameraSnapshots = cameras.map { $0.snapshot }
         let rollSnapshots = allRolls.map { $0.snapshot }
         let itemSnapshots = allItems.map { $0.snapshot }
@@ -61,18 +63,41 @@ actor DataStore: ModelActor {
         // Group items by roll ID
         let itemsByRoll = Dictionary(grouping: itemSnapshots, by: { $0.rollID })
 
-        // Group rolls by camera ID
-        let rollsByCamera = Dictionary(grouping: rollSnapshots, by: { $0.cameraID })
+        // Enrich roll snapshots with computed counts from items
+        let enrichedRolls = rollSnapshots.map { roll -> RollSnapshot in
+            let items = itemsByRoll[roll.id] ?? []
+            var s = roll
+            s.exposureCount = items.count
+            s.lastExposureDate = items.last(where: { $0.hasRealCreatedAt })?.createdAt
+            return s
+        }
 
-        // Build the tree
-        return cameras.map { camera in
+        // Group enriched rolls by camera ID
+        let rollsByCamera = Dictionary(grouping: enrichedRolls, by: { $0.cameraID })
+
+        // Build the tree — derive camera summary fields from grouped data
+        let tree = cameras.map { camera in
             let cameraRolls = (rollsByCamera[camera.id] ?? [])
                 .sorted { ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt) }
             let rollStates = cameraRolls.map { roll in
                 RollState(snapshot: roll, items: itemsByRoll[roll.id] ?? [])
             }
-            return CameraState(snapshot: camera.snapshot, rolls: rollStates)
+            let snapshot = CameraSnapshot(
+                id: camera.id,
+                name: camera.name,
+                createdAt: camera.createdAt,
+                listOrder: camera.listOrder,
+                rollCount: cameraRolls.count,
+                totalExposureCount: cameraRolls.reduce(0) { $0 + (itemsByRoll[$1.id]?.count ?? 0) },
+                lastUsedDate: cameraRolls.compactMap { $0.lastExposureDate ?? ($0.exposureCount > 0 ? $0.createdAt : nil) }.max()
+            )
+            return CameraState(snapshot: snapshot, rolls: rollStates)
         }
+
+        let buildMs = (CFAbsoluteTimeGetCurrent() - buildStart) * 1000
+        debugLog("loadAll: tree built in \(String(format: "%.2f", buildMs))ms (\(cameras.count) cameras, \(allRolls.count) rolls, \(allItems.count) items)")
+
+        return tree
     }
 
     /// Warm thumbnails for a specific roll into ImageCache.
@@ -169,20 +194,6 @@ actor DataStore: ModelActor {
             roll.isActive = true
         }
 
-        roll.cachedLastExposureDate = createdAt
-        roll.cachedExposureCount += 1
-        // Incremental camera cache update — avoids faulting all rolls
-        if let camera = roll.camera {
-            camera.cachedTotalExposureCount += 1
-            if camera.cachedLastUsedDate == nil || createdAt > camera.cachedLastUsedDate! {
-                camera.cachedLastUsedDate = createdAt
-            }
-            // Always update active fields — the roll is guaranteed active at this point
-            camera.cachedActiveRollID = roll.id
-            camera.cachedActiveFilmStock = roll.filmStock
-            camera.cachedActiveExposureCount = roll.cachedExposureCount
-            camera.cachedActiveCapacity = roll.totalCapacity
-        }
         save()
         if let thumbnailData {
             await ImageCache.shared.preload(for: id, data: thumbnailData)
@@ -202,14 +213,6 @@ actor DataStore: ModelActor {
         item.id = id
         item.createdAt = createdAt
         modelContext.insert(item)
-        roll.cachedExposureCount += 1
-        // Incremental camera cache update — avoids faulting all rolls
-        if let camera = roll.camera {
-            camera.cachedTotalExposureCount += 1
-            if roll.isActive {
-                camera.cachedActiveExposureCount = roll.cachedExposureCount
-            }
-        }
         save()
     }
 
@@ -224,13 +227,7 @@ actor DataStore: ModelActor {
             remoteDataChanged.send()
             return
         }
-        let roll = item.roll
         modelContext.delete(item)
-        if let roll {
-            roll.cachedExposureCount = max(0, roll.cachedExposureCount - 1)
-            recomputeLastExposureDate(for: roll)
-            if let camera = roll.camera { syncCameraCache(camera) }
-        }
         save()
         ImageCache.shared.evict(id: id)
     }
@@ -246,9 +243,6 @@ actor DataStore: ModelActor {
             return
         }
         roll.extraExposures = count
-        if roll.isActive, let camera = roll.camera {
-            camera.cachedActiveCapacity = roll.totalCapacity
-        }
         save()
     }
 
@@ -268,31 +262,14 @@ actor DataStore: ModelActor {
     /// Move an item to a different roll. The VM handles this optimistically and fire-and-forgets.
     func moveItem(id: UUID, toRollID: UUID) {
         guard let item = fetchLogItem(id),
-              let targetRoll = fetchRoll(toRollID),
-              let targetCamera = targetRoll.camera else {
+              let targetRoll = fetchRoll(toRollID) else {
             debugLog("moveItem: item \(id) or roll \(toRollID) not found")
             remoteDataChanged.send()
             return
         }
-        let oldRoll = item.roll
 
         // Re-parent (SwiftData inverse handles the rest)
         item.roll = targetRoll
-
-        // Recompute counts and dates
-        if let oldRoll {
-            oldRoll.cachedExposureCount = max(0, oldRoll.cachedExposureCount - 1)
-            recomputeLastExposureDate(for: oldRoll)
-            if let oldCamera = oldRoll.camera { syncCameraCache(oldCamera) }
-        }
-        targetRoll.cachedExposureCount += 1
-        if let date = item.hasRealCreatedAt ? item.createdAt : nil {
-            if targetRoll.cachedLastExposureDate == nil || date > targetRoll.cachedLastExposureDate! {
-                targetRoll.cachedLastExposureDate = date
-            }
-        }
-        syncCameraCache(targetCamera)
-
         save()
     }
 
@@ -314,7 +291,6 @@ actor DataStore: ModelActor {
         let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity)
         roll.id = id
         modelContext.insert(roll)
-        syncCameraCache(camera)
         save()
     }
 
@@ -329,7 +305,6 @@ actor DataStore: ModelActor {
         }
         roll.filmStock = filmStock
         roll.capacity = capacity
-        if let camera = roll.camera { syncCameraCache(camera) }
         save()
     }
 
@@ -343,12 +318,10 @@ actor DataStore: ModelActor {
             remoteDataChanged.send()
             return
         }
-        let camera = roll.camera
         for item in roll.logItems ?? [] {
             ImageCache.shared.evict(id: item.id)
         }
         modelContext.delete(roll)
-        if let camera { syncCameraCache(camera) }
         save()
     }
 
@@ -524,9 +497,6 @@ actor DataStore: ModelActor {
         // Skip ghost notifications — CloudKit fires many per save, most have no real changes
         guard hasNewHistoryTransactions() else { return }
 
-        // Sync caches so snapshots are correct (only saves if something changed)
-        syncAllCameraCaches()
-
         // Re-fetch flat snapshots — bail if any fetch fails to avoid diffing against empty data
         let freshCameras: [CameraSnapshot]
         let freshRolls: [RollSnapshot]
@@ -577,12 +547,15 @@ actor DataStore: ModelActor {
             guard activeRolls.count > 1 else { continue }
             debugLog("repairDuplicateActiveRolls: camera \(camera.name) has \(activeRolls.count) active rolls")
             let keeper = activeRolls
-                .sorted { ($0.cachedLastExposureDate ?? .distantPast) > ($1.cachedLastExposureDate ?? .distantPast) }
+                .sorted {
+                    let d0 = ($0.logItems ?? []).filter(\.hasRealCreatedAt).map(\.createdAt).max() ?? .distantPast
+                    let d1 = ($1.logItems ?? []).filter(\.hasRealCreatedAt).map(\.createdAt).max() ?? .distantPast
+                    return d0 > d1
+                }
                 .first!
             for roll in activeRolls where roll.id != keeper.id {
                 roll.isActive = false
             }
-            syncCameraCache(camera)
             didRepair = true
         }
         if didRepair { save() }
@@ -820,64 +793,6 @@ actor DataStore: ModelActor {
 
     // MARK: - Internal
 
-    /// Sync cached summary fields on all cameras. Call after remote changes.
-    /// Only saves if any cached values actually changed, to avoid triggering a feedback loop
-    /// with NSPersistentStoreRemoteChange notifications.
-    private func syncAllCameraCaches() {
-        let cameras = (try? modelContext.fetch(FetchDescriptor<Camera>())) ?? []
-        var didChange = false
-        for camera in cameras {
-            // Fix roll cached fields while we have them faulted
-            for roll in camera.rolls ?? [] {
-                let items = roll.logItems ?? []
-                let actual = items.count
-                if roll.cachedExposureCount != actual {
-                    roll.cachedExposureCount = actual
-                    didChange = true
-                }
-                let freshLastDate = items.filter(\.hasRealCreatedAt).map(\.createdAt).max()
-                if roll.cachedLastExposureDate != freshLastDate {
-                    roll.cachedLastExposureDate = freshLastDate
-                    didChange = true
-                }
-            }
-            if syncCameraCache(camera) { didChange = true }
-        }
-        if didChange { save() }
-    }
-
-    /// Update cached summary fields on a camera from its rolls.
-    /// Returns true if any value changed.
-    @discardableResult
-    private func syncCameraCache(_ camera: Camera) -> Bool {
-        let rolls = camera.rolls ?? []
-        let active = rolls.first(where: \.isActive)
-        let newRollCount = rolls.count
-        let newTotalExposureCount = rolls.reduce(0) { $0 + $1.cachedExposureCount }
-        let newLastUsedDate = rolls.compactMap { $0.cachedLastExposureDate ?? ($0.cachedExposureCount > 0 ? $0.createdAt : nil) }.max()
-        let newActiveRollID = active?.id
-        let newActiveFilmStock = active?.filmStock
-        let newActiveExposureCount = active?.cachedExposureCount
-        let newActiveCapacity = active?.totalCapacity
-
-        guard camera.cachedRollCount != newRollCount ||
-              camera.cachedTotalExposureCount != newTotalExposureCount ||
-              camera.cachedLastUsedDate != newLastUsedDate ||
-              camera.cachedActiveRollID != newActiveRollID ||
-              camera.cachedActiveFilmStock != newActiveFilmStock ||
-              camera.cachedActiveExposureCount != newActiveExposureCount ||
-              camera.cachedActiveCapacity != newActiveCapacity
-        else { return false }
-
-        camera.cachedRollCount = newRollCount
-        camera.cachedTotalExposureCount = newTotalExposureCount
-        camera.cachedLastUsedDate = newLastUsedDate
-        camera.cachedActiveRollID = newActiveRollID
-        camera.cachedActiveFilmStock = newActiveFilmStock
-        camera.cachedActiveExposureCount = newActiveExposureCount
-        camera.cachedActiveCapacity = newActiveCapacity
-        return true
-    }
 
     private func fetchCamera(_ id: UUID) -> Camera? {
         let descriptor = FetchDescriptor<Camera>(predicate: #Predicate { $0.id == id })
@@ -940,13 +855,6 @@ actor DataStore: ModelActor {
             debugLog("fetchLogItem(\(id)) failed: \(error)")
             return nil
         }
-    }
-
-    private func recomputeLastExposureDate(for roll: Roll) {
-        roll.cachedLastExposureDate = (roll.logItems ?? [])
-            .filter { $0.hasRealCreatedAt }
-            .map(\.createdAt)
-            .max()
     }
 
     private func fetchLogItemIDs(forRoll rollID: UUID, withThumbnailsOnly: Bool = false) -> [UUID] {

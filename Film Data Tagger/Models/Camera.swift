@@ -21,16 +21,6 @@ final class Camera {
     @Relationship(deleteRule: .cascade, inverse: \Roll.camera)
     var rolls: [Roll]?
 
-    // MARK: - Cached summaries (maintained by ViewModel to avoid faulting `rolls` in view bodies)
-
-    var cachedRollCount: Int = 0
-    var cachedTotalExposureCount: Int = 0
-    var cachedLastUsedDate: Date?
-    var cachedActiveRollID: UUID?
-    var cachedActiveFilmStock: String?
-    var cachedActiveExposureCount: Int?
-    var cachedActiveCapacity: Int?
-
     init(name: String, listOrder: Double = 0) {
         self.id = UUID()
         self.name = name
@@ -43,7 +33,7 @@ final class Camera {
         (rolls ?? []).first(where: \.isActive)
     }
 
-    // MARK: - Snapshot
+    // MARK: - Snapshot (camera's own fields only — derived data computed by loadAll)
 
     var snapshot: CameraSnapshot {
         CameraSnapshot(
@@ -51,13 +41,8 @@ final class Camera {
             name: name,
             createdAt: createdAt,
             listOrder: listOrder,
-            rollCount: cachedRollCount,
-            totalExposureCount: cachedTotalExposureCount,
-            lastUsedDate: cachedLastUsedDate,
-            activeRollID: cachedActiveRollID,
-            activeFilmStock: cachedActiveFilmStock,
-            activeExposureCount: cachedActiveExposureCount,
-            activeCapacity: cachedActiveCapacity
+            rollCount: 0,
+            totalExposureCount: 0
         )
     }
 }
