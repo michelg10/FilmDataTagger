@@ -78,16 +78,23 @@ actor DataStore: ModelActor {
     /// Warm thumbnails for a specific roll into ImageCache.
     /// Call when navigating to a camera (for its active roll) or switching to a roll.
     func warmRollThumbnails(_ rollID: UUID) async {
-        await ImageCache.shared.bookkeeper.recordAccess(rollID)
+        let cache = ImageCache.shared
+        await cache.bookkeeper.recordAccess(rollID)
+        // Skip the SwiftData fault if NSCache still has everything for this roll
+        guard cache.isRollDirty(rollID) || !cache.hasWarmedRoll(rollID) else {
+            debugLog("warmRollThumbnails(\(rollID)): skipped, roll is clean")
+            return
+        }
         let descriptor = FetchDescriptor<LogItem>(
             predicate: #Predicate<LogItem> { $0.roll?.id == rollID }
         )
         let items = (try? modelContext.fetch(descriptor)) ?? []
         for item in items {
             if let data = item.thumbnailData {
-                await ImageCache.shared.preload(for: item.id, data: data)
+                await cache.preload(for: item.id, data: data, rollID: rollID)
             }
         }
+        cache.clearRollDirty(rollID)
     }
 
     /// Provide relationship metadata to the ImageCache bookkeeper so it can decide
@@ -105,12 +112,14 @@ actor DataStore: ModelActor {
         let rollsToWarm = await bookkeeper.rollsToWarm(cameraInfo: cameraInfo)
 
         var priorityIDs = Set<UUID>()
+        var itemToRoll: [UUID: UUID] = [:]
         for rollID in rollsToWarm {
             let ids = fetchLogItemIDs(forRoll: rollID, withThumbnailsOnly: true)
             priorityIDs.formUnion(ids)
+            for id in ids { itemToRoll[id] = rollID }
         }
 
-        await ImageCache.shared.warmOnLaunch(priorityIDs: priorityIDs)
+        await ImageCache.shared.warmOnLaunch(priorityIDs: priorityIDs, itemToRoll: itemToRoll)
     }
 
     // MARK: - Write API

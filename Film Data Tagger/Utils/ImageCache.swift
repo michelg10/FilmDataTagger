@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import os
 
 /// Toggle to true to log timing + thread info for all cache operations.
 private let profileCache = true
@@ -122,6 +123,73 @@ actor CacheBookkeeper {
 
 // MARK: - ImageCache
 
+/// Tracks NSCache evictions to know which rolls need re-warming.
+/// Maps item UUIDs to their roll UUIDs. When NSCache evicts an item,
+/// the roll is marked dirty. The DataStore checks this before deciding
+/// whether to fault and re-fetch thumbnails for a roll.
+private final class EvictionTracker: NSObject, NSCacheDelegate, @unchecked Sendable {
+    private struct State {
+        var itemToRoll: [UUID: UUID] = [:]
+        var knownRolls: Set<UUID> = []
+        var dirtyRolls: Set<UUID> = []
+    }
+
+    // All state behind a single unfair lock — accessed from arbitrary threads
+    // (NSCache calls delegate from whatever thread triggers eviction)
+    private let state = OSAllocatedUnfairLock(initialState: State())
+
+    /// Register an item→roll mapping when warming or preloading.
+    func register(itemID: UUID, rollID: UUID) {
+        state.withLock {
+            $0.itemToRoll[itemID] = rollID
+            $0.knownRolls.insert(rollID)
+        }
+    }
+
+    /// Remove an item mapping (item was deleted, not evicted by memory pressure).
+    func unregister(itemID: UUID) {
+        state.withLock { $0.itemToRoll.removeValue(forKey: itemID) }
+    }
+
+    /// Check whether a roll has had any items evicted since last cleared.
+    func isRollDirty(_ rollID: UUID) -> Bool {
+        state.withLock { $0.dirtyRolls.contains(rollID) }
+    }
+
+    /// Check whether any items for this roll have been registered.
+    func hasRoll(_ rollID: UUID) -> Bool {
+        state.withLock { $0.knownRolls.contains(rollID) }
+    }
+
+    /// Clear the dirty flag for a roll (after re-warming it).
+    func clearDirty(_ rollID: UUID) {
+        state.withLock { $0.dirtyRolls.remove(rollID) }
+    }
+
+    // NSCacheDelegate — called when NSCache evicts an object.
+    // The object is a CachedImage which carries the item ID.
+    func cache(_ cache: NSCache<AnyObject, AnyObject>, willEvictObject obj: Any) {
+        guard let cached = obj as? CachedImage else { return }
+        let itemID = cached.itemID
+        state.withLock {
+            if let rollID = $0.itemToRoll[itemID] {
+                $0.dirtyRolls.insert(rollID)
+                cacheLog("evicted \(itemID) → roll \(rollID) marked dirty")
+            }
+        }
+    }
+}
+
+/// Wraps a UIImage with its item ID so the eviction delegate can identify it.
+private final class CachedImage: @unchecked Sendable {
+    let itemID: UUID
+    let image: UIImage
+    init(itemID: UUID, image: UIImage) {
+        self.itemID = itemID
+        self.image = image
+    }
+}
+
 /// Three-layer thumbnail cache.
 ///
 /// L1: in-memory NSCache (iOS handles eviction via memory pressure).
@@ -138,7 +206,8 @@ actor CacheBookkeeper {
 final class ImageCache: @unchecked Sendable {
     static let shared = ImageCache()
 
-    private nonisolated(unsafe) let memory = NSCache<NSUUID, UIImage>()
+    private nonisolated(unsafe) let memory = NSCache<NSUUID, CachedImage>()
+    private let evictionTracker = EvictionTracker()
     private let bgraURL: URL
     private let jpegURL: URL
     let bookkeeper = CacheBookkeeper()
@@ -154,6 +223,7 @@ final class ImageCache: @unchecked Sendable {
         jpegURL = base.appendingPathComponent("jpeg", isDirectory: true)
         try? FileManager.default.createDirectory(at: bgraURL, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: jpegURL, withIntermediateDirectories: true)
+        memory.delegate = evictionTracker
         discardCacheIfVersionMismatch()
     }
 
@@ -181,36 +251,69 @@ final class ImageCache: @unchecked Sendable {
 
     /// Fast synchronous check — memory only.
     func cachedImage(for id: UUID) -> UIImage? {
-        memory.object(forKey: id as NSUUID)
+        memoryGet(id)
+    }
+
+    // MARK: - Memory cache helpers
+
+    private func memoryGet(_ id: UUID) -> UIImage? {
+        memory.object(forKey: id as NSUUID)?.image
+    }
+
+    private func memorySet(_ id: UUID, image: UIImage, rollID: UUID? = nil) {
+        memory.setObject(CachedImage(itemID: id, image: image), forKey: id as NSUUID)
+        register(itemID: id, rollID: rollID)
+    }
+
+    // MARK: - Roll eviction tracking
+
+    /// Check whether a roll has had any items evicted by NSCache since last warm.
+    func isRollDirty(_ rollID: UUID) -> Bool {
+        evictionTracker.isRollDirty(rollID)
+    }
+
+    /// Check whether a roll has ever been warmed (has registered items).
+    func hasWarmedRoll(_ rollID: UUID) -> Bool {
+        evictionTracker.hasRoll(rollID)
+    }
+
+    /// Clear the dirty flag after re-warming a roll.
+    func clearRollDirty(_ rollID: UUID) {
+        evictionTracker.clearDirty(rollID)
+    }
+
+    /// Register an item→roll mapping for eviction tracking.
+    private func register(itemID: UUID, rollID: UUID?) {
+        guard let rollID else { return }
+        evictionTracker.register(itemID: itemID, rollID: rollID)
     }
 
     // MARK: - Write (callable from any thread — NSCache is thread-safe, disk writes are idempotent)
 
     /// Decode + cache a thumbnail. Promotes JPEG→BGRA if the item was previously demoted.
     /// Async to prevent accidental main-thread calls.
-    @concurrent func preload(for id: UUID, data: Data) async {
+    @concurrent func preload(for id: UUID, data: Data, rollID: UUID? = nil) async {
         let start = CFAbsoluteTimeGetCurrent()
-        let key = id as NSUUID
-        guard memory.object(forKey: key) == nil else {
+        guard memoryGet(id) == nil else {
             cacheLog("preload(\(id)): memory hit")
             return
         }
         // Check BGRA first — already in the fast tier
         if let image = loadBGRA(url: bgraPath(for: id)) {
-            memory.setObject(image, forKey: key)
+            memorySet(id, image: image, rollID: rollID)
             cacheLog("preload(\(id)): BGRA hit — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
             return
         }
         // JPEG hit — promote back to BGRA
         if let image = loadJPEG(id: id) {
-            memory.setObject(image, forKey: key)
+            memorySet(id, image: image, rollID: rollID)
             saveBGRA(id: id, image: image)
             cacheLog("preload(\(id)): JPEG hit+promote — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
             return
         }
         // Full miss — decode from source data
         guard let image = UIImage(data: data) else { return }
-        memory.setObject(image, forKey: key)
+        memorySet(id, image: image, rollID: rollID)
         saveBGRA(id: id, image: image)
         cacheLog("preload(\(id)): full decode+save — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
     }
@@ -220,31 +323,31 @@ final class ImageCache: @unchecked Sendable {
     /// Async to prevent accidental main-thread calls.
     @concurrent func decodeAndCache(for id: UUID, data: Data) async -> UIImage? {
         let start = CFAbsoluteTimeGetCurrent()
-        let key = id as NSUUID
-        if let cached = memory.object(forKey: key) {
+        if let cached = memoryGet(id) {
             cacheLog("decodeAndCache(\(id)): memory hit")
             return cached
         }
         if let image = loadBGRA(url: bgraPath(for: id)) {
-            memory.setObject(image, forKey: key)
+            memorySet(id, image: image)
             cacheLog("decodeAndCache(\(id)): BGRA hit — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
             return image
         }
         if let image = loadJPEG(id: id) {
-            memory.setObject(image, forKey: key)
+            memorySet(id, image: image)
             saveBGRA(id: id, image: image)
             cacheLog("decodeAndCache(\(id)): JPEG hit+promote — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
             return image
         }
         guard let image = UIImage(data: data) else { return nil }
-        memory.setObject(image, forKey: key)
+        memorySet(id, image: image)
         saveBGRA(id: id, image: image)
         cacheLog("decodeAndCache(\(id)): full decode+save — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
         return image
     }
 
-    /// Remove a thumbnail from all layers.
+    /// Remove a thumbnail from all layers (item was deleted — not a cache miss).
     func evict(id: UUID) {
+        evictionTracker.unregister(itemID: id)
         memory.removeObject(forKey: id as NSUUID)
         try? FileManager.default.removeItem(at: bgraPath(for: id))
         try? FileManager.default.removeItem(at: jpegPath(for: id))
@@ -257,20 +360,21 @@ final class ImageCache: @unchecked Sendable {
     /// Warm the memory cache from disk for the given priority thumbnails (capped at 768).
     /// Non-priority BGRA files are demoted to JPEG to save disk space.
     /// WARNING: Do not call from the main thread.
-    @concurrent func warmOnLaunch(priorityIDs: Set<UUID>) async {
+    /// - Parameter itemToRoll: maps each item UUID to its roll UUID for eviction tracking.
+    @concurrent func warmOnLaunch(priorityIDs: Set<UUID>, itemToRoll: [UUID: UUID] = [:]) async {
         let warmStart = CFAbsoluteTimeGetCurrent()
         // Warm priority thumbnails from disk into memory (BGRA first, then JPEG with promotion)
         var count = 0
         var bgraHits = 0, jpegHits = 0, misses = 0
         for id in priorityIDs {
             guard count < Self.warmItemLimit else { break }
-            let key = id as NSUUID
-            guard memory.object(forKey: key) == nil else { continue }
+            guard memoryGet(id) == nil else { continue }
+            let rollID = itemToRoll[id]
             if let image = loadBGRA(url: bgraPath(for: id)) {
-                memory.setObject(image, forKey: key)
+                memorySet(id, image: image, rollID: rollID)
                 bgraHits += 1
             } else if let image = loadJPEG(id: id) {
-                memory.setObject(image, forKey: key)
+                memorySet(id, image: image, rollID: rollID)
                 saveBGRA(id: id, image: image) // promote back to fast tier
                 jpegHits += 1
             } else {
@@ -312,18 +416,17 @@ final class ImageCache: @unchecked Sendable {
     /// Use when the source Data is not available (snapshot world — no thumbnailData on the snapshot).
     @concurrent func loadFromDiskAndCache(for id: UUID) async -> UIImage? {
         let start = CFAbsoluteTimeGetCurrent()
-        let key = id as NSUUID
-        if let cached = memory.object(forKey: key) {
+        if let cached = memoryGet(id) {
             cacheLog("loadFromDisk(\(id)): memory hit")
             return cached
         }
         if let image = loadBGRA(url: bgraPath(for: id)) {
-            memory.setObject(image, forKey: key)
+            memorySet(id, image: image)
             cacheLog("loadFromDisk(\(id)): BGRA hit — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
             return image
         }
         if let image = loadJPEG(id: id) {
-            memory.setObject(image, forKey: key)
+            memorySet(id, image: image)
             saveBGRA(id: id, image: image)
             cacheLog("loadFromDisk(\(id)): JPEG hit+promote — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
             return image
