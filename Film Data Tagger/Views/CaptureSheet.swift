@@ -396,7 +396,7 @@ struct CaptureSheet: View {
             CaptureButton(
                 frameCount: frameCount,
                 frameNumber: frameNumber,
-                onCapture: { Task { await onCapture() } },
+                onCapture: { Task(priority: .userInitiated) { await onCapture() } },
                 onAddPlaceholder: onAddPlaceholder
             )
         }

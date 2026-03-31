@@ -46,14 +46,14 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         let location = locations.last
-        Task { @MainActor in
+        Task(priority: .medium) { @MainActor in
             self.currentLocation = location
         }
     }
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         let status = manager.authorizationStatus
-        Task { @MainActor in
+        Task(priority: .medium) { @MainActor in
             self.authorizationStatus = status
             self.onAuthorizationChanged?(status)
         }

@@ -85,7 +85,7 @@ final class FilmLogViewModel {
 
     private func ensureSweepRunning() {
         guard sweepTask == nil else { return }
-        sweepTask = Task { [weak self] in
+        sweepTask = Task(priority: .utility) { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(Self.sweepInterval))
                 guard !Task.isCancelled, let self else { break }

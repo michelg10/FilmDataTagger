@@ -144,7 +144,7 @@ struct LogExposureIntent: AppIntent {
             manager.requestLocation()
 
             // Timeout after 10s — the task retains the delegate, keeping it alive
-            Task { @MainActor in
+            Task(priority: .medium) { @MainActor in
                 try? await Task.sleep(for: .seconds(10))
                 delegate.timeout()
             }
@@ -171,7 +171,7 @@ private class OneTimeLocationDelegate: NSObject, CLLocationManagerDelegate {
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         let location = locations.last
-        Task { @MainActor in
+        Task(priority: .userInitiated) { @MainActor in
             guard !self.hasCompleted else { return }
             self.hasCompleted = true
             self.completion(location)
@@ -179,7 +179,7 @@ private class OneTimeLocationDelegate: NSObject, CLLocationManagerDelegate {
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        Task { @MainActor in
+        Task(priority: .userInitiated) { @MainActor in
             guard !self.hasCompleted else { return }
             self.hasCompleted = true
             debugLog("CaptureIntent location failed: \(error.localizedDescription)")
