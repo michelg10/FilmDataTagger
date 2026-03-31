@@ -261,6 +261,13 @@ final class FilmLogViewModel {
         }
     }
 
+    /// Called when the app enters background. Flushes any pending debounced save.
+    func onBackground() {
+        Task.detached(priority: .userInitiated) { [store] in
+            await store.flushSave()
+        }
+    }
+
     private func recordAppLaunch() {
         settings.lastAppLaunchDate = Date()
         settings.lastForegroundDate = Date()

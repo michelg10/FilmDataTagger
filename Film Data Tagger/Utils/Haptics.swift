@@ -38,9 +38,12 @@ enum Haptic {
     }
 }
 
+private let supportsHaptics = CHHapticEngine.capabilitiesForHardware().supportsHaptics
+
 private let hapticQueue = DispatchQueue(label: "haptics", qos: .userInteractive)
 
 private let hapticEngine: CHHapticEngine? = {
+    guard supportsHaptics else { return nil }
     let engine = try? CHHapticEngine()
     engine?.isAutoShutdownEnabled = true
     engine?.playsHapticsOnly = true
@@ -49,7 +52,7 @@ private let hapticEngine: CHHapticEngine? = {
 }()
 
 @MainActor func playHaptic(_ haptic: Haptic) {
-    guard !AppSettings.shared.reduceHaptics, let engine = hapticEngine else { return }
+    guard supportsHaptics, !AppSettings.shared.reduceHaptics, let engine = hapticEngine else { return }
     hapticQueue.async {
         try? engine.start()
         let event = CHHapticEvent(

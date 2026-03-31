@@ -68,6 +68,8 @@ struct Film_Data_TaggerApp: App {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 viewModel.onForeground()
+            } else if phase == .background {
+                viewModel.onBackground()
             }
         }
     }

@@ -833,10 +833,36 @@ actor DataStore: ModelActor {
     }
     #endif
 
+    // MARK: - Debounced save
+
+    private var lastSaveDate: Date = .distantPast
+    private var debouncedSaveTask: Task<Void, Never>?
+    private static let debounceInterval: TimeInterval = 0.5
+    private static let maxSaveDelay: TimeInterval = 2
+
     private func save() {
         #if DEBUG
         assertOffMain()
         #endif
+        // If it's been too long since last save, flush immediately
+        if Date().timeIntervalSince(lastSaveDate) > Self.maxSaveDelay {
+            flushSave()
+            return
+        }
+        // Otherwise debounce — wait for more writes to batch
+        debouncedSaveTask?.cancel()
+        debouncedSaveTask = Task {
+            try? await Task.sleep(for: .seconds(Self.debounceInterval))
+            guard !Task.isCancelled else { return }
+            self.flushSave()
+        }
+    }
+
+    /// Flush any pending debounced save immediately. Call on app background/termination.
+    func flushSave() {
+        debouncedSaveTask?.cancel()
+        debouncedSaveTask = nil
+        lastSaveDate = Date()
         do {
             try modelContext.save()
         } catch {
