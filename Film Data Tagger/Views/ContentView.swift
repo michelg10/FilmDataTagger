@@ -89,7 +89,6 @@ private struct FinishRollOverlay: View {
     }
 }
 
-// TODO: audit
 struct ExposureScreen: View {
     let viewModel: FilmLogViewModel
     var onCameraSwitched: ((UUID) -> Void)? = nil
@@ -190,7 +189,6 @@ let bottomGradientOpacity: Double = 0.4
 
 // MARK: - Content View
 
-// TODO: audit
 struct ContentView: View {
     let viewModel: FilmLogViewModel
 

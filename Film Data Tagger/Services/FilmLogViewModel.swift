@@ -21,14 +21,24 @@ final class FilmLogViewModel {
     // MARK: - In-memory data tree
 
     /// The full camera hierarchy. Source of truth for the UI.
-    private(set) var cameras: [CameraState] = []
+    @ObservationIgnored private var _cameras: [CameraState] = []
+    private(set) var cameras: [CameraState] {
+        get { access(keyPath: \.cameras); return _cameras }
+        set { withMutation(keyPath: \.cameras) { _cameras = newValue } }
+    }
 
     /// The currently viewed camera (reference into the tree).
-    var openCamera: CameraState?
+    @ObservationIgnored private var _openCamera: CameraState?
+    var openCamera: CameraState? {
+        get { access(keyPath: \.openCamera); return _openCamera }
+        set { withMutation(keyPath: \.openCamera) { _openCamera = newValue } }
+    }
 
     /// The currently viewed roll (reference into the tree).
+    @ObservationIgnored private var _openRoll: RollState?
     var openRoll: RollState? {
-        didSet { persistOpenState() }
+        get { access(keyPath: \.openRoll); return _openRoll }
+        set { withMutation(keyPath: \.openRoll) { _openRoll = newValue }; persistOpenState() }
     }
 
     private var cancellables = Set<AnyCancellable>()
@@ -296,6 +306,7 @@ final class FilmLogViewModel {
     }
 
     /// Replace the tree with fresh data from the DataStore. Re-link openCamera/openRoll.
+    /// Uses relink methods to diff content and only trigger observation when data actually changed.
     @MainActor
     private func applyFullTree(_ tree: [CameraState]) {
         treeGeneration = UUID()
@@ -303,17 +314,44 @@ final class FilmLogViewModel {
         let oldRollID = openRoll?.id
 
         mergeOptimisticState(into: tree)
-        cameras = tree
+        relinkCameras(tree)
 
         if let cameraID = oldCameraID {
-            openCamera = camera(cameraID)
+            relinkOpenCamera(camera(cameraID))
         } else {
             openCamera = nil
         }
         if let rollID = oldRollID {
-            openRoll = roll(rollID)
+            relinkOpenRoll(roll(rollID))
         } else {
             openRoll = nil
+        }
+    }
+
+    // MARK: - Observation-aware relinking (applyFullTree only)
+
+    /// Relink cameras to a new tree. Only triggers observation if camera snapshots changed.
+    /// When unchanged, keeps old references so existing observations stay valid.
+    private func relinkCameras(_ tree: [CameraState]) {
+        if _cameras.map(\.snapshot) != tree.map(\.snapshot) {
+            withMutation(keyPath: \.cameras) { _cameras = tree }
+        }
+    }
+
+    /// Relink openCamera. Only triggers observation if the camera snapshot changed.
+    /// When unchanged, keeps old reference so observations on CameraState stay valid.
+    private func relinkOpenCamera(_ newCamera: CameraState?) {
+        if _openCamera?.snapshot != newCamera?.snapshot {
+            withMutation(keyPath: \.openCamera) { _openCamera = newCamera }
+        }
+    }
+
+    /// Relink openRoll. Only triggers observation if snapshot or items changed.
+    /// When unchanged, keeps old reference so observations on RollState.items stay valid.
+    private func relinkOpenRoll(_ newRoll: RollState?) {
+        if _openRoll?.snapshot != newRoll?.snapshot || _openRoll?.items != newRoll?.items {
+            withMutation(keyPath: \.openRoll) { _openRoll = newRoll }
+            persistOpenState()
         }
     }
 
