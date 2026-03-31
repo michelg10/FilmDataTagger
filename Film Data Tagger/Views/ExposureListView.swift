@@ -387,7 +387,7 @@ struct ExposureListView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(.bottom, 153)
                     .padding(.top, 18)
-                    .offset(y: -21)
+                    .offset(y: -15)
             } else {
                 ScrollViewReader { proxy in
                     ScrollView {
