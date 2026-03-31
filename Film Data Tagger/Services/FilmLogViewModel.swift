@@ -342,8 +342,8 @@ final class FilmLogViewModel {
 
     /// Replace the tree with fresh data from the DataStore. Re-link openCamera/openRoll.
     /// Uses relink methods to diff content and only trigger observation when data actually changed.
-    /// Always looks up from the new tree (not _cameras) so item-level changes are detected
-    /// even when camera snapshots are unchanged.
+    /// When cameras DID change, always relinks openCamera/openRoll with full observation
+    /// (old references are orphaned and must not be kept).
     @MainActor
     private func applyFullTree(_ tree: [CameraState]) {
         treeGeneration = UUID()
@@ -351,7 +351,7 @@ final class FilmLogViewModel {
         let oldRollID = openRoll?.id
 
         mergeOptimisticState(into: tree)
-        relinkCameras(tree)
+        let camerasChanged = relinkCameras(tree)
 
         // Look up from the new tree, not _cameras — relinkCameras may have skipped assignment
         let newCamera = oldCameraID.flatMap { id in tree.first(where: { $0.id == id }) }
@@ -359,12 +359,20 @@ final class FilmLogViewModel {
             ?? tree.flatMap(\.rolls).first(where: { $0.id == id }) }
 
         if oldCameraID != nil {
-            relinkOpenCamera(newCamera)
+            if camerasChanged {
+                openCamera = newCamera
+            } else {
+                relinkOpenCamera(newCamera)
+            }
         } else {
             openCamera = nil
         }
         if oldRollID != nil {
-            relinkOpenRoll(newRoll)
+            if camerasChanged {
+                openRoll = newRoll
+            } else {
+                relinkOpenRoll(newRoll)
+            }
         } else {
             openRoll = nil
         }
@@ -374,10 +382,14 @@ final class FilmLogViewModel {
 
     /// Relink cameras to a new tree. Only triggers observation if camera snapshots changed.
     /// When unchanged, keeps old references so existing observations stay valid.
-    private func relinkCameras(_ tree: [CameraState]) {
+    /// Returns true if the tree was replaced.
+    @discardableResult
+    private func relinkCameras(_ tree: [CameraState]) -> Bool {
         if _cameras.map(\.snapshot) != tree.map(\.snapshot) {
             withMutation(keyPath: \.cameras) { _cameras = tree }
+            return true
         }
+        return false
     }
 
     /// Relink openCamera. Only triggers observation if the camera snapshot changed.
@@ -630,12 +642,15 @@ final class FilmLogViewModel {
                 guard let name = result.placeName else { return }
                 guard let self else { return }
                 await MainActor.run {
-                    // Use captured roll reference, not self.openRoll —
-                    // the user may have switched rolls while geocoding was in-flight.
-                    for i in capturedRoll.items.indices where ids.contains(capturedRoll.items[i].id) {
-                        capturedRoll.items[i].placeName = name
-                        capturedRoll.items[i].cityName = result.cityName
-                        self.recordOptimistic(capturedRoll.items[i])
+                    // If the tree was replaced, capturedRoll is orphaned — grab the live one
+                    guard let roll = self.roll(capturedRoll.id) else {
+                        debugLog("Geocoding update: roll \(capturedRoll.id) not found, skipping in-memory update")
+                        return
+                    }
+                    for i in roll.items.indices where ids.contains(roll.items[i].id) {
+                        roll.items[i].placeName = name
+                        roll.items[i].cityName = result.cityName
+                        self.recordOptimistic(roll.items[i])
                     }
                     self.persistOpenState()
                 }
