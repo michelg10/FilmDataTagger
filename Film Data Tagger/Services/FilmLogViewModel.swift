@@ -48,6 +48,10 @@ final class FilmLogViewModel {
     /// Lets code spanning an await detect whether the tree was swapped underneath it.
     private(set) var treeGeneration = UUID()
 
+    /// Version of the last applied tree from the DataStore. Used to discard stale trees
+    /// when multiple loadAll calls complete out of order.
+    private var lastAppliedTreeVersion = 0
+
     // MARK: - Optimistic State
     //
     // Bounded-TTL optimistic entries that survive tree replacements from the DataStore.
@@ -215,10 +219,10 @@ final class FilmLogViewModel {
 
         // Full async load — replaces the minimal persisted state with the real tree
         Task.detached(priority: .userInitiated) { [store, weak self] in
-            let tree = await store.loadAll()
+            let (tree, version) = await store.loadAll()
             guard let self else { return }
 
-            await self.applyFullTree(tree)
+            await self.applyFullTree(tree, version: version)
             await store.observeRemoteChanges()
 
             // Background work — lower priority, not blocking UI
@@ -345,7 +349,12 @@ final class FilmLogViewModel {
     /// When cameras DID change, always relinks openCamera/openRoll with full observation
     /// (old references are orphaned and must not be kept).
     @MainActor
-    private func applyFullTree(_ tree: [CameraState]) {
+    private func applyFullTree(_ tree: [CameraState], version: Int) {
+        guard version > lastAppliedTreeVersion else {
+            debugLog("applyFullTree: skipping stale tree (version \(version), current \(lastAppliedTreeVersion))")
+            return
+        }
+        lastAppliedTreeVersion = version
         treeGeneration = UUID()
         let oldCameraID = openCamera?.id
         let oldRollID = openRoll?.id
@@ -426,10 +435,10 @@ final class FilmLogViewModel {
     /// Handle remote data changes — reload the tree from the DataStore.
     private func handleRemoteDataChanged() {
         Task.detached(priority: .userInitiated) { [store, weak self] in
-            let tree = await store.loadAll()
+            let (tree, version) = await store.loadAll()
             guard let self else { return }
             await MainActor.run {
-                self.applyFullTree(tree)
+                self.applyFullTree(tree, version: version)
             }
         }
     }

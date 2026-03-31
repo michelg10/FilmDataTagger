@@ -70,6 +70,7 @@ final class CameraController {
         guard referencePhotosEnabled else { return }
         Task(priority: .userInitiated) {
             let granted = await CameraManager.requestPermission()
+            guard referencePhotosEnabled else { return } // may have been disabled during await
             permissionDenied = !granted
             if granted {
                 await startCamera()
@@ -93,12 +94,15 @@ final class CameraController {
     func toggle() {
         if !referencePhotosEnabled {
             // Turning on — check permission first
+            referencePhotosEnabled = true // set eagerly so ensureRunning() doesn't bail
             Task(priority: .userInitiated) {
                 let granted = await CameraManager.requestPermission()
+                guard referencePhotosEnabled else { return } // toggled off during await
                 permissionDenied = !granted
                 if granted {
-                    referencePhotosEnabled = true
                     await startCamera()
+                } else {
+                    referencePhotosEnabled = false
                 }
                 // If denied, iOS won't re-prompt — user must go to Settings.
             }

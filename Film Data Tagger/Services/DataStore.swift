@@ -32,13 +32,20 @@ actor DataStore: ModelActor {
 
     // MARK: - Startup / Read API
 
+    /// Monotonic version counter — incremented on each loadAll.
+    /// The VM uses this to discard stale trees from out-of-order completions.
+    private var _treeVersion: Int = 0
+    var treeVersion: Int { _treeVersion }
+
     /// Load ALL metadata into memory as a ready-made tree.
     /// Called once on startup and on remote changes.
     /// Ownership is transferred to the caller — the actor holds no references afterward.
-    func loadAll() -> sending [CameraState] {
+    func loadAll() -> sending (tree: [CameraState], version: Int) {
         #if DEBUG
         assertHighPriority()
         #endif
+        _treeVersion += 1
+        let version = _treeVersion
         let fetchStart = CFAbsoluteTimeGetCurrent()
         var cameras: [Camera] = []
         var allRolls: [Roll] = []
@@ -97,7 +104,7 @@ actor DataStore: ModelActor {
         let treeMs = (CFAbsoluteTimeGetCurrent() - fetchStart) * 1000 - fetchMs
         debugLog("loadAll: fetch \(String(format: "%.1f", fetchMs))ms + tree \(String(format: "%.1f", treeMs))ms (\(cameras.count) cameras, \(allRolls.count) rolls, \(allItems.count) items)")
 
-        return tree
+        return (tree, version)
     }
 
     /// Warm thumbnails for a specific roll into ImageCache.

@@ -8,7 +8,7 @@
 import Foundation
 
 @Observable
-final class CameraState: Identifiable, Sendable {
+final class CameraState: Identifiable {
     let id: UUID
     var snapshot: CameraSnapshot
     var rolls: [RollState]
