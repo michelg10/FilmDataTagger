@@ -56,23 +56,29 @@ final class FilmLogViewModel {
 
     private struct OptimisticEntry {
         let item: LogItemSnapshot
+        // Non-nil for moves — the roll the item was moved FROM. Only tracks the most recent
+        // source, not the full chain. A double-move (A→B→C) before the first persist completes
+        // could theoretically leave a stale copy in A, but this can't happen through the UI
+        // (user must navigate to B, find the item, and move it again before the first persist
+        // finishes) and self-corrects within the 8s TTL window.
+        let sourceRollID: UUID?
         let modifiedAt: Date
     }
 
     private var optimisticItems: [UUID: OptimisticEntry] = [:]
-    private var optimisticDeletes: [UUID: Date] = [:]
+    private var optimisticDeletes: [UUID: (rollID: UUID, date: Date)] = [:]
     private var sweepTask: Task<Void, Never>?
 
     private static let optimisticTTL: TimeInterval = 8
     private static let sweepInterval: TimeInterval = 4
 
-    private func recordOptimistic(_ item: LogItemSnapshot) {
-        optimisticItems[item.id] = OptimisticEntry(item: item, modifiedAt: Date())
+    private func recordOptimistic(_ item: LogItemSnapshot, sourceRollID: UUID? = nil) {
+        optimisticItems[item.id] = OptimisticEntry(item: item, sourceRollID: sourceRollID, modifiedAt: Date())
         ensureSweepRunning()
     }
 
-    private func recordOptimisticDelete(_ id: UUID) {
-        optimisticDeletes[id] = Date()
+    private func recordOptimisticDelete(_ id: UUID, rollID: UUID) {
+        optimisticDeletes[id] = (rollID: rollID, date: Date())
         optimisticItems.removeValue(forKey: id)
         ensureSweepRunning()
     }
@@ -85,7 +91,7 @@ final class FilmLogViewModel {
                 guard !Task.isCancelled, let self else { break }
                 let cutoff = Date().addingTimeInterval(-Self.optimisticTTL)
                 self.optimisticItems = self.optimisticItems.filter { $0.value.modifiedAt > cutoff }
-                self.optimisticDeletes = self.optimisticDeletes.filter { $0.value > cutoff }
+                self.optimisticDeletes = self.optimisticDeletes.filter { $0.value.date > cutoff }
                 if self.optimisticItems.isEmpty && self.optimisticDeletes.isEmpty {
                     self.sweepTask = nil
                     break
@@ -95,58 +101,83 @@ final class FilmLogViewModel {
     }
 
     /// Merge optimistic entries into an incoming tree from the DataStore.
-    /// No TTL filtering here — the sweep task handles expiry.
+    /// O(optimistic entries) — only touches rolls that have pending inserts or deletes.
     private func mergeOptimisticState(into tree: [CameraState]) {
         guard !optimisticItems.isEmpty || !optimisticDeletes.isEmpty else { return }
 
         // Group optimistic items by rollID
-        var itemsByRoll: [UUID: [LogItemSnapshot]] = [:]
+        var insertsByRoll: [UUID: [LogItemSnapshot]] = [:]
         for (_, entry) in optimisticItems {
             guard let rollID = entry.item.rollID else { continue }
-            itemsByRoll[rollID, default: []].append(entry.item)
+            insertsByRoll[rollID, default: []].append(entry.item)
         }
 
+        // Group deletes by rollID
+        var deletesByRoll: [UUID: Set<UUID>] = [:]
+        for (itemID, entry) in optimisticDeletes {
+            deletesByRoll[entry.rollID, default: []].insert(itemID)
+        }
+
+        // IDs to remove from any roll (optimistic items replace DataStore versions)
         let optimisticIDs = Set(optimisticItems.keys)
-        let deleteIDs = Set(optimisticDeletes.keys)
 
+        // Source rolls for moves — the DataStore still has the old copy there
+        let sourceRollIDs = Set(optimisticItems.values.compactMap(\.sourceRollID))
+
+        // Only touch affected rolls
+        let affectedRollIDs = Set(insertsByRoll.keys).union(deletesByRoll.keys).union(sourceRollIDs)
+        guard !affectedRollIDs.isEmpty else { return }
+
+        // Build roll lookup — O(rolls), not O(items)
+        var rollLookup: [UUID: (roll: RollState, camera: CameraState)] = [:]
         for camera in tree {
-            var cameraCountDelta = 0
-            for roll in camera.rolls {
-                let countBefore = roll.items.count
+            for roll in camera.rolls where affectedRollIDs.contains(roll.id) {
+                rollLookup[roll.id] = (roll, camera)
+            }
+        }
 
-                // 1. Filter out deletes and items in the optimistic set (handles moves — removes from old location)
-                roll.items = roll.items.filter { item in
-                    !deleteIDs.contains(item.id) && !optimisticIDs.contains(item.id)
-                }
-                let removed = countBefore - roll.items.count
+        // Track which cameras need snapshot updates
+        var cameraDelta: [UUID: Int] = [:]
 
-                // 2. Re-insert optimistic items that belong to this roll
-                var added = 0
-                if let optimistic = itemsByRoll[roll.id] {
-                    roll.items.append(contentsOf: optimistic)
-                    roll.items.sort { $0.createdAt < $1.createdAt }
-                    added = optimistic.count
-                }
+        for rollID in affectedRollIDs {
+            guard let (roll, camera) = rollLookup[rollID] else { continue }
+            let countBefore = roll.items.count
 
-                // 3. Replay roll snapshot caches
-                let delta = added - removed
-                if delta != 0 {
-                    roll.snapshot.exposureCount = roll.items.count
-                    roll.snapshot.lastExposureDate = roll.items.last(where: { $0.hasRealCreatedAt })?.createdAt
-                    cameraCountDelta += delta
+            // 1. Remove DataStore versions of optimistic items + deleted items
+            let deleteIDs = deletesByRoll[rollID] ?? []
+            if !optimisticIDs.isEmpty || !deleteIDs.isEmpty {
+                roll.items.removeAll { optimisticIDs.contains($0.id) || deleteIDs.contains($0.id) }
+            }
+            let removed = countBefore - roll.items.count
 
-                    // Update active roll caches on camera
-                    if camera.activeRoll?.id == roll.id {
-                        camera.snapshot.activeRoll = roll.snapshot
-                    }
+            // 2. Re-insert optimistic items
+            var added = 0
+            if let inserts = insertsByRoll[rollID] {
+                roll.items.append(contentsOf: inserts)
+                roll.items.sort { $0.createdAt < $1.createdAt }
+                added = inserts.count
+            }
+
+            // 3. Update roll snapshot if count changed
+            let delta = added - removed
+            if delta != 0 {
+                roll.snapshot.exposureCount = roll.items.count
+                roll.snapshot.lastExposureDate = roll.items.last(where: { $0.hasRealCreatedAt })?.createdAt
+                cameraDelta[camera.id, default: 0] += delta
+
+                if camera.activeRoll?.id == rollID {
+                    camera.snapshot.activeRoll = roll.snapshot
                 }
             }
-            if cameraCountDelta != 0 {
-                camera.snapshot.totalExposureCount += cameraCountDelta
-                camera.snapshot.lastUsedDate = camera.rolls.compactMap {
-                    $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil)
-                }.max()
-            }
+        }
+
+        // 4. Update affected camera snapshots
+        for (cameraID, delta) in cameraDelta {
+            guard let camera = tree.first(where: { $0.id == cameraID }) else { continue }
+            camera.snapshot.totalExposureCount += delta
+            camera.snapshot.lastUsedDate = camera.rolls.compactMap {
+                $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil)
+            }.max()
         }
     }
 
@@ -649,8 +680,12 @@ final class FilmLogViewModel {
     }
 
     func deleteItem(_ item: LogItemSnapshot) {
+        guard let rollID = item.rollID else {
+            debugLog("deleteItem: item \(item.id) has no rollID");
+            return
+        }
         openRoll?.items.removeAll { $0.id == item.id }
-        recordOptimisticDelete(item.id)
+        recordOptimisticDelete(item.id, rollID: rollID)
         // Update roll snapshot caches
         if let roll = openRoll {
             roll.snapshot.exposureCount = roll.items.count
@@ -699,7 +734,7 @@ final class FilmLogViewModel {
             movedItem.rollID = toRollID
             targetRoll.items.append(movedItem)
             targetRoll.items.sort { $0.createdAt < $1.createdAt }
-            recordOptimistic(movedItem)
+            recordOptimistic(movedItem, sourceRollID: sourceRoll?.id)
 
             // Update target roll snapshot caches
             targetRoll.snapshot.exposureCount = targetRoll.items.count
