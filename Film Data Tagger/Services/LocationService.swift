@@ -167,10 +167,10 @@ final class LocationService {
     /// The main loop checks Task.isCancelled after every await to avoid writing stale state.
     private func startLiveGeocoding() {
         geocodeTask?.cancel()
-        geocodeTask = Task(priority: .userInitiated) {
+        geocodeTask = Task(priority: .medium) {
             // Time out after 15s if we still have no location.
             let parentTask = geocodeTask
-            Task(priority: .userInitiated) {
+            Task(priority: .medium) {
                 try? await Task.sleep(for: .seconds(15))
                 guard parentTask?.isCancelled != true else { return }
                 if case .locating = geocodingState {
@@ -191,7 +191,7 @@ final class LocationService {
                     let id = UUID()
                     fallbackPlaceName = currentName
                     fallbackID = id
-                    Task(priority: .userInitiated) {
+                    Task(priority: .medium) {
                         try? await Task.sleep(for: .seconds(1))
                         if self.fallbackID == id {
                             self.fallbackPlaceName = nil
@@ -202,7 +202,7 @@ final class LocationService {
 
                 // Only show "Locating..." if the geocode takes longer than 0.3s,
                 // to avoid flashing when retrying quickly (e.g., no internet).
-                let geocodingIndicator = Task(priority: .userInitiated) { [parentTask] in
+                let geocodingIndicator = Task(priority: .medium) { [parentTask] in
                     try? await Task.sleep(for: .seconds(0.3))
                     guard !Task.isCancelled, parentTask?.isCancelled != true else { return }
                     self.geocodingState = .geocoding(location)

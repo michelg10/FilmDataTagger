@@ -216,27 +216,31 @@ final class FilmLogViewModel {
         // Full async load — replaces the minimal persisted state with the real tree
         Task.detached(priority: .userInitiated) { [store, weak self] in
             let tree = await store.loadAll()
-            await self?.applyFullTree(tree)
-
-            // Background work — not blocking UI
-            await store.observeRemoteChanges()
-            await store.startTimezoneChangeDetection()
-            await store.warmThumbnailCache()
-            
             guard let self else { return }
 
-            // Warm thumbnails for the open roll (if any)
-            if let rollID = await MainActor.run(body: { self.openRoll?.id }) {
-                await store.warmRollThumbnails(rollID)
-            }
+            await self.applyFullTree(tree)
+            await store.observeRemoteChanges()
 
-            // Background maintenance
-            let cutoffDate = min(
-                Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
-                previousLaunchDate ?? Date.distantPast
-            )
-            await store.geocodeItemsIfNeeded(since: cutoffDate)
-            await store.runPeriodicCleanupIfNeeded()
+            // Background work — lower priority, not blocking UI
+            Task.detached(priority: .utility) { [weak self] in
+                guard let self else { return }
+                
+                await store.startTimezoneChangeDetection()
+                await store.warmThumbnailCache()
+
+                // Warm thumbnails for the open roll (if any)
+                if let rollID = await MainActor.run(body: { self.openRoll?.id }) {
+                    await store.warmRollThumbnails(rollID)
+                }
+
+                // Background maintenance
+                let cutoffDate = min(
+                    Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? Date(),
+                    previousLaunchDate ?? Date.distantPast
+                )
+                await store.geocodeItemsIfNeeded(since: cutoffDate)
+                await store.runPeriodicCleanupIfNeeded()
+            }
         }
     }
 
@@ -245,7 +249,7 @@ final class FilmLogViewModel {
     func onForeground() {
         let cutoff = settings.lastForegroundDate ?? Date()
         settings.lastForegroundDate = Date()
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.checkTimezoneChange()
         }
         Task.detached(priority: .utility) { [store] in
@@ -438,7 +442,7 @@ final class FilmLogViewModel {
             }
         openCamera = camera
         openRoll = activeRoll
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.warmRollThumbnails(activeRoll.id)
         }
         Task.detached(priority: .utility) { [store] in
@@ -577,7 +581,7 @@ final class FilmLogViewModel {
         // All encoding and I/O happens here, off the critical path.
         guard !capturedIDs.isEmpty, let targetRoll else { return }
         let rollID = targetRoll.id
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             // Encode once — shared across all items
             var photoData: Data? = nil
             var thumbnailData: Data? = nil
@@ -674,7 +678,7 @@ final class FilmLogViewModel {
             }
         }
         persistOpenState()
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.logPlaceholder(id: id, rollID: roll.id, createdAt: createdAt)
         }
     }
@@ -700,7 +704,7 @@ final class FilmLogViewModel {
             camera.snapshot.lastUsedDate = camera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
         }
         persistOpenState()
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.deleteItem(id: item.id)
         }
     }
@@ -756,7 +760,7 @@ final class FilmLogViewModel {
             openRoll = targetRoll
         }
 
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.moveItem(id: item.id, toRollID: toRollID)
         }
     }
@@ -814,7 +818,7 @@ final class FilmLogViewModel {
             roll.items.sort { $0.createdAt < $1.createdAt }
         }
         persistOpenState()
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.movePlaceholder(id: id, newTimestamp: newTimestamp)
         }
     }
@@ -836,7 +840,7 @@ final class FilmLogViewModel {
         openCamera?.recomputeRollDisplayData()
         persistOpenState()
         let count = roll.snapshot.extraExposures
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.setExtraExposures(rollID: roll.id, count: count)
         }
     }
@@ -884,7 +888,7 @@ final class FilmLogViewModel {
         camera.snapshot.rollCount += 1
         camera.snapshot.activeRoll = newRoll.snapshot
         camera.recomputeRollDisplayData()
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.createRoll(id: id, cameraID: cameraID, filmStock: filmStock, capacity: capacity)
         }
         return id
@@ -902,7 +906,7 @@ final class FilmLogViewModel {
             openCamera?.recomputeRollDisplayData()
         }
         persistOpenState()
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.editRoll(id: id, filmStock: filmStock, capacity: capacity)
         }
     }
@@ -926,7 +930,7 @@ final class FilmLogViewModel {
             camera.snapshot.activeRoll = nil
         }
         camera.recomputeRollDisplayData()
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.deleteRoll(id: id)
         }
     }
@@ -945,7 +949,7 @@ final class FilmLogViewModel {
             totalExposureCount: 0
         )
         cameras.append(CameraState(snapshot: snapshot))
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.createCamera(id: id, name: name, listOrder: listOrder)
         }
         return id
@@ -955,7 +959,7 @@ final class FilmLogViewModel {
         if let cam = camera(id) {
             cam.snapshot.name = name
         }
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.renameCamera(id: id, name: name)
         }
     }
@@ -966,7 +970,7 @@ final class FilmLogViewModel {
             openCamera = nil
         }
         cameras.removeAll { $0.id == id }
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.deleteCamera(id: id)
         }
     }
@@ -980,7 +984,7 @@ final class FilmLogViewModel {
             camera.snapshot.listOrder = Double(i)
         }
         cameras = reordered
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .medium) { [store] in
             await store.reorderCameras(orderedIDs: orderedIDs)
         }
     }
