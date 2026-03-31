@@ -307,6 +307,8 @@ final class FilmLogViewModel {
 
     /// Replace the tree with fresh data from the DataStore. Re-link openCamera/openRoll.
     /// Uses relink methods to diff content and only trigger observation when data actually changed.
+    /// Always looks up from the new tree (not _cameras) so item-level changes are detected
+    /// even when camera snapshots are unchanged.
     @MainActor
     private func applyFullTree(_ tree: [CameraState]) {
         treeGeneration = UUID()
@@ -316,13 +318,18 @@ final class FilmLogViewModel {
         mergeOptimisticState(into: tree)
         relinkCameras(tree)
 
-        if let cameraID = oldCameraID {
-            relinkOpenCamera(camera(cameraID))
+        // Look up from the new tree, not _cameras — relinkCameras may have skipped assignment
+        let newCamera = oldCameraID.flatMap { id in tree.first(where: { $0.id == id }) }
+        let newRoll = oldRollID.flatMap { id in newCamera?.rolls.first(where: { $0.id == id })
+            ?? tree.flatMap(\.rolls).first(where: { $0.id == id }) }
+
+        if oldCameraID != nil {
+            relinkOpenCamera(newCamera)
         } else {
             openCamera = nil
         }
-        if let rollID = oldRollID {
-            relinkOpenRoll(roll(rollID))
+        if oldRollID != nil {
+            relinkOpenRoll(newRoll)
         } else {
             openRoll = nil
         }
