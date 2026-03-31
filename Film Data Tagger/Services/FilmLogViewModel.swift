@@ -349,6 +349,9 @@ final class FilmLogViewModel {
         treeGeneration = UUID()
         let oldCameraID = openCamera?.id
         let oldRollID = openRoll?.id
+        // Preserve in-memory extraExposures — can be rapidly cycled by the user,
+        // and the persist may not have completed before this tree replacement.
+        let preservedExtra = openRoll?.snapshot.extraExposures
 
         mergeOptimisticState(into: tree)
         let camerasChanged = relinkCameras(tree)
@@ -375,6 +378,17 @@ final class FilmLogViewModel {
             }
         } else {
             openRoll = nil
+        }
+
+        // Restore extraExposures if the new tree has a stale value
+        if let extra = preservedExtra, let roll = openRoll,
+           roll.snapshot.extraExposures != extra {
+            roll.snapshot.extraExposures = extra
+            roll.snapshot.totalCapacity = roll.snapshot.capacity + extra
+            if let cam = openCamera, cam.activeRoll?.id == roll.id {
+                cam.snapshot.activeRoll = roll.snapshot
+                cam.recomputeRollDisplayData()
+            }
         }
     }
 
