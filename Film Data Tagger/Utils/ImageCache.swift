@@ -340,17 +340,17 @@ final class ImageCache: @unchecked Sendable {
             cacheLog("preload(\(id)): BGRA hit — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
             return
         }
-        // JPEG hit — promote back to BGRA
+        // JPEG hit — promote back to BGRA, store decoded in L1
         if let image = loadJPEG(id: id) {
-            memorySet(id, image: image, rollID: rollID)
-            saveBGRA(id: id, image: image)
+            let decoded = saveBGRA(id: id, image: image) ?? image
+            memorySet(id, image: decoded, rollID: rollID)
             cacheLog("preload(\(id)): JPEG hit+promote — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
             return
         }
-        // Full miss — decode from source data, save both tiers
+        // Full miss — decode from source data, save both tiers, store decoded in L1
         guard let image = UIImage(data: data) else { return }
-        memorySet(id, image: image, rollID: rollID)
-        saveBGRA(id: id, image: image)
+        let decoded = saveBGRA(id: id, image: image) ?? image
+        memorySet(id, image: decoded, rollID: rollID)
         saveJPEG(id: id, image: image)
         cacheLog("preload(\(id)): full decode+save — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
     }
@@ -370,17 +370,17 @@ final class ImageCache: @unchecked Sendable {
             return image
         }
         if let image = loadJPEG(id: id) {
-            memorySet(id, image: image)
-            saveBGRA(id: id, image: image)
+            let decoded = saveBGRA(id: id, image: image) ?? image
+            memorySet(id, image: decoded)
             cacheLog("decodeAndCache(\(id)): JPEG hit+promote — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
-            return image
+            return decoded
         }
         guard let image = UIImage(data: data) else { return nil }
-        memorySet(id, image: image)
-        saveBGRA(id: id, image: image)
+        let decoded = saveBGRA(id: id, image: image) ?? image
+        memorySet(id, image: decoded)
         saveJPEG(id: id, image: image)
         cacheLog("decodeAndCache(\(id)): full decode+save — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
-        return image
+        return decoded
     }
 
     /// Remove a thumbnail from all layers (item was deleted — not a cache miss).
@@ -458,10 +458,10 @@ final class ImageCache: @unchecked Sendable {
             return image
         }
         if let image = loadJPEG(id: id) {
-            memorySet(id, image: image)
-            saveBGRA(id: id, image: image)
+            let decoded = saveBGRA(id: id, image: image) ?? image
+            memorySet(id, image: decoded)
             cacheLog("loadFromDisk(\(id)): JPEG hit+promote — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
-            return image
+            return decoded
         }
         cacheLog("loadFromDisk(\(id)): total miss — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
         return nil
@@ -496,9 +496,12 @@ final class ImageCache: @unchecked Sendable {
         return UIImage(cgImage: cgImage, scale: scale, orientation: .up)
     }
 
-    private func saveBGRA(id: UUID, image: UIImage) {
+    /// Force-decode image to BGRA, write to disk, and return the decoded UIImage.
+    /// The returned image is zero-decode — safe to hand to SwiftUI without main-thread decompression.
+    @discardableResult
+    private func saveBGRA(id: UUID, image: UIImage) -> UIImage? {
         let start = CFAbsoluteTimeGetCurrent()
-        guard let cgImage = image.cgImage else { return }
+        guard let cgImage = image.cgImage else { return nil }
         let width = cgImage.width
         let height = cgImage.height
 
@@ -506,7 +509,7 @@ final class ImageCache: @unchecked Sendable {
             data: nil, width: width, height: height,
             bitsPerComponent: 8, bytesPerRow: width * 4,
             space: Self.colorSpace, bitmapInfo: Self.bitmapInfo.rawValue
-        ), let data = context.data else { return }
+        ), let data = context.data else { return nil }
 
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
 
@@ -519,6 +522,10 @@ final class ImageCache: @unchecked Sendable {
         } catch {
             debugLog("saveBGRA(\(id)): write failed: \(error)")
         }
+
+        // Return decoded image backed by the bitmap context
+        guard let decodedCG = context.makeImage() else { return nil }
+        return UIImage(cgImage: decodedCG, scale: image.scale, orientation: .up)
     }
 
     // MARK: - Disk — JPEG (durable baseline, needs decode)
