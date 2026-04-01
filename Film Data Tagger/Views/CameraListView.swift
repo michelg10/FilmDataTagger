@@ -230,7 +230,7 @@ private struct CameraEndDropDelegate: DropDelegate {
 }
 
 struct CameraListView: View {
-    let viewModel: FilmLogViewModel
+    let viewModel: any CamerasViewModel
     @State private var editingEntry: (any CameraListEntry)?
     @State private var entryToDelete: (any CameraListEntry)?
     @State private var showDeleteAlert = false

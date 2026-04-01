@@ -80,7 +80,8 @@ private struct FinishRollOverlay: View {
 }
 
 struct ExposureScreen: View {
-    let viewModel: FilmLogViewModel
+    let viewModel: any ExposuresViewModel
+    let menuContext: any ExposureMenuContext
     var onCameraSwitched: ((UUID) -> Void)? = nil
 
     @State private var newRollCameraID: UUID?
@@ -100,14 +101,6 @@ struct ExposureScreen: View {
                 extraExposures: viewModel.openRollSnapshot?.extraExposures ?? 0,
                 scrollContextID: viewModel.openRollSnapshot?.id ?? viewModel.openCameraSnapshot?.id,
                 onDelete: { viewModel.deleteItem($0) },
-                onMoveToRoll: { item, rollID in
-                    let previousCameraID = viewModel.openCameraSnapshot?.id
-                    viewModel.moveItem(item, toRollID: rollID)
-                    // If moveItem switched to a different camera, rebuild the nav path
-                    if let newCameraID = viewModel.openCameraSnapshot?.id, newCameraID != previousCameraID {
-                        onCameraSwitched?(newCameraID)
-                    }
-                },
                 onMovePlaceholderBefore: { viewModel.movePlaceholder($0, before: $1) },
                 onMovePlaceholderAfter: { viewModel.movePlaceholder($0, after: $1) },
                 onMovePlaceholderToEnd: { viewModel.movePlaceholderToEnd($0) },
@@ -121,14 +114,8 @@ struct ExposureScreen: View {
                     }
                 },
                 onScrollToBottomRegistered: { scrollState.scrollToBottom = $0 },
-                cameras: viewModel.cameraList,
-                currentCameraID: viewModel.openCameraSnapshot?.id,
-                currentRollID: viewModel.openRollSnapshot?.id,
-                currentRolls: viewModel.currentRollSnapshots,
-                onCameraSelected: { cameraID in
-                    viewModel.switchToCameraActiveRoll(cameraID)
-                    onCameraSwitched?(cameraID)
-                }
+                menuContext: menuContext,
+                onCameraSwitched: onCameraSwitched
             )
             let captureSheetRectangle = UnevenRoundedRectangle(
                 topLeadingRadius: 35, bottomLeadingRadius: screenCornerRadius - 8, bottomTrailingRadius: screenCornerRadius - 8, topTrailingRadius: 35, style: .continuous)
@@ -167,8 +154,8 @@ struct ExposureScreen: View {
                 defaultFilmStock: viewModel.openRollSnapshot?.filmStock,
                 defaultCapacity: viewModel.openRollSnapshot?.capacity,
                 allowSubmitWithPlaceholder: true,
-                onCreateRoll: { viewModel.createRoll(cameraID: $0, filmStock: $1, capacity: $2) },
-                onEditRoll: { viewModel.editRoll(id: $0, filmStock: $1, capacity: $2) },
+                onCreateRoll: { menuContext.createRoll(cameraID: $0, filmStock: $1, capacity: $2) },
+                onEditRoll: { menuContext.editRoll(id: $0, filmStock: $1, capacity: $2) },
                 formIsAboveAnotherSheet: true
             )
         }

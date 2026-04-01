@@ -123,21 +123,13 @@ private struct ExposureEndDropDelegate: DropDelegate {
     }
 }
 
-// Equatable intentionally excludes cameras/currentRolls/currentRollID — the context menu
-// may show stale data after a cross-device edit, but that's a fine trade for skipping
-// re-evaluation on every row when the camera list changes. Users can pop and re-enter
-// the exposure list to refresh if needed.
 private struct ExposureRow: View, Equatable {
     let item: LogItemSnapshot
     let exposureNumber: Int?
     var isPreFrame: Bool = false
     var canCycleExtraExposures: Bool = false
-    var cameras: [CameraSnapshot] = []
-    var currentCameraID: UUID? = nil
-    var currentRolls: [RollSnapshot] = []
-    var currentRollID: UUID? = nil
+    var menuContext: (any ExposureMenuContext)?
     var onDelete: ((LogItemSnapshot) -> Void)?
-    var onMove: ((LogItemSnapshot, UUID) -> Void)?
     var onCycleExtraExposures: (() -> Void)?
 
     static func == (lhs: ExposureRow, rhs: ExposureRow) -> Bool {
@@ -152,9 +144,9 @@ private struct ExposureRow: View, Equatable {
             .frame(height: exposureItemHeight, alignment: .center)
             .contentShape(Rectangle())
             .contextMenu {
-                if let onMove {
+                if let menuContext {
                     Menu {
-                        MoveToRollMenu(item: item, onMove: onMove, cameras: cameras, currentCameraID: currentCameraID, currentRolls: currentRolls, currentRollID: currentRollID)
+                        MoveToRollMenu(item: item, menuContext: menuContext)
                     } label: {
                         Label("Move", systemImage: "rectangle.portrait.and.arrow.forward")
                     }
@@ -169,13 +161,13 @@ private struct ExposureRow: View, Equatable {
 }
 
 /// Context menu content for moving an exposure to another roll.
+/// Reads from ExposureMenuContext — only re-renders when cameras/rolls change, not when items change.
 private struct MoveToRollMenu: View {
     let item: LogItemSnapshot
-    let onMove: (LogItemSnapshot, UUID) -> Void
-    let cameras: [CameraSnapshot]
-    let currentCameraID: UUID?
-    let currentRolls: [RollSnapshot]
-    let currentRollID: UUID?
+    let menuContext: any ExposureMenuContext
+
+    private var currentCameraID: UUID? { menuContext.openCameraSnapshot?.id }
+    private var currentRollID: UUID? { menuContext.openRollSnapshot?.id }
 
     private func rollSubtitle(_ roll: RollSnapshot) -> String {
         var parts = "\(roll.exposureCount) / \(roll.totalCapacity)"
@@ -188,11 +180,11 @@ private struct MoveToRollMenu: View {
 
     var body: some View {
         // Other cameras with active rolls
-        let otherCameras = cameras.filter { $0.id != currentCameraID && $0.activeRollID != nil }
+        let otherCameras = menuContext.cameraList.filter { $0.id != currentCameraID && $0.activeRollID != nil }
         ForEach(otherCameras) { camera in
             if let rollID = camera.activeRollID {
                 Button {
-                    onMove(item, rollID)
+                    menuContext.moveItem(item, toRollID: rollID)
                 } label: {
                     Text(camera.name)
                     Text(camera.activeFilmStock ?? "")
@@ -201,14 +193,14 @@ private struct MoveToRollMenu: View {
         }
 
         // Current camera's other rolls
-        let otherRolls = currentRolls
+        let otherRolls = menuContext.currentRollSnapshots
             .filter { $0.id != currentRollID }
             .sorted { ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt) }
-        if !otherRolls.isEmpty, let cameraName = cameras.first(where: { $0.id == currentCameraID })?.name {
+        if !otherRolls.isEmpty, let cameraName = menuContext.cameraList.first(where: { $0.id == currentCameraID })?.name {
             Menu {
                 ForEach(otherRolls) { roll in
                     Button {
-                        onMove(item, roll.id)
+                        menuContext.moveItem(item, toRollID: roll.id)
                     } label: {
                         Text(roll.filmStock)
                         Text(rollSubtitle(roll))
@@ -221,16 +213,17 @@ private struct MoveToRollMenu: View {
     }
 }
 
-/// Camera switcher menu. Receives camera snapshots from ExposureListView.
+/// Camera switcher menu. Reads from ExposureMenuContext — only re-renders when camera list changes.
 private struct CameraSwitcherMenu: View {
     let cameraName: String
     let filmStock: String
-    var cameraID: UUID? = nil
-    var cameras: [CameraSnapshot] = []
-    var onCameraSelected: ((UUID) -> Void)?
+    let menuContext: any ExposureMenuContext
+    var onCameraSwitched: ((UUID) -> Void)?
+
+    private var cameraID: UUID? { menuContext.openCameraSnapshot?.id }
 
     private var camerasWithActiveRolls: [CameraSnapshot] {
-        cameras.filter { $0.activeRoll != nil }
+        menuContext.cameraList.filter { $0.activeRoll != nil }
     }
 
     private static func subtitle(for camera: CameraSnapshot) -> String {
@@ -247,7 +240,8 @@ private struct CameraSwitcherMenu: View {
         Menu {
             ForEach(camerasWithActiveRolls) { camera in
                 Button {
-                    onCameraSelected?(camera.id)
+                    menuContext.switchToCameraActiveRoll(camera.id)
+                    onCameraSwitched?(camera.id)
                 } label: {
                     if camera.id == cameraID {
                         Label(camera.name, systemImage: "checkmark")
@@ -286,18 +280,14 @@ struct ExposureListView: View {
     var extraExposures: Int = 0
     var scrollContextID: UUID? = nil
     var onDelete: ((LogItemSnapshot) -> Void)?
-    var onMoveToRoll: ((LogItemSnapshot, UUID) -> Void)?
     var onMovePlaceholderBefore: ((LogItemSnapshot, LogItemSnapshot) -> Void)?
     var onMovePlaceholderAfter: ((LogItemSnapshot, LogItemSnapshot) -> Void)?
     var onMovePlaceholderToEnd: ((LogItemSnapshot) -> Void)?
     var onCycleExtraExposures: (() -> Void)?
     var onNearBottomChanged: ((Bool) -> Void)?
     var onScrollToBottomRegistered: ((@escaping () -> Void) -> Void)?
-    var cameras: [CameraSnapshot] = []
-    var currentCameraID: UUID? = nil
-    var currentRollID: UUID? = nil
-    var currentRolls: [RollSnapshot] = []
-    var onCameraSelected: ((UUID) -> Void)?
+    var menuContext: (any ExposureMenuContext)?
+    var onCameraSwitched: ((UUID) -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var draggingPlaceholderID: UUID?
     @State private var dropTargetIndex: Int?
@@ -313,12 +303,8 @@ struct ExposureListView: View {
                     exposureNumber: frameNumber,
                     isPreFrame: isPreFrame,
                     canCycleExtraExposures: index < 4,
-                    cameras: cameras,
-                    currentCameraID: currentCameraID,
-                    currentRolls: currentRolls,
-                    currentRollID: currentRollID,
+                    menuContext: menuContext,
                     onDelete: onDelete,
-                    onMove: onMoveToRoll,
                     onCycleExtraExposures: onCycleExtraExposures
                 )
                 .equatable()
@@ -437,13 +423,14 @@ struct ExposureListView: View {
                     }.frame(width: 44, height: 44)
                     .glassEffectCompat(in: Circle())
                     .accessibilityLabel("Back")
-                    CameraSwitcherMenu(
-                        cameraName: cameraName,
-                        filmStock: filmStock,
-                        cameraID: cameraID,
-                        cameras: cameras,
-                        onCameraSelected: onCameraSelected
-                    )
+                    if let menuContext {
+                        CameraSwitcherMenu(
+                            cameraName: cameraName,
+                            filmStock: filmStock,
+                            menuContext: menuContext,
+                            onCameraSwitched: onCameraSwitched
+                        )
+                    }
                 }
                 .frame(width: UIScreen.currentWidth - 32, height: 44, alignment: .leading)
             }

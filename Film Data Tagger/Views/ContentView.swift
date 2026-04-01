@@ -74,7 +74,7 @@ struct ContentView: View {
                     }
                 }
                 .navigationDestination(for: ExposureMarker.self) { _ in
-                    ExposureScreen(viewModel: viewModel) { cameraID in
+                    ExposureScreen(viewModel: viewModel, menuContext: viewModel) { cameraID in
                         var newPath = NavigationPath()
                         newPath.append(cameraID)
                         newPath.append(ExposureMarker())

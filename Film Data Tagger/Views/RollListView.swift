@@ -143,7 +143,7 @@ struct RollListRow: View {
 }
 
 struct RollListView: View {
-    let viewModel: FilmLogViewModel
+    let viewModel: any RollsViewModel
     var onRollSelected: ((RollSnapshot) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
