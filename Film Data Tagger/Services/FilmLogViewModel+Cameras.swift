@@ -8,7 +8,6 @@
 import Foundation
 
 extension FilmLogViewModel: CamerasViewModel {
-
     func createCamera(name: String) -> UUID {
         let id = UUID()
         let listOrder = (_cameras.map(\.snapshot.listOrder).max() ?? -1) + 1

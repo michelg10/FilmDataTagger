@@ -8,7 +8,6 @@
 import Foundation
 
 extension FilmLogViewModel: RollsViewModel {
-
     // MARK: - Navigation
 
     /// Navigate to a camera's roll list.
