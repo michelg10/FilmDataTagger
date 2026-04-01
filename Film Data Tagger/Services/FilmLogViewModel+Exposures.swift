@@ -11,7 +11,7 @@ import CoreGraphics
 
 // MARK: - ExposuresViewModel + ExposureMenuContext
 
-extension FilmLogViewModel: ExposuresViewModel, ExposureMenuContext {
+extension FilmLogViewModel: ExposuresViewModel {
     // MARK: - Capture state
 
     // pendingCaptures and isCapturing live on the main class since they're stored properties.

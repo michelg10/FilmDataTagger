@@ -58,12 +58,32 @@ protocol ExposuresViewModel: AnyObject, Observable {
 
 // MARK: - Exposure Menus (camera switcher + move-to-roll)
 
+/// Minimal camera data for the camera switcher and move-to-roll menus.
+struct MenuCameraEntry: Equatable, Identifiable {
+    let id: UUID
+    let name: String
+    let lastUsedDate: Date?
+    let activeRollID: UUID?
+    let activeRollName: String?
+    let activeRollExposureCount: Int
+    let activeRollExtraExposures: Int
+}
+
+/// Minimal roll data for the move-to-roll menu.
+struct MenuRollEntry: Equatable, Identifiable {
+    let id: UUID
+    let name: String
+    let lastExposureDate: Date?
+    let exposureCount: Int
+    let totalCapacity: Int
+}
+
 @MainActor
 protocol ExposureMenuContext: AnyObject, Observable {
-    var cameraList: [CameraSnapshot] { get }
-    var currentRollSnapshots: [RollSnapshot] { get }
-    var openCameraSnapshot: CameraSnapshot? { get }
-    var openRollSnapshot: RollSnapshot? { get }
+    var menuCameras: [MenuCameraEntry] { get }
+    var menuRolls: [MenuRollEntry] { get }
+    var currentCameraID: UUID? { get }
+    var currentRollID: UUID? { get }
     func moveItem(_ item: LogItemSnapshot, toRollID: UUID)
     func switchToCameraActiveRoll(_ cameraID: UUID)
     @discardableResult func createRoll(cameraID: UUID, filmStock: String, capacity: Int) -> UUID

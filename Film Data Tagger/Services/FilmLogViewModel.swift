@@ -26,8 +26,15 @@ final class FilmLogViewModel {
     private(set) var openCameraSnapshot: CameraSnapshot?
     /// Roll list body data.
     private(set) var openCameraRolls: OpenCameraRolls?
-    /// All rolls for the open camera (camera switcher / move-to-roll menu).
-    private(set) var currentRollSnapshots: [RollSnapshot] = []
+    /// Camera entries for menus (camera switcher / move-to-roll).
+    /// Writable from +MenuContext extension — views see read-only via protocol.
+    var menuCameras: [MenuCameraEntry] = []
+    /// Roll entries for the move-to-roll menu (current camera's rolls).
+    var menuRolls: [MenuRollEntry] = []
+    /// Current camera ID for menu highlighting.
+    var currentCameraID: UUID?
+    /// Current roll ID for menu filtering.
+    var currentRollID: UUID?
     /// Open roll header data (exposure screen).
     private(set) var openRollSnapshot: RollSnapshot?
     /// Open roll items (exposure screen body).
@@ -223,9 +230,8 @@ final class FilmLogViewModel {
         }
         if openCameraRolls != newRolls { openCameraRolls = newRolls }
 
-        // Current roll snapshots (for camera switcher / move menu)
-        let newCurrentRolls = _openCamera?.rolls.map(\.snapshot) ?? []
-        if currentRollSnapshots != newCurrentRolls { currentRollSnapshots = newCurrentRolls }
+        // Menu entries — minimal structs for camera switcher / move-to-roll menus
+        publishMenuEntries()
 
         // Open roll — O(1) fast-path via version counter + object identity
         let roll = _openRoll

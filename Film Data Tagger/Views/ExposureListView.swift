@@ -166,10 +166,7 @@ private struct MoveToRollMenu: View {
     let item: LogItemSnapshot
     let menuContext: any ExposureMenuContext
 
-    private var currentCameraID: UUID? { menuContext.openCameraSnapshot?.id }
-    private var currentRollID: UUID? { menuContext.openRollSnapshot?.id }
-
-    private func rollSubtitle(_ roll: RollSnapshot) -> String {
+    private func rollSubtitle(_ roll: MenuRollEntry) -> String {
         var parts = "\(roll.exposureCount) / \(roll.totalCapacity)"
         if let lastDate = roll.lastExposureDate {
             let ago = relativeTimeString(from: lastDate, suffix: true)
@@ -180,29 +177,29 @@ private struct MoveToRollMenu: View {
 
     var body: some View {
         // Other cameras with active rolls
-        let otherCameras = menuContext.cameraList.filter { $0.id != currentCameraID && $0.activeRollID != nil }
+        let otherCameras = menuContext.menuCameras.filter { $0.id != menuContext.currentCameraID && $0.activeRollID != nil }
         ForEach(otherCameras) { camera in
             if let rollID = camera.activeRollID {
                 Button {
                     menuContext.moveItem(item, toRollID: rollID)
                 } label: {
                     Text(camera.name)
-                    Text(camera.activeFilmStock ?? "")
+                    Text(camera.activeRollName ?? "")
                 }
             }
         }
 
         // Current camera's other rolls
-        let otherRolls = menuContext.currentRollSnapshots
-            .filter { $0.id != currentRollID }
-            .sorted { ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt) }
-        if !otherRolls.isEmpty, let cameraName = menuContext.cameraList.first(where: { $0.id == currentCameraID })?.name {
+        let otherRolls = menuContext.menuRolls
+            .filter { $0.id != menuContext.currentRollID }
+            .sorted { ($0.lastExposureDate ?? .distantPast) > ($1.lastExposureDate ?? .distantPast) }
+        if !otherRolls.isEmpty, let cameraName = menuContext.menuCameras.first(where: { $0.id == menuContext.currentCameraID })?.name {
             Menu {
                 ForEach(otherRolls) { roll in
                     Button {
                         menuContext.moveItem(item, toRollID: roll.id)
                     } label: {
-                        Text(roll.filmStock)
+                        Text(roll.name)
                         Text(rollSubtitle(roll))
                     }
                 }
@@ -220,15 +217,15 @@ private struct CameraSwitcherMenu: View {
     let menuContext: any ExposureMenuContext
     var onCameraSwitched: ((UUID) -> Void)?
 
-    private var cameraID: UUID? { menuContext.openCameraSnapshot?.id }
+    private var cameraID: UUID? { menuContext.currentCameraID }
 
-    private var camerasWithActiveRolls: [CameraSnapshot] {
-        menuContext.cameraList.filter { $0.activeRoll != nil }
+    private var camerasWithActiveRolls: [MenuCameraEntry] {
+        menuContext.menuCameras.filter { $0.activeRollID != nil }
     }
 
-    private static func subtitle(for camera: CameraSnapshot) -> String {
-        guard let roll = camera.activeRoll else { return "" }
-        var result = "Frame \(roll.exposureCount - roll.extraExposures + 1)"
+    private static func subtitle(for camera: MenuCameraEntry) -> String {
+        guard camera.activeRollID != nil else { return "" }
+        var result = "Frame \(camera.activeRollExposureCount - camera.activeRollExtraExposures + 1)"
         if let lastDate = camera.lastUsedDate {
             let ago = relativeTimeString(from: lastDate, suffix: true)
             result += " · \(ago)"
