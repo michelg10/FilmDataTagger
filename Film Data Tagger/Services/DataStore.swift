@@ -539,7 +539,7 @@ actor DataStore: ModelActor {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             repairDuplicateActiveRolls()
-            let cutoff = Date().addingTimeInterval(-15 * 60)
+            let cutoff = Date().addingTimeInterval(-5 * 60)
             await geocodeItemsIfNeeded(since: cutoff)
         }
     }

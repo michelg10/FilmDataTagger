@@ -7,11 +7,11 @@
 
 import Foundation
 
-@Observable
 final class RollState: Identifiable {
     let id: UUID
     var snapshot: RollSnapshot
-    var items: [LogItemSnapshot]
+    var items: [LogItemSnapshot] { didSet { itemsVersion &+= 1 } }
+    private(set) var itemsVersion: Int = 0
 
     init(snapshot: RollSnapshot, items: [LogItemSnapshot] = []) {
         self.id = snapshot.id

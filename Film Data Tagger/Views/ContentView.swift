@@ -22,7 +22,7 @@ let bottomGradientOpacity: Double = 0.4
 struct ContentView: View {
     let viewModel: FilmLogViewModel
 
-    private var cameras: [CameraState] { viewModel.cameras }
+    private var cameras: [CameraSnapshot] { viewModel.cameraList }
 
     @State private var path: NavigationPath
     @State private var showNewCamera = false
@@ -36,11 +36,11 @@ struct ContentView: View {
         self.viewModel = viewModel
         var initialPath = NavigationPath()
         var initialCameraID: UUID?
-        if viewModel.openRoll != nil, let camera = viewModel.openCamera {
+        if viewModel.openRollSnapshot != nil, let camera = viewModel.openCameraSnapshot {
             initialPath.append(camera.id)
             initialPath.append(ExposureMarker())
             initialCameraID = camera.id
-        } else if let camera = viewModel.openCamera {
+        } else if let camera = viewModel.openCameraSnapshot {
             initialPath.append(camera.id)
             initialCameraID = camera.id
         }
@@ -60,9 +60,8 @@ struct ContentView: View {
         NavigationStack(path: $path) {
             CameraListView(viewModel: viewModel)
                 .navigationDestination(for: UUID.self) { id in
-                    if let camera = cameras.first(where: { $0.id == id }) {
+                    if cameras.contains(where: { $0.id == id }) {
                         RollListView(
-                            camera: camera,
                             viewModel: viewModel,
                             onRollSelected: { _ in
                                 path.append(ExposureMarker())
@@ -90,7 +89,7 @@ struct ContentView: View {
                     // Add button
                     Button {
                         playHaptic(.newRollOrCamera)
-                        if isOnRollList, let cameraID = selectedCameraID ?? viewModel.openCamera?.id {
+                        if isOnRollList, let cameraID = selectedCameraID ?? viewModel.openCameraSnapshot?.id {
                             newRollCameraID = cameraID
                         } else if !isOnRollList {
                             showNewCamera = true
@@ -158,7 +157,7 @@ struct ContentView: View {
                 path.append(ExposureMarker())
             }
         }) { cameraID in
-            let activeRoll = viewModel.openCamera?.activeRoll?.snapshot
+            let activeRoll = viewModel.openCameraRolls?.activeRoll
             RollFormSheet(
                 cameraID: cameraID,
                 defaultFilmStock: activeRoll?.filmStock,
@@ -178,7 +177,7 @@ struct ContentView: View {
         .onChange(of: cameras.map(\.id)) {
             validateNavigationPath()
         }
-        .onChange(of: viewModel.openRoll?.id) {
+        .onChange(of: viewModel.openRollSnapshot?.id) {
             validateNavigationPath()
         }
     }
@@ -192,7 +191,7 @@ struct ContentView: View {
             return
         }
         // If on exposure screen, verify the open roll still exists
-        if isOnExposureList, viewModel.openRoll == nil {
+        if isOnExposureList, viewModel.openRollSnapshot == nil {
             var newPath = NavigationPath()
             newPath.append(selectedCameraID)
             path = newPath

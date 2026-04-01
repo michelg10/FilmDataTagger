@@ -237,7 +237,7 @@ struct CameraListView: View {
     @State private var draggingEntryID: UUID?
     @State private var dropTargetIndex: Int?
 
-    private var cameras: [CameraState] { viewModel.cameras }
+    private var cameras: [CameraSnapshot] { viewModel.cameraList }
 
     @State private var titleVisible = true
 

@@ -143,24 +143,25 @@ struct RollListRow: View {
 }
 
 struct RollListView: View {
-    let camera: CameraState
     let viewModel: FilmLogViewModel
     var onRollSelected: ((RollSnapshot) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
 
-    private var activeRoll: RollSnapshot? { camera.activeRoll?.snapshot }
-    private var pastRolls: [RollSnapshot] { camera.pastRolls }
-    private var maxCapacity: Int { camera.maxRollCapacity }
-    private var totalExposures: Int { camera.totalExposureCount }
-    private var cameraName: String { camera.name }
+    private var rollData: OpenCameraRolls? { viewModel.openCameraRolls }
+    private var cameraSnap: CameraSnapshot? { viewModel.openCameraSnapshot }
+    private var activeRoll: RollSnapshot? { rollData?.activeRoll }
+    private var pastRolls: [RollSnapshot] { rollData?.pastRolls ?? [] }
+    private var maxCapacity: Int { rollData?.maxRollCapacity ?? 36 }
+    private var totalExposures: Int { cameraSnap?.totalExposureCount ?? 0 }
+    private var cameraName: String { cameraSnap?.name ?? "" }
 
     @State private var rollToDelete: RollSnapshot?
     @State private var rollToEdit: RollSnapshot?
 
     var body: some View {
         ZStack {
-            if !camera.rolls.isEmpty {
+            if rollData?.hasRolls ?? false {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
@@ -255,7 +256,7 @@ struct RollListView: View {
                 }.padding(.bottom, 54)
             }
         }
-        .animation(.easeOut(duration: 0.25), value: camera.rolls.isEmpty)
+        .animation(.easeOut(duration: 0.25), value: rollData?.hasRolls)
         .overlay(alignment: .bottom) {
             let terminalColor = Color.black.opacity(bottomGradientOpacity)
             VStack(spacing: 0) {
@@ -291,7 +292,7 @@ struct RollListView: View {
         .navigationBarBackButtonHidden()
         .sheet(item: $rollToEdit) { roll in
             RollFormSheet(
-                cameraID: camera.id,
+                cameraID: cameraSnap?.id ?? UUID(),
                 editingRoll: roll,
                 onCreateRoll: { viewModel.createRoll(cameraID: $0, filmStock: $1, capacity: $2) },
                 onEditRoll: { viewModel.editRoll(id: $0, filmStock: $1, capacity: $2) }
@@ -316,7 +317,7 @@ struct RollListView: View {
                             .fontWidth(.expanded)
                             .foregroundStyle(Color.white)
                         let exposureTextAndSeparator = Text(" exposure\(totalExposures == 1 ? "" : "s") •").foregroundStyle(Color.white.opacity(0.5))
-                        let rollCount = camera.rollCount
+                        let rollCount = cameraSnap?.rollCount ?? 0
                         let rollTextAndSeparator = Text(" roll\(rollCount == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5))
                         Text("\(totalExposures.formatted())\(exposureTextAndSeparator) \(rollCount.formatted())\(rollTextAndSeparator)")
                             .foregroundStyle(Color.white)
@@ -344,9 +345,7 @@ struct RollListView: View {
     }()
 
     NavigationStack {
-        if let camera = viewModel.cameras.first {
-            RollListView(camera: camera, viewModel: viewModel)
-        }
+        RollListView(viewModel: viewModel)
     }
     .modelContainer(container)
     .preferredColorScheme(.dark)

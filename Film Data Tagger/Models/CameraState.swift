@@ -7,7 +7,6 @@
 
 import Foundation
 
-@Observable
 final class CameraState: Identifiable {
     let id: UUID
     var snapshot: CameraSnapshot
@@ -39,19 +38,4 @@ final class CameraState: Identifiable {
     }
 }
 
-// MARK: - CameraListEntry conformance (forwards to snapshot)
-
-extension CameraState: CameraListEntry {
-    var name: String { snapshot.name }
-    var createdAt: Date { snapshot.createdAt }
-    var listOrder: Double { snapshot.listOrder }
-    var isInstantFilm: Bool { snapshot.isInstantFilm }
-    var rollCount: Int { snapshot.rollCount }
-    var totalExposureCount: Int { snapshot.totalExposureCount }
-    var activeExposureCount: Int? { snapshot.activeExposureCount }
-    var activeCapacity: Int? { snapshot.activeCapacity }
-    var activeFilmStock: String? { snapshot.activeFilmStock }
-    var activeRollID: UUID? { snapshot.activeRollID }
-    var lastUsedDate: Date? { snapshot.lastUsedDate }
-    // filmStockLabel and lastUsedCompact come from the CameraListEntry extension
-}
+// CameraListEntry conformance is on CameraSnapshot directly — views never see CameraState.

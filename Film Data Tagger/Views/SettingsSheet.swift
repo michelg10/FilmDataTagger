@@ -426,7 +426,7 @@ private struct ExportPage: View {
 }
 
 private struct AboutPage: View {
-    let cameras: [CameraState]
+    let cameras: [CameraSnapshot]
     @State private var showBuildNumber = false
 
     private var totalRolls: Int { cameras.reduce(0) { $0 + $1.rollCount } }
@@ -520,7 +520,7 @@ struct SettingsSheet: View {
                         SettingsSeparator()
                         SettingsNavRow(text: "Export...") { ExportPage(viewModel: viewModel) }
                         SettingsSeparator()
-                        SettingsNavRow(text: "About") { AboutPage(cameras: viewModel.cameras) }
+                        SettingsNavRow(text: "About") { AboutPage(cameras: viewModel.cameraList) }
                     }
                 }.padding(.horizontal, 16)
                 .offset(y: -38)

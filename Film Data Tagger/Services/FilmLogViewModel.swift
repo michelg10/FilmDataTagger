@@ -10,6 +10,14 @@ import SwiftUI
 import CoreLocation
 import Combine
 
+/// Roll list display data, projected from CameraState by the VM.
+struct OpenCameraRolls: Equatable {
+    let activeRoll: RollSnapshot?
+    let pastRolls: [RollSnapshot]
+    let maxRollCapacity: Int
+    let hasRolls: Bool
+}
+
 @Observable
 @MainActor
 final class FilmLogViewModel {
@@ -18,28 +26,26 @@ final class FilmLogViewModel {
     let camera = CameraController()
     let locationService = LocationService()
 
-    // MARK: - In-memory data tree
+    // MARK: - View-facing published snapshots (value types only)
 
-    /// The full camera hierarchy. Source of truth for the UI.
-    @ObservationIgnored private var _cameras: [CameraState] = []
-    private(set) var cameras: [CameraState] {
-        get { access(keyPath: \.cameras); return _cameras }
-        set { withMutation(keyPath: \.cameras) { _cameras = newValue } }
-    }
+    /// Camera list screen data.
+    private(set) var cameraList: [CameraSnapshot] = []
+    /// Open camera header data (roll list / exposure screen).
+    private(set) var openCameraSnapshot: CameraSnapshot?
+    /// Roll list body data.
+    private(set) var openCameraRolls: OpenCameraRolls?
+    /// All rolls for the open camera (camera switcher / move-to-roll menu).
+    private(set) var currentRollSnapshots: [RollSnapshot] = []
+    /// Open roll header data (exposure screen).
+    private(set) var openRollSnapshot: RollSnapshot?
+    /// Open roll items (exposure screen body).
+    private(set) var openRollItems: [LogItemSnapshot] = []
 
-    /// The currently viewed camera (reference into the tree).
-    @ObservationIgnored private var _openCamera: CameraState?
-    var openCamera: CameraState? {
-        get { access(keyPath: \.openCamera); return _openCamera }
-        set { withMutation(keyPath: \.openCamera) { _openCamera = newValue } }
-    }
+    // MARK: - Internal tree (private, views never see these)
 
-    /// The currently viewed roll (reference into the tree).
-    @ObservationIgnored private var _openRoll: RollState?
-    var openRoll: RollState? {
-        get { access(keyPath: \.openRoll); return _openRoll }
-        set { withMutation(keyPath: \.openRoll) { _openRoll = newValue }; persistOpenState() }
-    }
+    private var _cameras: [CameraState] = []
+    private var _openCamera: CameraState?
+    private var _openRoll: RollState?
 
     private var cancellables = Set<AnyCancellable>()
     private var persistTask: Task<Void, Never>?
@@ -188,11 +194,61 @@ final class FilmLogViewModel {
     // MARK: - Tree lookups
 
     private func camera(_ id: UUID) -> CameraState? {
-        cameras.first(where: { $0.id == id })
+        _cameras.first(where: { $0.id == id })
     }
 
     private func roll(_ id: UUID) -> RollState? {
-        cameras.flatMap(\.rolls).first(where: { $0.id == id })
+        _cameras.flatMap(\.rolls).first(where: { $0.id == id })
+    }
+
+    // MARK: - Snapshot publishing
+
+    /// Tracking state for O(1) items fast-path in publishSnapshots()
+    private weak var _lastPublishedRoll: RollState?
+    private var _lastPublishedItemsVersion: Int = -1
+
+    /// Project the internal tree into view-facing snapshot properties.
+    /// Diffs before assigning to avoid triggering unnecessary SwiftUI re-renders.
+    private func publishSnapshots() {
+        // Camera list — diff ~9 structs, cheap
+        let newCameraList = _cameras.map(\.snapshot)
+        if cameraList != newCameraList { cameraList = newCameraList }
+
+        // Open camera snapshot
+        let newCameraSnap = _openCamera?.snapshot
+        if openCameraSnapshot != newCameraSnap { openCameraSnapshot = newCameraSnap }
+
+        // Open camera rolls
+        let newRolls: OpenCameraRolls? = if let cam = _openCamera {
+            OpenCameraRolls(
+                activeRoll: cam.activeRoll?.snapshot,
+                pastRolls: cam.pastRolls,
+                maxRollCapacity: cam.maxRollCapacity,
+                hasRolls: !cam.rolls.isEmpty
+            )
+        } else {
+            nil
+        }
+        if openCameraRolls != newRolls { openCameraRolls = newRolls }
+
+        // Current roll snapshots (for camera switcher / move menu)
+        let newCurrentRolls = _openCamera?.rolls.map(\.snapshot) ?? []
+        if currentRollSnapshots != newCurrentRolls { currentRollSnapshots = newCurrentRolls }
+
+        // Open roll — O(1) fast-path via version counter + object identity
+        let roll = _openRoll
+        let version = roll?.itemsVersion ?? -1
+        if roll !== _lastPublishedRoll || version != _lastPublishedItemsVersion {
+            let newSnap = roll?.snapshot
+            if openRollSnapshot != newSnap { openRollSnapshot = newSnap }
+            openRollItems = roll?.items ?? []
+            _lastPublishedRoll = roll
+            _lastPublishedItemsVersion = version
+        } else {
+            // Same roll, items unchanged — but snapshot may have changed (e.g. extraExposures)
+            let newSnap = roll?.snapshot
+            if openRollSnapshot != newSnap { openRollSnapshot = newSnap }
+        }
     }
 
     init(store: DataStore) {
@@ -233,7 +289,7 @@ final class FilmLogViewModel {
                 await store.warmThumbnailCache()
 
                 // Warm thumbnails for the open roll (if any)
-                if let rollID = await MainActor.run(body: { self.openRoll?.id }) {
+                if let rollID = await MainActor.run(body: { self._openRoll?.id }) {
                     await store.warmRollThumbnails(rollID)
                 }
 
@@ -318,9 +374,10 @@ final class FilmLogViewModel {
             totalExposureCount: 0
         )
         let cameraState = CameraState(snapshot: minimalCameraSnapshot, rolls: [rollState])
-        cameras = [cameraState]
-        openCamera = cameraState
-        openRoll = rollState
+        _cameras = [cameraState]
+        _openCamera = cameraState
+        _openRoll = rollState
+        publishSnapshots()
     }
 
     /// Debounced write of the current open state to disk.
@@ -331,7 +388,7 @@ final class FilmLogViewModel {
             guard !Task.isCancelled else { return }
             guard let self else { return }
             let state = await MainActor.run { () -> PersistedOpenState? in
-                guard let roll = self.openRoll else { return nil }
+                guard let roll = self._openRoll else { return nil }
                 return PersistedOpenState(roll: roll.snapshot, items: roll.items)
             }
             if let state {
@@ -351,10 +408,8 @@ final class FilmLogViewModel {
         }
     }
 
-    /// Replace the tree with fresh data from the DataStore. Re-link openCamera/openRoll.
-    /// Uses relink methods to diff content and only trigger observation when data actually changed.
-    /// When cameras DID change, always relinks openCamera/openRoll with full observation
-    /// (old references are orphaned and must not be kept).
+    /// Replace the tree with fresh data from the DataStore.
+    /// Always installs the new tree — publishSnapshots() handles diffing for views.
     @MainActor
     private func applyFullTree(_ tree: [CameraState], version: Int) {
         guard version > lastAppliedTreeVersion else {
@@ -363,80 +418,33 @@ final class FilmLogViewModel {
         }
         lastAppliedTreeVersion = version
         treeGeneration = UUID()
-        let oldCameraID = openCamera?.id
-        let oldRollID = openRoll?.id
+        let oldCameraID = _openCamera?.id
+        let oldRollID = _openRoll?.id
         // Preserve in-memory extraExposures — can be rapidly cycled by the user,
         // and the persist may not have completed before this tree replacement.
-        let preservedExtra = openRoll?.snapshot.extraExposures
+        let preservedExtra = _openRoll?.snapshot.extraExposures
 
         mergeOptimisticState(into: tree)
-        let camerasChanged = relinkCameras(tree)
-
-        // Look up from the new tree, not _cameras — relinkCameras may have skipped assignment
-        let newCamera = oldCameraID.flatMap { id in tree.first(where: { $0.id == id }) }
-        let newRoll = oldRollID.flatMap { id in newCamera?.rolls.first(where: { $0.id == id })
-            ?? tree.flatMap(\.rolls).first(where: { $0.id == id }) }
-
-        if oldCameraID != nil {
-            if camerasChanged {
-                openCamera = newCamera
-            } else {
-                relinkOpenCamera(newCamera)
-            }
-        } else {
-            openCamera = nil
-        }
-        if oldRollID != nil {
-            if camerasChanged {
-                openRoll = newRoll
-            } else {
-                relinkOpenRoll(newRoll)
-            }
-        } else {
-            openRoll = nil
+        _cameras = tree
+        _openCamera = oldCameraID.flatMap { id in tree.first { $0.id == id } }
+        _openRoll = oldRollID.flatMap { id in
+            _openCamera?.rolls.first { $0.id == id }
+                ?? tree.flatMap(\.rolls).first { $0.id == id }
         }
 
         // Restore extraExposures if the new tree has a stale value
-        if let extra = preservedExtra, let roll = openRoll,
+        if let extra = preservedExtra, let roll = _openRoll,
            roll.snapshot.extraExposures != extra {
             roll.snapshot.extraExposures = extra
             roll.snapshot.totalCapacity = roll.snapshot.capacity + extra
-            if let cam = openCamera, cam.activeRoll?.id == roll.id {
+            if let cam = _openCamera, cam.activeRoll?.id == roll.id {
                 cam.snapshot.activeRoll = roll.snapshot
                 cam.recomputeRollDisplayData()
             }
         }
-    }
 
-    // MARK: - Observation-aware relinking (applyFullTree only)
-
-    /// Relink cameras to a new tree. Only triggers observation if camera snapshots changed.
-    /// When unchanged, keeps old references so existing observations stay valid.
-    /// Returns true if the tree was replaced.
-    @discardableResult
-    private func relinkCameras(_ tree: [CameraState]) -> Bool {
-        if _cameras.map(\.snapshot) != tree.map(\.snapshot) {
-            withMutation(keyPath: \.cameras) { _cameras = tree }
-            return true
-        }
-        return false
-    }
-
-    /// Relink openCamera. Only triggers observation if the camera snapshot changed.
-    /// When unchanged, keeps old reference so observations on CameraState stay valid.
-    private func relinkOpenCamera(_ newCamera: CameraState?) {
-        if _openCamera?.snapshot != newCamera?.snapshot {
-            withMutation(keyPath: \.openCamera) { _openCamera = newCamera }
-        }
-    }
-
-    /// Relink openRoll. Only triggers observation if snapshot or items changed.
-    /// When unchanged, keeps old reference so observations on RollState.items stay valid.
-    private func relinkOpenRoll(_ newRoll: RollState?) {
-        if _openRoll?.snapshot != newRoll?.snapshot || _openRoll?.items != newRoll?.items {
-            withMutation(keyPath: \.openRoll) { _openRoll = newRoll }
-            persistOpenState()
-        }
+        publishSnapshots()
+        persistOpenState()
     }
 
     /// Handle remote data changes — reload the tree from the DataStore.
@@ -454,9 +462,10 @@ final class FilmLogViewModel {
 
     /// Navigate to a camera's roll list.
     func navigateToCamera(_ cameraID: UUID) {
-        openCamera = camera(cameraID)
+        _openCamera = camera(cameraID)
+        publishSnapshots()
         // Pre-warm active roll thumbnails
-        if let activeRollID = openCamera?.activeRoll?.id {
+        if let activeRollID = _openCamera?.activeRoll?.id {
             Task.detached(priority: .utility) { [store] in
                 await store.warmRollThumbnails(activeRollID)
             }
@@ -465,7 +474,9 @@ final class FilmLogViewModel {
 
     /// Switch to a roll within the current camera.
     func switchToRoll(id rollID: UUID) {
-        openRoll = roll(rollID)
+        _openRoll = roll(rollID)
+        publishSnapshots()
+        persistOpenState()
         Task.detached(priority: .userInitiated) { [store] in
             await store.warmRollThumbnails(rollID)
         }
@@ -482,8 +493,10 @@ final class FilmLogViewModel {
                 debugLog("switchToCameraActiveRoll: camera \(cameraID) has no active roll");
                 return
             }
-        openCamera = camera
-        openRoll = activeRoll
+        _openCamera = camera
+        _openRoll = activeRoll
+        publishSnapshots()
+        persistOpenState()
         Task.detached(priority: .medium) { [store] in
             await store.warmRollThumbnails(activeRoll.id)
         }
@@ -505,8 +518,8 @@ final class FilmLogViewModel {
 
         // Capture references + generation before the await — applyFullTree may replace the tree during capture
         let gen = treeGeneration
-        var targetRoll = openRoll
-        var targetCamera = openCamera
+        var targetRoll = _openRoll
+        var targetCamera = _openCamera
 
         // Collect data once — shared across all pending taps
         let location = settings.locationEnabled ? locationService.currentLocation : nil
@@ -617,6 +630,7 @@ final class FilmLogViewModel {
             capturedIDs.append(id)
             capturedDates.append(createdAt)
         }
+        publishSnapshots()
         persistOpenState()
 
         // Phase 3 — Deferred: HEIC encode, persist, disk-cache thumbnails.
@@ -682,6 +696,7 @@ final class FilmLogViewModel {
                         roll.items[i].cityName = result.cityName
                         self.recordOptimistic(roll.items[i])
                     }
+                    self.publishSnapshots()
                     self.persistOpenState()
                 }
                 await store.applyGeocoding(itemIDs: ids, placeName: name, cityName: result.cityName)
@@ -690,7 +705,7 @@ final class FilmLogViewModel {
     }
 
     func logPlaceholder() {
-        guard let roll = openRoll else {
+        guard let roll = _openRoll else {
             debugLog("logPlaceholder: no open roll");
             return
         }
@@ -716,12 +731,13 @@ final class FilmLogViewModel {
         // Update roll snapshot caches
         roll.snapshot.exposureCount = roll.items.count
         // Update camera snapshot caches
-        if let camera = openCamera {
+        if let camera = _openCamera {
             camera.snapshot.totalExposureCount += 1
             if camera.activeRoll?.id == roll.id {
                 camera.snapshot.activeRoll = roll.snapshot
             }
         }
+        publishSnapshots()
         persistOpenState()
         Task.detached(priority: .medium) { [store] in
             await store.logPlaceholder(id: id, rollID: roll.id, createdAt: createdAt)
@@ -733,21 +749,22 @@ final class FilmLogViewModel {
             debugLog("deleteItem: item \(item.id) has no rollID");
             return
         }
-        openRoll?.items.removeAll { $0.id == item.id }
+        _openRoll?.items.removeAll { $0.id == item.id }
         recordOptimisticDelete(item.id, rollID: rollID)
         // Update roll snapshot caches
-        if let roll = openRoll {
+        if let roll = _openRoll {
             roll.snapshot.exposureCount = roll.items.count
             roll.snapshot.lastExposureDate = roll.items.last(where: { $0.hasRealCreatedAt })?.createdAt
         }
         // Update camera snapshot caches
-        if let camera = openCamera {
+        if let camera = _openCamera {
             camera.snapshot.totalExposureCount = max(0, camera.snapshot.totalExposureCount - 1)
-            if let roll = openRoll, camera.activeRoll?.id == roll.id {
+            if let roll = _openRoll, camera.activeRoll?.id == roll.id {
                 camera.snapshot.activeRoll = roll.snapshot
             }
             camera.snapshot.lastUsedDate = camera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
         }
+        publishSnapshots()
         persistOpenState()
         Task.detached(priority: .medium) { [store] in
             await store.deleteItem(id: item.id)
@@ -756,8 +773,8 @@ final class FilmLogViewModel {
 
     /// Move an exposure to a different roll.
     func moveItem(_ item: LogItemSnapshot, toRollID: UUID) {
-        let sourceCamera = openCamera
-        let sourceRoll = openRoll
+        let sourceCamera = _openCamera
+        let sourceRoll = _openRoll
 
         // Remove from current roll
         sourceRoll?.items.removeAll { $0.id == item.id }
@@ -800,11 +817,13 @@ final class FilmLogViewModel {
                     targetCamera.snapshot.activeRoll = targetRoll.snapshot
                 }
                 targetCamera.snapshot.lastUsedDate = targetCamera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
-                openCamera = targetCamera
+                _openCamera = targetCamera
             }
-            openRoll = targetRoll
+            _openRoll = targetRoll
         }
 
+        publishSnapshots()
+        persistOpenState()
         Task.detached(priority: .medium) { [store] in
             await store.moveItem(id: item.id, toRollID: toRollID)
         }
@@ -812,7 +831,7 @@ final class FilmLogViewModel {
 
     /// Move a placeholder to just before the target item.
     func movePlaceholder(_ item: LogItemSnapshot, before target: LogItemSnapshot) {
-        guard let roll = openRoll, item.isPlaceholder, item.id != target.id else { return }
+        guard let roll = _openRoll, item.isPlaceholder, item.id != target.id else { return }
         let others = roll.items.filter { $0.id != item.id }
         guard let targetIndex = others.firstIndex(where: { $0.id == target.id }) else { return }
 
@@ -829,7 +848,7 @@ final class FilmLogViewModel {
 
     /// Move a placeholder to just after the target item.
     func movePlaceholder(_ item: LogItemSnapshot, after target: LogItemSnapshot) {
-        guard let roll = openRoll, item.isPlaceholder, item.id != target.id else { return }
+        guard let roll = _openRoll, item.isPlaceholder, item.id != target.id else { return }
         let others = roll.items.filter { $0.id != item.id }
         guard let targetIndex = others.firstIndex(where: { $0.id == target.id }) else { return }
 
@@ -845,7 +864,7 @@ final class FilmLogViewModel {
     }
 
     func movePlaceholderToEnd(_ item: LogItemSnapshot) {
-        guard let roll = openRoll, item.isPlaceholder else { return }
+        guard let roll = _openRoll, item.isPlaceholder else { return }
         let others = roll.items.filter { $0.id != item.id }
         let newTimestamp = (others.last?.createdAt ?? Date()).addingTimeInterval(1)
         applyPlaceholderMove(id: item.id, newTimestamp: newTimestamp)
@@ -853,7 +872,7 @@ final class FilmLogViewModel {
 
     /// Shared: update local state and persist a placeholder move.
     private func applyPlaceholderMove(id: UUID, newTimestamp: Date) {
-        guard let roll = openRoll else {
+        guard let roll = _openRoll else {
             debugLog("applyPlaceholderMove: no open roll");
             return
         }
@@ -862,6 +881,7 @@ final class FilmLogViewModel {
             recordOptimistic(roll.items[i])
             roll.items.sort { $0.createdAt < $1.createdAt }
         }
+        publishSnapshots()
         persistOpenState()
         Task.detached(priority: .medium) { [store] in
             await store.movePlaceholder(id: id, newTimestamp: newTimestamp)
@@ -870,7 +890,7 @@ final class FilmLogViewModel {
 
     func cycleExtraExposures() {
         playHaptic(.cycleExtraExposures)
-        guard let roll = openRoll else {
+        guard let roll = _openRoll else {
             debugLog("cycleExtraExposures: no open roll");
             return
         }
@@ -879,10 +899,11 @@ final class FilmLogViewModel {
         roll.snapshot.extraExposures = next > maxExtra ? 0 : next
         roll.snapshot.totalCapacity = roll.snapshot.capacity + roll.snapshot.extraExposures
         // Update camera snapshot if this is the active roll
-        if let camera = openCamera, camera.activeRoll?.id == roll.id {
+        if let camera = _openCamera, camera.activeRoll?.id == roll.id {
             camera.snapshot.activeRoll = roll.snapshot
         }
-        openCamera?.recomputeRollDisplayData()
+        _openCamera?.recomputeRollDisplayData()
+        publishSnapshots()
         persistOpenState()
         let count = roll.snapshot.extraExposures
         Task.detached(priority: .medium) { [store] in
@@ -927,12 +948,14 @@ final class FilmLogViewModel {
         camera.rolls.insert(newRoll, at: 0)
         camera.activeRoll = newRoll
         // Switch to the new roll
-        openCamera = camera
-        openRoll = newRoll
+        _openCamera = camera
+        _openRoll = newRoll
         // Update camera snapshot caches
         camera.snapshot.rollCount += 1
         camera.snapshot.activeRoll = newRoll.snapshot
         camera.recomputeRollDisplayData()
+        publishSnapshots()
+        persistOpenState()
         Task.detached(priority: .medium) { [store] in
             await store.createRoll(id: id, cameraID: cameraID, filmStock: filmStock, capacity: capacity)
         }
@@ -945,11 +968,12 @@ final class FilmLogViewModel {
             roll.snapshot.capacity = capacity
             roll.snapshot.totalCapacity = capacity + roll.snapshot.extraExposures
             // Update camera snapshot if this is the active roll
-            if openCamera?.activeRoll?.id == id {
-                openCamera?.snapshot.activeRoll = roll.snapshot
+            if _openCamera?.activeRoll?.id == id {
+                _openCamera?.snapshot.activeRoll = roll.snapshot
             }
-            openCamera?.recomputeRollDisplayData()
+            _openCamera?.recomputeRollDisplayData()
         }
+        publishSnapshots()
         persistOpenState()
         Task.detached(priority: .medium) { [store] in
             await store.editRoll(id: id, filmStock: filmStock, capacity: capacity)
@@ -957,12 +981,12 @@ final class FilmLogViewModel {
     }
 
     func deleteRoll(id: UUID) {
-        guard let camera = openCamera else {
+        guard let camera = _openCamera else {
             debugLog("deleteRoll: no open camera, cannot delete roll \(id)")
             return
         }
-        if openRoll?.id == id {
-            openRoll = nil
+        if _openRoll?.id == id {
+            _openRoll = nil
         }
         let wasActive = camera.activeRoll?.id == id
         let deletedExposureCount = roll(id)?.items.count ?? 0
@@ -975,6 +999,8 @@ final class FilmLogViewModel {
             camera.snapshot.activeRoll = nil
         }
         camera.recomputeRollDisplayData()
+        publishSnapshots()
+        persistOpenState()
         Task.detached(priority: .medium) { [store] in
             await store.deleteRoll(id: id)
         }
@@ -984,7 +1010,7 @@ final class FilmLogViewModel {
 
     func createCamera(name: String) -> UUID {
         let id = UUID()
-        let listOrder = (cameras.map(\.snapshot.listOrder).max() ?? -1) + 1
+        let listOrder = (_cameras.map(\.snapshot.listOrder).max() ?? -1) + 1
         let snapshot = CameraSnapshot(
             id: id,
             name: name,
@@ -993,7 +1019,8 @@ final class FilmLogViewModel {
             rollCount: 0,
             totalExposureCount: 0
         )
-        cameras.append(CameraState(snapshot: snapshot))
+        _cameras.append(CameraState(snapshot: snapshot))
+        publishSnapshots()
         Task.detached(priority: .medium) { [store] in
             await store.createCamera(id: id, name: name, listOrder: listOrder)
         }
@@ -1004,31 +1031,35 @@ final class FilmLogViewModel {
         if let cam = camera(id) {
             cam.snapshot.name = name
         }
+        publishSnapshots()
         Task.detached(priority: .medium) { [store] in
             await store.renameCamera(id: id, name: name)
         }
     }
 
     func deleteCamera(id: UUID) {
-        if openCamera?.id == id {
-            openRoll = nil
-            openCamera = nil
+        if _openCamera?.id == id {
+            _openRoll = nil
+            _openCamera = nil
         }
-        cameras.removeAll { $0.id == id }
+        _cameras.removeAll { $0.id == id }
+        publishSnapshots()
+        persistOpenState()
         Task.detached(priority: .medium) { [store] in
             await store.deleteCamera(id: id)
         }
     }
 
     func reorderCameras(_ orderedIDs: [UUID]) {
-        let byID = Dictionary(uniqueKeysWithValues: cameras.map { ($0.id, $0) })
+        let byID = Dictionary(uniqueKeysWithValues: _cameras.map { ($0.id, $0) })
         let movedSet = Set(orderedIDs)
-        let remaining = cameras.filter { !movedSet.contains($0.id) }
+        let remaining = _cameras.filter { !movedSet.contains($0.id) }
         let reordered = orderedIDs.compactMap { byID[$0] } + remaining
         for (i, camera) in reordered.enumerated() {
             camera.snapshot.listOrder = Double(i)
         }
-        cameras = reordered
+        _cameras = reordered
+        publishSnapshots()
         Task.detached(priority: .medium) { [store] in
             await store.reorderCameras(orderedIDs: orderedIDs)
         }

@@ -86,25 +86,25 @@ struct ExposureScreen: View {
     @State private var newRollCameraID: UUID?
     @State private var scrollState = ExposureScrollState()
 
-    private var logItems: [LogItemSnapshot] { viewModel.openRoll?.items ?? [] }
+    private var logItems: [LogItemSnapshot] { viewModel.openRollItems }
 
     var body: some View {
         ZStack(alignment: .bottom) {
             ExposureListView(
                 logItems: logItems,
-                cameraName: viewModel.openCamera?.name ?? "No camera selected",
-                cameraID: viewModel.openCamera?.id,
-                filmStock: viewModel.openRoll?.snapshot.filmStock
-                    ?? (viewModel.openCamera != nil ? "No roll selected" : ""),
-                hasRoll: viewModel.openRoll != nil,
-                extraExposures: viewModel.openRoll?.snapshot.extraExposures ?? 0,
-                scrollContextID: viewModel.openRoll?.id ?? viewModel.openCamera?.id,
+                cameraName: viewModel.openCameraSnapshot?.name ?? "No camera selected",
+                cameraID: viewModel.openCameraSnapshot?.id,
+                filmStock: viewModel.openRollSnapshot?.filmStock
+                    ?? (viewModel.openCameraSnapshot != nil ? "No roll selected" : ""),
+                hasRoll: viewModel.openRollSnapshot != nil,
+                extraExposures: viewModel.openRollSnapshot?.extraExposures ?? 0,
+                scrollContextID: viewModel.openRollSnapshot?.id ?? viewModel.openCameraSnapshot?.id,
                 onDelete: { viewModel.deleteItem($0) },
                 onMoveToRoll: { item, rollID in
-                    let previousCameraID = viewModel.openCamera?.id
+                    let previousCameraID = viewModel.openCameraSnapshot?.id
                     viewModel.moveItem(item, toRollID: rollID)
                     // If moveItem switched to a different camera, rebuild the nav path
-                    if let newCameraID = viewModel.openCamera?.id, newCameraID != previousCameraID {
+                    if let newCameraID = viewModel.openCameraSnapshot?.id, newCameraID != previousCameraID {
                         onCameraSwitched?(newCameraID)
                     }
                 },
@@ -121,10 +121,10 @@ struct ExposureScreen: View {
                     }
                 },
                 onScrollToBottomRegistered: { scrollState.scrollToBottom = $0 },
-                cameras: viewModel.cameras.map(\.snapshot),
-                currentCameraID: viewModel.openCamera?.id,
-                currentRollID: viewModel.openRoll?.id,
-                currentRolls: viewModel.openCamera?.rolls.map(\.snapshot) ?? [],
+                cameras: viewModel.cameraList,
+                currentCameraID: viewModel.openCameraSnapshot?.id,
+                currentRollID: viewModel.openRollSnapshot?.id,
+                currentRolls: viewModel.currentRollSnapshots,
                 onCameraSelected: { cameraID in
                     viewModel.switchToCameraActiveRoll(cameraID)
                     onCameraSwitched?(cameraID)
@@ -136,7 +136,7 @@ struct ExposureScreen: View {
             CaptureSheet(
                 camera: viewModel.camera,
                 locationService: viewModel.locationService,
-                roll: viewModel.openRoll,
+                roll: viewModel.openRollSnapshot,
                 onCapture: { await viewModel.logExposure() },
                 onAddPlaceholder: { viewModel.logPlaceholder() }
             )
@@ -145,10 +145,10 @@ struct ExposureScreen: View {
             .overlay(alignment: .top) {
                 FinishRollOverlay(
                     scrollState: scrollState,
-                    hasRoll: viewModel.openRoll != nil,
+                    hasRoll: viewModel.openRollSnapshot != nil,
                     hasItems: !logItems.isEmpty,
                     onFinishRoll: {
-                        if let id = viewModel.openCamera?.id {
+                        if let id = viewModel.openCameraSnapshot?.id {
                             newRollCameraID = id
                         }
                     }
@@ -164,8 +164,8 @@ struct ExposureScreen: View {
         .sheet(item: $newRollCameraID) { cameraID in
             RollFormSheet(
                 cameraID: cameraID,
-                defaultFilmStock: viewModel.openRoll?.snapshot.filmStock,
-                defaultCapacity: viewModel.openRoll?.snapshot.capacity,
+                defaultFilmStock: viewModel.openRollSnapshot?.filmStock,
+                defaultCapacity: viewModel.openRollSnapshot?.capacity,
                 allowSubmitWithPlaceholder: true,
                 onCreateRoll: { viewModel.createRoll(cameraID: $0, filmStock: $1, capacity: $2) },
                 onEditRoll: { viewModel.editRoll(id: $0, filmStock: $1, capacity: $2) },

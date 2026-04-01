@@ -286,13 +286,13 @@ struct CaptureSheet: View {
 
     let camera: CameraController
     let locationService: LocationService
-    let roll: RollState?
+    let roll: RollSnapshot?
     let onCapture: () async -> Void
     let onAddPlaceholder: () -> Void
 
-    private var frameCount: Int { roll?.snapshot.exposureCount ?? 0 }
-    private var frameNumber: Int { frameCount - (roll?.snapshot.extraExposures ?? 0) + 1 }
-    private var lastCaptureDate: Date? { roll?.snapshot.lastExposureDate }
+    private var frameCount: Int { roll?.exposureCount ?? 0 }
+    private var frameNumber: Int { frameCount - (roll?.extraExposures ?? 0) + 1 }
+    private var lastCaptureDate: Date? { roll?.lastExposureDate }
 
     private static let captureButtonHeight: CGFloat = 63 + 26
 
