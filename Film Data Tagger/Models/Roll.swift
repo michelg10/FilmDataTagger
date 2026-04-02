@@ -35,12 +35,12 @@ final class Roll {
     @Relationship(deleteRule: .cascade, inverse: \LogItem.roll)
     var logItems: [LogItem]?
 
-    init(filmStock: String, camera: Camera? = nil, capacity: Int = 36) {
+    init(filmStock: String, camera: Camera? = nil, capacity: Int = 36, createdAt: Date = Date()) {
         self.id = UUID()
         self.filmStock = filmStock
         self.camera = camera
         self.capacity = capacity
-        self.createdAt = Date()
+        self.createdAt = createdAt
     }
 
     /// Total capacity including extra pre-first-frame exposures

@@ -281,7 +281,7 @@ actor DataStore: ModelActor {
     /// Persist a new roll. The VM has already added the snapshot optimistically.
     ///
     /// Not high priority: do not await
-    func createRoll(id: UUID, cameraID: UUID, filmStock: String, capacity: Int) {
+    func createRoll(id: UUID, cameraID: UUID, filmStock: String, capacity: Int, createdAt: Date) {
         guard let camera = fetchCamera(cameraID) else {
             debugLog("createRoll: camera \(cameraID) not found — triggering reload to reconcile")
             remoteDataChanged.send()
@@ -291,7 +291,7 @@ actor DataStore: ModelActor {
         for roll in camera.rolls ?? [] where roll.isActive {
             roll.isActive = false
         }
-        let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity)
+        let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity, createdAt: createdAt)
         roll.id = id
         modelContext.insert(roll)
         save()
@@ -333,8 +333,8 @@ actor DataStore: ModelActor {
     /// Persist a new camera. The VM has already added the snapshot optimistically.
     ///
     /// Not high priority: do not await
-    func createCamera(id: UUID, name: String, listOrder: Double) {
-        let camera = Camera(name: name, listOrder: listOrder)
+    func createCamera(id: UUID, name: String, listOrder: Double, createdAt: Date) {
+        let camera = Camera(name: name, listOrder: listOrder, createdAt: createdAt)
         camera.id = id
         modelContext.insert(camera)
         save()

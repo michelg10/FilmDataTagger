@@ -65,6 +65,7 @@ extension FilmLogViewModel: RollsViewModel {
             return nil
         }
         let id = UUID()
+        let createdAt = Date()
         // Deactivate previous active roll
         camera.activeRoll?.snapshot.isActive = false
         let snapshot = RollSnapshot(
@@ -74,7 +75,7 @@ extension FilmLogViewModel: RollsViewModel {
             capacity: capacity,
             extraExposures: 0,
             isActive: true,
-            createdAt: Date(),
+            createdAt: createdAt,
             lastExposureDate: nil,
             exposureCount: 0,
             totalCapacity: capacity
@@ -91,7 +92,7 @@ extension FilmLogViewModel: RollsViewModel {
         publishSnapshots()
         persistOpenState()
         Task.detached(priority: .medium) { [store] in
-            await store.createRoll(id: id, cameraID: cameraID, filmStock: filmStock, capacity: capacity)
+            await store.createRoll(id: id, cameraID: cameraID, filmStock: filmStock, capacity: capacity, createdAt: createdAt)
         }
         return id
     }

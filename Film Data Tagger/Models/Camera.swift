@@ -21,10 +21,10 @@ final class Camera {
     @Relationship(deleteRule: .cascade, inverse: \Roll.camera)
     var rolls: [Roll]?
 
-    init(name: String, listOrder: Double = 0) {
+    init(name: String, listOrder: Double = 0, createdAt: Date = Date()) {
         self.id = UUID()
         self.name = name
-        self.createdAt = Date()
+        self.createdAt = createdAt
         self.listOrder = listOrder
     }
 

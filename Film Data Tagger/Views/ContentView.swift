@@ -58,7 +58,12 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            CameraListView(viewModel: viewModel)
+            CameraListView(viewModel: viewModel, onCameraSelected: { id in
+                    guard path.isEmpty else { return }
+                    selectedCameraID = id
+                    viewModel.navigateToCamera(id)
+                    path.append(id)
+                })
                 .navigationDestination(for: UUID.self) { id in
                     if cameras.contains(where: { $0.id == id }) {
                         RollListView(
@@ -68,10 +73,6 @@ struct ContentView: View {
                                 path.append(ExposureMarker())
                             }
                         )
-                        .onAppear {
-                            selectedCameraID = id
-                            viewModel.navigateToCamera(id)
-                        }
                     }
                 }
                 .navigationDestination(for: ExposureMarker.self) { _ in

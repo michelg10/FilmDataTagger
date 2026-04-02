@@ -11,10 +11,11 @@ extension FilmLogViewModel: CamerasViewModel {
     func createCamera(name: String) -> UUID {
         let id = UUID()
         let listOrder = (_cameras.map(\.snapshot.listOrder).max() ?? -1) + 1
+        let createdAt = Date()
         let snapshot = CameraSnapshot(
             id: id,
             name: name,
-            createdAt: Date(),
+            createdAt: createdAt,
             listOrder: listOrder,
             rollCount: 0,
             totalExposureCount: 0
@@ -22,7 +23,7 @@ extension FilmLogViewModel: CamerasViewModel {
         _cameras.append(CameraState(snapshot: snapshot))
         publishSnapshots()
         Task.detached(priority: .medium) { [store] in
-            await store.createCamera(id: id, name: name, listOrder: listOrder)
+            await store.createCamera(id: id, name: name, listOrder: listOrder, createdAt: createdAt)
         }
         return id
     }

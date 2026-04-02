@@ -85,7 +85,9 @@ final class LocationService {
 
     deinit {
         geocodeTask?.cancel()
-        assertionFailure("LocationService should never be deallocated")
+        if ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == nil {
+            assertionFailure("LocationService should never be deallocated")
+        }
     }
 
     func setup() {

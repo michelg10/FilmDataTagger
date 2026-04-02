@@ -231,6 +231,7 @@ private struct CameraEndDropDelegate: DropDelegate {
 
 struct CameraListView: View {
     let viewModel: any CamerasViewModel
+    var onCameraSelected: ((UUID) -> Void)? = nil
     @State private var editingEntry: (any CameraListEntry)?
     @State private var entryToDelete: (any CameraListEntry)?
     @State private var showDeleteAlert = false
@@ -272,7 +273,7 @@ struct CameraListView: View {
     private func cameraScrollContent(entries: [any CameraListEntry], orderedIDs: [UUID]) -> some View {
         VStack(spacing: 0) {
             ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-                NavigationLink(value: entry.id) {
+                Button { onCameraSelected?(entry.id) } label: {
                     CameraListRow(entry: entry)
                 }
                 .overlay(alignment: .top) {
