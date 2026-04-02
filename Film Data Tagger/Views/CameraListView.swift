@@ -35,8 +35,8 @@ struct CameraRollProgress: View {
                 overflowShadowRadius: 2.9
             )
             if let exposureCount = exposureCount {
-                Text(exposureCount > 99 ? "99+" : String(exposureCount))
-                    .font(.system(size: 14, weight: .semibold, design: .default))
+                Text(exposureCount > 999 ? "999+" : String(exposureCount))
+                    .font(.system(size: exposureCount > 999 ? 11 : exposureCount > 99 ? 13 : 14, weight: .semibold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
             } else {

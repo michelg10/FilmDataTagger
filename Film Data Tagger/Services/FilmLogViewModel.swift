@@ -326,15 +326,21 @@ final class FilmLogViewModel {
         }
     }
 
-    /// Write the open state plist immediately, cancelling any pending debounce.
+    /// Snapshot the current open state on MainActor. Returns nil if no roll is open.
+    private func snapshotOpenState() -> PersistedOpenState? {
+        guard let roll = _openRoll else { return nil }
+        return PersistedOpenState(cameraName: _openCamera?.snapshot.name, roll: roll.snapshot, items: roll.items)
+    }
+
+    /// Write the open state plist immediately and synchronously.
+    /// Call from onBackground where the process may be killed right after.
     private func flushOpenState() {
         persistTask?.cancel()
         persistTask = nil
-        guard let roll = _openRoll else {
+        guard let state = snapshotOpenState() else {
             try? FileManager.default.removeItem(at: Self.openStateURL)
             return
         }
-        let state = PersistedOpenState(cameraName: _openCamera?.snapshot.name, roll: roll.snapshot, items: roll.items)
         guard let data = try? PropertyListEncoder().encode(state) else {
             debugLog("flushOpenState: failed to encode")
             return
@@ -343,6 +349,28 @@ final class FilmLogViewModel {
             try data.write(to: Self.openStateURL, options: .atomic)
         } catch {
             debugLog("flushOpenState: failed to write: \(error)")
+        }
+    }
+
+    /// Write the open state plist off the main actor. Snapshot is captured on MainActor,
+    /// encoding and I/O happen on a utility thread.
+    private func writeOpenStateAsync() {
+        persistTask?.cancel()
+        let state = snapshotOpenState()
+        persistTask = Task.detached(priority: .utility) {
+            if let state {
+                guard let data = try? PropertyListEncoder().encode(state) else {
+                    debugLog("writeOpenStateAsync: failed to encode")
+                    return
+                }
+                do {
+                    try data.write(to: Self.openStateURL, options: .atomic)
+                } catch {
+                    debugLog("writeOpenStateAsync: failed to write: \(error)")
+                }
+            } else {
+                try? FileManager.default.removeItem(at: Self.openStateURL)
+            }
         }
     }
 
@@ -404,13 +432,26 @@ final class FilmLogViewModel {
     }
 
     /// Debounced write of the current open state to disk.
+    /// Snapshots state on MainActor, encodes and writes off-main.
     func persistOpenState() {
         persistTask?.cancel()
-        persistTask = Task.detached(priority: .utility) { [weak self] in
+        let state = snapshotOpenState()
+        persistTask = Task.detached(priority: .utility) {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
-            guard let self else { return }
-            await MainActor.run { self.flushOpenState() }
+            if let state {
+                guard let data = try? PropertyListEncoder().encode(state) else {
+                    debugLog("persistOpenState: failed to encode")
+                    return
+                }
+                do {
+                    try data.write(to: Self.openStateURL, options: .atomic)
+                } catch {
+                    debugLog("persistOpenState: failed to write: \(error)")
+                }
+            } else {
+                try? FileManager.default.removeItem(at: Self.openStateURL)
+            }
         }
     }
 

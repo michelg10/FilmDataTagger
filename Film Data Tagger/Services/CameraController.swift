@@ -62,6 +62,7 @@ final class CameraController {
         let (deviceType, position, preset) = config()
         let status = await manager.start(deviceType: deviceType, position: position, preset: preset)
         guard referencePhotosEnabled else { return } // toggled off during start
+        needsPermission = false
         isRunning = status == .running
         unavailable = status == .unavailable
     }

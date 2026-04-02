@@ -184,6 +184,7 @@ struct ExposureScreen: View {
         }
         .alert("Roll finished", isPresented: $showInactiveRollWarning) {
             Button("Log") {
+                playHaptic(.capture)
                 Task(priority: .userInitiated) {
                     await viewModel.logExposure()
                 }

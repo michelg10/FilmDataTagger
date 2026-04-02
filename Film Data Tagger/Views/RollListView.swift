@@ -87,7 +87,7 @@ struct RollListRow: View {
     }
 
     private var exposureCountDisplay: String {
-        exposureCount > 99 ? "99+" : "\(exposureCount)"
+        exposureCount > 999 ? "999+" : "\(exposureCount)"
     }
 
     private static let loadedDateFormatter: DateFormatter = {
