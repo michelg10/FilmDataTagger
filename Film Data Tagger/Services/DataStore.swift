@@ -35,7 +35,6 @@ actor DataStore: ModelActor {
     /// Monotonic version counter — incremented on each loadAll.
     /// The VM uses this to discard stale trees from out-of-order completions.
     private var _treeVersion: Int = 0
-    var treeVersion: Int { _treeVersion }
 
     /// Load ALL metadata into memory as a ready-made tree.
     /// Called once on startup and on remote changes.
@@ -202,9 +201,6 @@ actor DataStore: ModelActor {
         }
 
         save()
-        if let thumbnailData {
-            await ImageCache.shared.preload(for: id, data: thumbnailData)
-        }
     }
 
     /// Persist a new placeholder. The VM has already updated its local state optimistically.

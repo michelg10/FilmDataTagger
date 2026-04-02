@@ -144,6 +144,9 @@ struct ExposureScreen: View {
             .padding([.bottom, .leading, .trailing], 8)
             .animation(.easeInOut(duration: 0.25), value: logItems.isEmpty)
         }.ignoresSafeArea()
+        .onChange(of: viewModel.openRollSnapshot?.id) {
+            scrollState.nearBottomRaw = 0
+        }
         .onAppear { viewModel.camera.ensureRunning() }
         .onDisappear { viewModel.camera.scheduleStop() }
         .sheet(item: $newRollCameraID) { cameraID in

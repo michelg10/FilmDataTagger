@@ -139,7 +139,7 @@ struct LogExposureIntent: AppIntent {
                 continuation.resume(returning: location)
             }
             manager.delegate = delegate
-            manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+            manager.desiredAccuracy = AppSettings.shared.locationAccuracy.clAccuracy
             objc_setAssociatedObject(delegate, "manager", manager, .OBJC_ASSOCIATION_RETAIN)
             manager.requestLocation()
 

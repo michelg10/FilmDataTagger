@@ -29,7 +29,7 @@ struct ExposureLogItemView: View {
             onTimeTapped: item.hasDifferentTimeZone ? { showingLocalTime.toggle() } : nil,
             locationText: locationText,
         )
-        .task(id: item.id) {
+        .task(id: item.hasThumbnail) {
             guard item.hasThumbnail else { return }
             // Fast path: already cached (no decode needed)
             if let cached = ImageCache.shared.cachedImage(for: item.id) {

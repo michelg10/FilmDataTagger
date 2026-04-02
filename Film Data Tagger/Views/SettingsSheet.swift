@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import SwiftData
 import CloudKit
 
 // MARK: - Share Sheet

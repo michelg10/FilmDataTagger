@@ -96,7 +96,7 @@ struct RollFormSheet: View {
     var defaultCapacity: Int? = nil
     var allowSubmitWithPlaceholder: Bool = false
     var onRollCreated: (() -> Void)?
-    var onCreateRoll: ((UUID, String, Int) -> Void)?
+    var onCreateRoll: ((UUID, String, Int) -> UUID?)?
     var onEditRoll: ((UUID, String, Int) -> Void)?
     var formIsAboveAnotherSheet: Bool = false
     @Environment(\.dismiss) private var dismiss
@@ -174,11 +174,12 @@ struct RollFormSheet: View {
                 let capacity = effectiveExposureCount
                 if let editingRoll {
                     onEditRoll?(editingRoll.id, effectiveFilmName, capacity)
-                } else {
-                    onCreateRoll?(cameraID, effectiveFilmName, capacity)
+                    dismiss()
+                    onRollCreated?()
+                } else if onCreateRoll?(cameraID, effectiveFilmName, capacity) != nil {
+                    dismiss()
+                    onRollCreated?()
                 }
-                dismiss()
-                onRollCreated?()
             }, isAboveAnotherSheet: formIsAboveAnotherSheet) {
                 Text(isEditing ? "Edit roll" : "Add roll")
             }

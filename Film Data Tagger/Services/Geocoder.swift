@@ -89,7 +89,11 @@ private actor GeocodingCache {
         let task = Task { await Geocoder.performGeocode(location) }
         entries[key] = .inflight(task)
         let result = await task.value
-        entries[key] = .resolved(result)
+        if result.placeName != nil || result.cityName != nil {
+            entries[key] = .resolved(result)
+        } else {
+            entries[key] = nil  // failed — allow retry
+        }
         return result
     }
 }

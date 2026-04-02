@@ -7,8 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import AVFoundation
-import CoreLocation
 
 // MARK: - Helpers
 
@@ -68,17 +66,29 @@ private struct FullInfoRow<Icon: View>: View {
 
 // MARK: - Subviews
 
+/// Isolated so that GPS updates only re-render the text, not the eye icon or camera preview.
+private struct CompactLocationInfoRow: View {
+    let locationService: LocationService
+
+    var body: some View {
+        CompactInfoRow(
+            icon: Image(systemName: "location.fill")
+                .font(.system(size: 15, weight: .semibold, design: .default)),
+            text: locationService.displayLocationText
+        )
+    }
+}
+
 /// Isolated so that GPS updates only re-render the text, not the camera preview.
 private struct LocationInfoRow: View {
-    let text: String
-    let subtext: String
+    let locationService: LocationService
 
     var body: some View {
         FullInfoRow(
             icon: Image(systemName: "location.fill")
                 .font(.system(size: 17, weight: .semibold, design: .default)),
-            text: text,
-            subtext: subtext,
+            text: locationService.displayLocationText,
+            subtext: locationService.displayLocationSubtext,
             textSubtextPadding: 3.0
         )
     }
@@ -174,7 +184,7 @@ private struct CaptureSheetFullContent: View {
                         subtext: lastCaptureDate != nil ? "since last capture" : "no captures yet"
                     )
                 }
-                LocationInfoRow(text: locationService.displayLocationText, subtext: locationService.displayLocationSubtext)
+                LocationInfoRow(locationService: locationService)
             }
         }
         .padding(.bottom, 21)
@@ -226,12 +236,9 @@ private struct CaptureSheetCompactContent: View {
                 }.padding(.trailing, 13)
                 .padding(.vertical, 4)
             }
-            CompactInfoRow(
-                icon: Image(systemName: "location.fill")
-                    .font(.system(size: 15, weight: .semibold, design: .default)),
-                text: locationService.displayLocationText
-            ).padding(.trailing, 15)
-            .padding(.vertical, 4)
+            CompactLocationInfoRow(locationService: locationService)
+                .padding(.trailing, 15)
+                .padding(.vertical, 4)
         }.padding(.horizontal, 27 - 15)
         .padding(.bottom, 11)
     }

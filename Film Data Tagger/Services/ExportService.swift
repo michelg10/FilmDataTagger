@@ -11,6 +11,10 @@ import SwiftData
 /// Ordered key-value pairs for JSON serialization with guaranteed key order.
 private typealias JObj = [(String, Any)]
 
+enum ExportError: Error {
+    case encodingFailed
+}
+
 nonisolated struct ExportService {
     private static let exportVersion = 1
 
@@ -42,7 +46,11 @@ nonisolated struct ExportService {
 
         let json = serializeJSON(root, indent: 0)
         let url = tempURL(ext: "json")
-        try json.data(using: .utf8)?.write(to: url)
+        guard let data = json.data(using: .utf8) else {
+            debugLog("exportJSON: UTF-8 encoding failed")
+            throw ExportError.encodingFailed
+        }
+        try data.write(to: url)
         return url
     }
 
@@ -132,7 +140,11 @@ nonisolated struct ExportService {
         }
 
         let url = tempURL(ext: "csv")
-        try csv.data(using: .utf8)?.write(to: url)
+        guard let data = csv.data(using: .utf8) else {
+            debugLog("exportCSV: UTF-8 encoding failed")
+            throw ExportError.encodingFailed
+        }
+        try data.write(to: url)
         return url
     }
 
