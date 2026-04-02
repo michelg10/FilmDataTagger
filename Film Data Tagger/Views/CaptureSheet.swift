@@ -157,10 +157,9 @@ private struct ReferencePhotoPreview: View {
 
 private struct CaptureSheetFullContent: View {
     let camera: CameraController
+    let locationService: LocationService
     let lastCaptureDate: Date?
     let referencePhotoSize: CGFloat
-    let locationText: String
-    let locationSubtext: String
 
     var body: some View {
         HStack(spacing: 18) {
@@ -175,7 +174,7 @@ private struct CaptureSheetFullContent: View {
                         subtext: lastCaptureDate != nil ? "since last capture" : "no captures yet"
                     )
                 }
-                LocationInfoRow(text: locationText, subtext: locationSubtext)
+                LocationInfoRow(text: locationService.displayLocationText, subtext: locationService.displayLocationSubtext)
             }
         }
         .padding(.bottom, 21)
@@ -185,15 +184,12 @@ private struct CaptureSheetFullContent: View {
 }
 
 private struct CaptureSheetCompactContent: View {
-    let referencePhotosEnabled: Bool
-    let cameraUnavailable: Bool
-    let permissionDenied: Bool
-    let locationText: String
+    let camera: CameraController
+    let locationService: LocationService
     let lastCaptureDate: Date?
-    let onEyeTapped: (() -> Void)?
 
     private var showEyeSlash: Bool {
-        !referencePhotosEnabled || cameraUnavailable || permissionDenied
+        !camera.referencePhotosEnabled || camera.unavailable || camera.permissionDenied
     }
 
     var body: some View {
@@ -209,7 +205,15 @@ private struct CaptureSheetCompactContent: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     playHaptic(.viewfinderToggle)
-                    onEyeTapped?()
+                    if camera.unavailable {
+                        // No camera hardware
+                    } else if camera.permissionDenied {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    } else {
+                        camera.toggle()
+                    }
                 }
                 .accessibilityLabel("Toggle camera preview")
             if lastCaptureDate != nil {
@@ -225,7 +229,7 @@ private struct CaptureSheetCompactContent: View {
             CompactInfoRow(
                 icon: Image(systemName: "location.fill")
                     .font(.system(size: 15, weight: .semibold, design: .default)),
-                text: locationText
+                text: locationService.displayLocationText
             ).padding(.trailing, 15)
             .padding(.vertical, 4)
         }.padding(.horizontal, 27 - 15)
@@ -353,32 +357,18 @@ struct CaptureSheet: View {
                 ZStack(alignment: .top) {
                     CaptureSheetFullContent(
                         camera: camera,
+                        locationService: locationService,
                         lastCaptureDate: lastCaptureDate,
-                        referencePhotoSize: Self.referencePhotoSize,
-                        locationText: locationService.displayLocationText,
-                        locationSubtext: locationService.displayLocationSubtext
+                        referencePhotoSize: Self.referencePhotoSize
                     ).padding(.top, 10)
                     .opacity(showsFullContent ? 1 : 0)
                     .offset(y: showsFullContent ? 0 : -10)
                     .allowsHitTesting(showsFullContent)
 
                     CaptureSheetCompactContent(
-                        referencePhotosEnabled: camera.referencePhotosEnabled,
-                        cameraUnavailable: camera.unavailable,
-                        permissionDenied: camera.permissionDenied,
-                        locationText: locationService.displayLocationText,
-                        lastCaptureDate: lastCaptureDate,
-                        onEyeTapped: {
-                            if camera.unavailable {
-                                // No camera hardware
-                            } else if camera.permissionDenied {
-                                if let url = URL(string: UIApplication.openSettingsURLString) {
-                                    UIApplication.shared.open(url)
-                                }
-                            } else {
-                                camera.toggle()
-                            }
-                        }
+                        camera: camera,
+                        locationService: locationService,
+                        lastCaptureDate: lastCaptureDate
                     )
                     .opacity(showsFullContent ? 0 : 1)
                     .offset(y: showsFullContent ? 10 : 0)

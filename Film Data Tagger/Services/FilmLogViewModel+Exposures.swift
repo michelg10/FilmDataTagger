@@ -78,7 +78,6 @@ extension FilmLogViewModel: ExposuresViewModel {
                 targetRoll.snapshot.isActive = true
                 camera.activeRoll = targetRoll
                 camera.snapshot.activeRoll = targetRoll.snapshot
-                camera.recomputeRollDisplayData()
             }
 
             let id = UUID()
@@ -278,6 +277,10 @@ extension FilmLogViewModel: ExposuresViewModel {
 
     /// Move an exposure to a different roll.
     func moveItem(_ item: LogItemSnapshot, toRollID: UUID) {
+        guard let targetRoll = roll(toRollID) else {
+            debugLog("moveItem: target roll \(toRollID) not found")
+            return
+        }
         let sourceCamera = _openCamera
         let sourceRoll = _openRoll
 
@@ -299,33 +302,31 @@ extension FilmLogViewModel: ExposuresViewModel {
             sourceCamera.snapshot.lastUsedDate = sourceCamera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
         }
 
-        // Find target roll in the tree and add the item
-        if let targetRoll = roll(toRollID) {
-            var movedItem = item
-            movedItem.rollID = toRollID
-            targetRoll.items.append(movedItem)
-            targetRoll.items.sort { $0.createdAt < $1.createdAt }
-            recordOptimistic(movedItem, sourceRollID: sourceRoll?.id)
+        // Add to target roll
+        var movedItem = item
+        movedItem.rollID = toRollID
+        targetRoll.items.append(movedItem)
+        targetRoll.items.sort { $0.createdAt < $1.createdAt }
+        recordOptimistic(movedItem, sourceRollID: sourceRoll?.id)
 
-            // Update target roll snapshot caches
-            targetRoll.snapshot.exposureCount = targetRoll.items.count
-            if item.hasRealCreatedAt {
-                if targetRoll.snapshot.lastExposureDate == nil || item.createdAt > targetRoll.snapshot.lastExposureDate! {
-                    targetRoll.snapshot.lastExposureDate = item.createdAt
-                }
+        // Update target roll snapshot caches
+        targetRoll.snapshot.exposureCount = targetRoll.items.count
+        if item.hasRealCreatedAt {
+            if targetRoll.snapshot.lastExposureDate == nil || item.createdAt > targetRoll.snapshot.lastExposureDate! {
+                targetRoll.snapshot.lastExposureDate = item.createdAt
             }
-
-            // Update target camera caches
-            if let targetCamera = targetRoll.snapshot.cameraID.flatMap({ camera($0) }) {
-                targetCamera.snapshot.totalExposureCount += 1
-                if targetCamera.activeRoll?.id == toRollID {
-                    targetCamera.snapshot.activeRoll = targetRoll.snapshot
-                }
-                targetCamera.snapshot.lastUsedDate = targetCamera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
-                _openCamera = targetCamera
-            }
-            _openRoll = targetRoll
         }
+
+        // Update target camera caches
+        if let targetCamera = targetRoll.snapshot.cameraID.flatMap({ camera($0) }) {
+            targetCamera.snapshot.totalExposureCount += 1
+            if targetCamera.activeRoll?.id == toRollID {
+                targetCamera.snapshot.activeRoll = targetRoll.snapshot
+            }
+            targetCamera.snapshot.lastUsedDate = targetCamera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
+            _openCamera = targetCamera
+        }
+        _openRoll = targetRoll
 
         publishSnapshots()
         persistOpenState()
@@ -407,7 +408,6 @@ extension FilmLogViewModel: ExposuresViewModel {
         if let camera = _openCamera, camera.activeRoll?.id == roll.id {
             camera.snapshot.activeRoll = roll.snapshot
         }
-        _openCamera?.recomputeRollDisplayData()
         publishSnapshots()
         persistOpenState()
         let count = roll.snapshot.extraExposures

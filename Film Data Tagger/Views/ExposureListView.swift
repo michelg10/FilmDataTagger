@@ -274,9 +274,7 @@ private struct CameraSwitcherMenu: View {
 struct ExposureListView: View {
     let logItems: [LogItemSnapshot]
     var cameraName: String = ""
-    var cameraID: UUID? = nil
     var filmStock: String = ""
-    var hasRoll: Bool = true
     var extraExposures: Int = 0
     var scrollContextID: UUID? = nil
     var onDelete: ((LogItemSnapshot) -> Void)?

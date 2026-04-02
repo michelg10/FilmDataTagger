@@ -33,7 +33,7 @@ protocol RollsViewModel: AnyObject, Observable {
     var openCameraSnapshot: CameraSnapshot? { get }
     var openCameraRolls: OpenCameraRolls? { get }
     func switchToRoll(id: UUID)
-    @discardableResult func createRoll(cameraID: UUID, filmStock: String, capacity: Int) -> UUID
+    @discardableResult func createRoll(cameraID: UUID, filmStock: String, capacity: Int) -> UUID?
     func editRoll(id: UUID, filmStock: String, capacity: Int)
     func deleteRoll(id: UUID)
 }
@@ -86,6 +86,6 @@ protocol ExposureMenuContext: AnyObject, Observable {
     var currentRollID: UUID? { get }
     func moveItem(_ item: LogItemSnapshot, toRollID: UUID)
     func switchToCameraActiveRoll(_ cameraID: UUID)
-    @discardableResult func createRoll(cameraID: UUID, filmStock: String, capacity: Int) -> UUID
+    @discardableResult func createRoll(cameraID: UUID, filmStock: String, capacity: Int) -> UUID?
     func editRoll(id: UUID, filmStock: String, capacity: Int)
 }

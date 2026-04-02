@@ -21,12 +21,12 @@ extension FilmLogViewModel: ExposureMenuContext {
             currentRollID = newRollID
         }
 
-        let newMenuCameras = _cameras.map { cam -> MenuCameraEntry in
-            let activeRoll = cam.activeRoll?.snapshot
+        let newMenuCameras = _cameras.map { cameraState -> MenuCameraEntry in
+            let activeRoll = cameraState.activeRoll?.snapshot
             return MenuCameraEntry(
-                id: cam.id,
-                name: cam.snapshot.name,
-                lastUsedDate: cam.snapshot.lastUsedDate,
+                id: cameraState.id,
+                name: cameraState.snapshot.name,
+                lastUsedDate: cameraState.snapshot.lastUsedDate,
                 activeRollID: activeRoll?.id,
                 activeRollName: activeRoll?.filmStock,
                 activeRollExposureCount: activeRoll?.exposureCount ?? 0,

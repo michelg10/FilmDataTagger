@@ -94,10 +94,8 @@ struct ExposureScreen: View {
             ExposureListView(
                 logItems: logItems,
                 cameraName: viewModel.openCameraSnapshot?.name ?? "No camera selected",
-                cameraID: viewModel.openCameraSnapshot?.id,
                 filmStock: viewModel.openRollSnapshot?.filmStock
                     ?? (viewModel.openCameraSnapshot != nil ? "No roll selected" : ""),
-                hasRoll: viewModel.openRollSnapshot != nil,
                 extraExposures: viewModel.openRollSnapshot?.extraExposures ?? 0,
                 scrollContextID: viewModel.openRollSnapshot?.id ?? viewModel.openCameraSnapshot?.id,
                 onDelete: { viewModel.deleteItem($0) },

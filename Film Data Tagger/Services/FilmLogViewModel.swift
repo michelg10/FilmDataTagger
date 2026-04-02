@@ -217,13 +217,16 @@ final class FilmLogViewModel {
         let newCameraSnap = _openCamera?.snapshot
         if openCameraSnapshot != newCameraSnap { openCameraSnapshot = newCameraSnap }
 
-        // Open camera rolls
-        let newRolls: OpenCameraRolls? = if let cam = _openCamera {
+        // Open camera rolls — computed inline, no cache to go stale
+        let newRolls: OpenCameraRolls? = if let openCamera = _openCamera {
             OpenCameraRolls(
-                activeRoll: cam.activeRoll?.snapshot,
-                pastRolls: cam.pastRolls,
-                maxRollCapacity: cam.maxRollCapacity,
-                hasRolls: !cam.rolls.isEmpty
+                activeRoll: openCamera.activeRoll?.snapshot,
+                pastRolls: openCamera.rolls
+                    .filter { $0.id != openCamera.activeRoll?.id }
+                    .map(\.snapshot)
+                    .sorted { ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt) },
+                maxRollCapacity: openCamera.rolls.map(\.snapshot.totalCapacity).max() ?? 36,
+                hasRolls: !openCamera.rolls.isEmpty
             )
         } else {
             nil
@@ -435,9 +438,8 @@ final class FilmLogViewModel {
            roll.snapshot.extraExposures != extra {
             roll.snapshot.extraExposures = extra
             roll.snapshot.totalCapacity = roll.snapshot.capacity + extra
-            if let cam = _openCamera, cam.activeRoll?.id == roll.id {
-                cam.snapshot.activeRoll = roll.snapshot
-                cam.recomputeRollDisplayData()
+            if let openCamera = _openCamera, openCamera.activeRoll?.id == roll.id {
+                openCamera.snapshot.activeRoll = roll.snapshot
             }
         }
 

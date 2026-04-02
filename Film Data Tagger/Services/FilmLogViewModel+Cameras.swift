@@ -28,8 +28,8 @@ extension FilmLogViewModel: CamerasViewModel {
     }
 
     func renameCamera(id: UUID, name: String) {
-        if let cam = camera(id) {
-            cam.snapshot.name = name
+        if let target = camera(id) {
+            target.snapshot.name = name
         }
         publishSnapshots()
         Task.detached(priority: .medium) { [store] in

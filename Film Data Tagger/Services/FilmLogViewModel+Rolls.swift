@@ -59,10 +59,10 @@ extension FilmLogViewModel: RollsViewModel {
     // MARK: - Roll CRUD
 
     @discardableResult
-    func createRoll(cameraID: UUID, filmStock: String, capacity: Int = 36) -> UUID {
+    func createRoll(cameraID: UUID, filmStock: String, capacity: Int = 36) -> UUID? {
         guard let camera = camera(cameraID) else {
-            debugLog("createRoll: camera \(cameraID) not found");
-            return UUID()
+            debugLog("createRoll: camera \(cameraID) not found")
+            return nil
         }
         let id = UUID()
         // Deactivate previous active roll
@@ -88,7 +88,6 @@ extension FilmLogViewModel: RollsViewModel {
         // Update camera snapshot caches
         camera.snapshot.rollCount += 1
         camera.snapshot.activeRoll = newRoll.snapshot
-        camera.recomputeRollDisplayData()
         publishSnapshots()
         persistOpenState()
         Task.detached(priority: .medium) { [store] in
@@ -106,7 +105,6 @@ extension FilmLogViewModel: RollsViewModel {
             if _openCamera?.activeRoll?.id == id {
                 _openCamera?.snapshot.activeRoll = roll.snapshot
             }
-            _openCamera?.recomputeRollDisplayData()
         }
         publishSnapshots()
         persistOpenState()
@@ -133,7 +131,6 @@ extension FilmLogViewModel: RollsViewModel {
             camera.activeRoll = nil
             camera.snapshot.activeRoll = nil
         }
-        camera.recomputeRollDisplayData()
         publishSnapshots()
         persistOpenState()
         Task.detached(priority: .medium) { [store] in
