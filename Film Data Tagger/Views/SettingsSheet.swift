@@ -442,6 +442,7 @@ private struct AboutPage: View {
                     .resizable()
                     .frame(width: 130, height: 130)
                     .clipShape(RoundedRectangle(cornerRadius: 32))
+                    .shadow(color: .black.opacity(0.38), radius: 28, x: 0, y: 0)
                     .padding(.bottom, 25)
 
                 let versionText = Text(Self.version).foregroundStyle(Color.white.opacity(0.5))

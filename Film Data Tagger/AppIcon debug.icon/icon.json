@@ -5,25 +5,6 @@
   },
   "groups" : [
     {
-      "blur-material" : null,
-      "layers" : [
-        {
-          "glass" : true,
-          "image-name" : "iOS & iPadOS 5.png",
-          "name" : "iOS & iPadOS 5"
-        }
-      ],
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 1
-      },
-      "specular" : true,
-      "translucency" : {
-        "enabled" : true,
-        "value" : 0.46
-      }
-    },
-    {
       "layers" : [
         {
           "glass" : false,
@@ -31,7 +12,6 @@
           "name" : "iOS & iPadOS 2"
         }
       ],
-      "name" : "Group",
       "shadow" : {
         "kind" : "none",
         "opacity" : 0.5
