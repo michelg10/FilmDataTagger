@@ -64,6 +64,7 @@ struct ContentView: View {
                         RollListView(
                             viewModel: viewModel,
                             onRollSelected: { _ in
+                                guard !isOnExposureList else { return }
                                 path.append(ExposureMarker())
                             }
                         )
@@ -74,13 +75,19 @@ struct ContentView: View {
                     }
                 }
                 .navigationDestination(for: ExposureMarker.self) { _ in
-                    ExposureScreen(viewModel: viewModel, menuContext: viewModel) { cameraID in
-                        var newPath = NavigationPath()
-                        newPath.append(cameraID)
-                        newPath.append(ExposureMarker())
-                        path = newPath
-                        selectedCameraID = cameraID
-                    }
+                    ExposureScreen(
+                        viewModel: viewModel,
+                        menuContext: viewModel,
+                        onCameraSwitched: { cameraID in
+                            var newPath = NavigationPath()
+                            newPath.append(cameraID)
+                            newPath.append(ExposureMarker())
+                            path = newPath
+                            selectedCameraID = cameraID
+                        },
+                        onCreateRoll: { viewModel.createRoll(cameraID: $0, filmStock: $1, capacity: $2) },
+                        onEditRoll: { viewModel.editRoll(id: $0, filmStock: $1, capacity: $2) }
+                    )
                 }
         }
         .overlay(alignment: .bottom) {

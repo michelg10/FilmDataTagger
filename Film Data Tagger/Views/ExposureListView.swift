@@ -51,7 +51,7 @@ private struct ExposureRowDropDelegate: DropDelegate {
 
     func performDrop(info: DropInfo) -> Bool {
         defer { dropTargetIndex = nil; draggingPlaceholderID = nil }
-        let targetIdx = info.location.y < exposureItemHeight / 2 ? index : index + 1
+        guard dropTargetIndex != nil else { return false }
         guard let draggingPlaceholderID,
               let draggedItem = logItems.first(where: { $0.id == draggingPlaceholderID }),
               draggedItem.isPlaceholder,
@@ -59,6 +59,7 @@ private struct ExposureRowDropDelegate: DropDelegate {
             return false
         }
 
+        let targetIdx = info.location.y < exposureItemHeight / 2 ? index : index + 1
         let targetItem = logItems[index]
         if targetIdx == index {
             onMovePlaceholderBefore?(draggedItem, targetItem)
@@ -74,7 +75,7 @@ private struct ExposureRowDropDelegate: DropDelegate {
             return
         }
         let midY = exposureItemHeight / 2
-        let deadZone: CGFloat = 5
+        let deadZone: CGFloat = 8
         if info.location.y >= midY - deadZone && info.location.y <= midY + deadZone {
             dropTargetIndex = nil
         } else {
@@ -112,6 +113,7 @@ private struct ExposureEndDropDelegate: DropDelegate {
 
     func performDrop(info: DropInfo) -> Bool {
         defer { dropTargetIndex = nil; draggingPlaceholderID = nil }
+        guard dropTargetIndex != nil else { return false }
         guard let draggingPlaceholderID,
               let draggedItem = logItems.first(where: { $0.id == draggingPlaceholderID }),
               draggedItem.isPlaceholder,

@@ -398,6 +398,7 @@ actor DataStore: ModelActor {
     /// Start a 30-second timer that checks for device timezone changes.
     /// If the offset changed, re-publish all observed snapshots with updated formatting.
     func startTimezoneChangeDetection() {
+        tzCheckTask?.cancel()
         tzCheckTask = Task(priority: .utility) {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(30))
@@ -561,7 +562,10 @@ actor DataStore: ModelActor {
             }
             didRepair = true
         }
-        if didRepair { save() }
+        if didRepair {
+            save()
+            remoteDataChanged.send()
+        }
     }
 
     // MARK: - Export
@@ -757,8 +761,12 @@ actor DataStore: ModelActor {
             }
 
             if deletedRolls > 0 || deletedItems > 0 {
-                debugLog("Orphan cleanup: \(deletedRolls) roll(s), \(deletedItems) item(s)")
-                try? context.save()
+                do {
+                    try context.save()
+                    debugLog("Orphan cleanup: deleted \(deletedRolls) roll(s), \(deletedItems) item(s)")
+                } catch {
+                    debugLog("Orphan cleanup: save failed, \(deletedRolls) roll(s) and \(deletedItems) item(s) will be retried: \(error)")
+                }
             }
 
             // --- 2. Purge stale cache bookkeeper entries ---
@@ -784,8 +792,12 @@ actor DataStore: ModelActor {
                 }
             }
             if mediaFlagsChanged {
-                debugLog("Media flags recompute: corrected \(allItems.count) item(s)")
-                try? context.save()
+                do {
+                    try context.save()
+                    debugLog("Media flags recompute: corrected flags")
+                } catch {
+                    debugLog("Media flags recompute: save failed: \(error)")
+                }
             }
 
             // --- Done ---

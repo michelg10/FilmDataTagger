@@ -83,6 +83,8 @@ struct ExposureScreen: View {
     let viewModel: any ExposuresViewModel
     let menuContext: any ExposureMenuContext
     var onCameraSwitched: ((UUID) -> Void)? = nil
+    var onCreateRoll: ((UUID, String, Int) -> UUID?)? = nil
+    var onEditRoll: ((UUID, String, Int) -> Void)? = nil
 
     @State private var newRollCameraID: UUID?
     @State private var scrollState = ExposureScrollState()
@@ -155,8 +157,8 @@ struct ExposureScreen: View {
                 defaultFilmStock: viewModel.openRollSnapshot?.filmStock,
                 defaultCapacity: viewModel.openRollSnapshot?.capacity,
                 allowSubmitWithPlaceholder: true,
-                onCreateRoll: { menuContext.createRoll(cameraID: $0, filmStock: $1, capacity: $2) },
-                onEditRoll: { menuContext.editRoll(id: $0, filmStock: $1, capacity: $2) },
+                onCreateRoll: onCreateRoll,
+                onEditRoll: onEditRoll,
                 formIsAboveAnotherSheet: true
             )
         }

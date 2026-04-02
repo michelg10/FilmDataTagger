@@ -85,6 +85,7 @@ final class LocationService {
 
     deinit {
         geocodeTask?.cancel()
+        assertionFailure("LocationService should never be deallocated")
     }
 
     func setup() {

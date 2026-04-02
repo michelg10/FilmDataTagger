@@ -194,7 +194,11 @@ final class AppSettings {
     }
 
     var locationAccuracy: LocationAccuracy {
-        didSet { defaults.set(locationAccuracy.rawValue, forKey: AppSettingsKeys.locationAccuracy) }
+        didSet {
+            defaults.set(locationAccuracy.rawValue, forKey: AppSettingsKeys.locationAccuracy)
+            // Invalidate cached Shortcut location — it may not meet the new accuracy tier
+            defaults.removeObject(forKey: AppSettingsKeys.shortcutCachedLocationTimestamp)
+        }
     }
 
     var reduceHaptics: Bool {

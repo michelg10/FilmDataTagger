@@ -154,8 +154,7 @@ nonisolated struct ExportService {
         let pad = String(repeating: "  ", count: indent)
         let innerPad = String(repeating: "  ", count: indent + 1)
 
-        if let obj = value as? JObj {
-            if obj.isEmpty { return "{}" }
+        if let obj = value as? JObj, !obj.isEmpty {
             let entries = obj.map { key, val in
                 "\(innerPad)\(escapeString(key)): \(serializeJSON(val, indent: indent + 1))"
             }

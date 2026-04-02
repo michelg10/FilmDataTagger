@@ -30,7 +30,7 @@ struct ExposureLogItemView: View {
             locationText: locationText,
         )
         .task(id: item.hasThumbnail) {
-            guard item.hasThumbnail else { return }
+            guard item.hasThumbnail else { previewImage = nil; return }
             // Fast path: already cached (no decode needed)
             if let cached = ImageCache.shared.cachedImage(for: item.id) {
                 previewImage = Image(uiImage: cached)

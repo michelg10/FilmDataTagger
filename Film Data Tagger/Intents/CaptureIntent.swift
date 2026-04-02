@@ -135,17 +135,19 @@ struct LogExposureIntent: AppIntent {
         }
 
         return await withCheckedContinuation { continuation in
-            let delegate = OneTimeLocationDelegate { location in
-                continuation.resume(returning: location)
+            var timeoutTask: Task<Void, Never>?
+            let delegate = OneTimeLocationDelegate {
+                timeoutTask?.cancel()
+                continuation.resume(returning: $0)
             }
             manager.delegate = delegate
             manager.desiredAccuracy = AppSettings.shared.locationAccuracy.clAccuracy
             objc_setAssociatedObject(delegate, "manager", manager, .OBJC_ASSOCIATION_RETAIN)
             manager.requestLocation()
 
-            // Timeout after 10s — the task retains the delegate, keeping it alive
-            Task(priority: .medium) { @MainActor in
-                try? await Task.sleep(for: .seconds(10))
+            // Timeout after 30s — cancelled early if location arrives first
+            timeoutTask = Task(priority: .medium) { @MainActor in
+                try? await Task.sleep(for: .seconds(30))
                 delegate.timeout()
             }
         }
@@ -165,7 +167,7 @@ private class OneTimeLocationDelegate: NSObject, CLLocationManagerDelegate {
     func timeout() {
         guard !hasCompleted else { return }
         hasCompleted = true
-        debugLog("CaptureIntent location request timed out after 10s")
+        debugLog("CaptureIntent location request timed out after 30s")
         completion(nil)
     }
 
