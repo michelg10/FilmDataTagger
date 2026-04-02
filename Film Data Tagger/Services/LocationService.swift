@@ -32,7 +32,7 @@ enum GeocodingState: Equatable {
     var displayText: String {
         switch self {
         case .disabled: "Disabled"
-        case .notAuthorized: "Disabled"
+        case .notAuthorized: "Not allowed"
         case .locating: "Locating..."
         case .geocoding: "Locating..."
         case .timedOut: "Unavailable"
@@ -44,7 +44,7 @@ enum GeocodingState: Equatable {
     var displaySubtext: String {
         switch self {
         case .disabled: "Location off"
-        case .notAuthorized: "Location not allowed"
+        case .notAuthorized: "No location access"
         case .locating: "Locating..."
         case .geocoding(let loc), .resolved(_, _, let loc):
             String(format: "%.4f / %.4f", loc.coordinate.latitude, loc.coordinate.longitude)
@@ -130,12 +130,14 @@ final class LocationService {
 
         switch status {
         case .authorizedWhenInUse, .authorizedAlways:
+            needsPermission = false
             locationManager.startUpdating()
             if geocodeTask == nil {
                 geocodingState = .locating
                 startLiveGeocoding()
             }
         case .denied, .restricted:
+            needsPermission = false
             geocodeTask?.cancel()
             geocodeTask = nil
             locationManager.stopUpdating()

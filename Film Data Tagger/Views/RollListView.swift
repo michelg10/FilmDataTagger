@@ -167,7 +167,7 @@ struct RollListView: View {
                         // IMPORTANT: top padding of first element should always be 12. padding is designed in this way so that user has maximum tappable area.
                         if let activeRoll {
                             VStack(alignment: .leading, spacing: 0) {
-                                Text("Active roll")
+                                Text("Loaded roll")
                                     .font(.system(size: 17, weight: .semibold, design: .default))
                                     .fontWidth(.expanded)
                                     .opacity(0.6)

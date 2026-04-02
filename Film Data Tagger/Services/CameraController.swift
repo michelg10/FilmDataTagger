@@ -106,6 +106,31 @@ final class CameraController {
         }
     }
 
+    /// Re-check camera authorization after returning from Settings or foreground.
+    /// Recovers from a previous denial if the user granted access in Settings.
+    func recheckPermission() {
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        switch status {
+        case .authorized:
+            if permissionDenied {
+                permissionDenied = false
+                needsPermission = false
+                // Re-enable reference photos — the user went to Settings to fix this
+                referencePhotosEnabled = true
+                Task(priority: .userInitiated) { await startCamera() }
+            }
+        case .notDetermined:
+            if referencePhotosEnabled {
+                needsPermission = true
+            }
+        case .denied, .restricted:
+            permissionDenied = true
+            needsPermission = false
+        @unknown default:
+            break
+        }
+    }
+
     /// Schedule camera stop after a delay. Call on exposure screen disappear.
     func scheduleStop(after seconds: TimeInterval = 30) {
         stopTimer?.cancel()
@@ -120,6 +145,7 @@ final class CameraController {
     func toggle() {
         if !referencePhotosEnabled {
             // Turning on — check permission first
+            needsPermission = false
             referencePhotosEnabled = true // set eagerly so ensureRunning() doesn't bail
             Task(priority: .userInitiated) {
                 let granted = await CameraManager.requestPermission()

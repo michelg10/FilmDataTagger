@@ -99,6 +99,7 @@ struct ExposureScreen: View {
 
     @State private var newRollCameraID: UUID?
     @State private var scrollState = ExposureScrollState()
+    @State private var showInactiveRollWarning = false
 
     private var logItems: [LogItemSnapshot] { viewModel.openRollItems }
 
@@ -135,7 +136,14 @@ struct ExposureScreen: View {
                 camera: viewModel.camera,
                 locationService: viewModel.locationService,
                 roll: viewModel.openRollSnapshot,
-                onCapture: { await viewModel.logExposure() },
+                onCapture: {
+                    if viewModel.openRollSnapshot?.isActive == false {
+                        showInactiveRollWarning = true
+                    } else {
+                        playHaptic(.capture)
+                        await viewModel.logExposure()
+                    }
+                },
                 onAddPlaceholder: { viewModel.logPlaceholder() }
             )
             .clipShape(captureSheetRectangle)
@@ -173,6 +181,20 @@ struct ExposureScreen: View {
                 onEditRoll: onEditRoll,
                 formIsAboveAnotherSheet: true
             )
+        }
+        .alert("Roll finished", isPresented: $showInactiveRollWarning) {
+            Button("Log") {
+                Task(priority: .userInitiated) {
+                    await viewModel.logExposure()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            if let activeRollName = viewModel.openCameraSnapshot?.activeRoll?.filmStock {
+                Text("Are you sure you want to log an exposure? This will replace \"\(activeRollName)\" as your loaded roll.")
+            } else {
+                Text("Are you sure you want to log an exposure? This will make \"\(viewModel.openRollSnapshot?.filmStock ?? "")\" your loaded roll.")
+            }
         }
     }
 }

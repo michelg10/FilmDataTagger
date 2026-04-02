@@ -307,6 +307,7 @@ final class FilmLogViewModel {
     /// Called when the app returns to the foreground.
     /// Geocodes items logged via Shortcuts while backgrounded, and checks for TZ changes.
     func onForeground() {
+        camera.recheckPermission()
         let cutoff = settings.lastForegroundDate ?? Date()
         settings.lastForegroundDate = Date()
         Task.detached(priority: .medium) { [store] in
@@ -317,10 +318,31 @@ final class FilmLogViewModel {
         }
     }
 
-    /// Called when the app enters background. Flushes any pending debounced save.
+    /// Called when the app enters background. Flushes any pending debounced saves.
     func onBackground() {
+        flushOpenState()
         Task.detached(priority: .userInitiated) { [store] in
             await store.flushSave()
+        }
+    }
+
+    /// Write the open state plist immediately, cancelling any pending debounce.
+    private func flushOpenState() {
+        persistTask?.cancel()
+        persistTask = nil
+        guard let roll = _openRoll else {
+            try? FileManager.default.removeItem(at: Self.openStateURL)
+            return
+        }
+        let state = PersistedOpenState(cameraName: _openCamera?.snapshot.name, roll: roll.snapshot, items: roll.items)
+        guard let data = try? PropertyListEncoder().encode(state) else {
+            debugLog("flushOpenState: failed to encode")
+            return
+        }
+        do {
+            try data.write(to: Self.openStateURL, options: .atomic)
+        } catch {
+            debugLog("flushOpenState: failed to write: \(error)")
         }
     }
 
@@ -388,24 +410,7 @@ final class FilmLogViewModel {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             guard let self else { return }
-            let state = await MainActor.run { () -> PersistedOpenState? in
-                guard let roll = self._openRoll else { return nil }
-                return PersistedOpenState(cameraName: self._openCamera?.snapshot.name, roll: roll.snapshot, items: roll.items)
-            }
-            if let state {
-                guard let data = try? PropertyListEncoder().encode(state) else {
-                    debugLog("persistOpenState: failed to encode")
-                    return
-                }
-                do {
-                    try await data.write(to: Self.openStateURL, options: .atomic)
-                } catch {
-                    debugLog("persistOpenState: failed to write: \(error)")
-                }
-            } else {
-                // No open roll — remove persisted state
-                try? await FileManager.default.removeItem(at: Self.openStateURL)
-            }
+            await MainActor.run { self.flushOpenState() }
         }
     }
 

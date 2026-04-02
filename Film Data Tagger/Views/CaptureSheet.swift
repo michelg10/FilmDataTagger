@@ -84,6 +84,10 @@ private struct CompactLocationInfoRow: View {
         .onTapGesture {
             if locationService.needsPermission {
                 locationService.requestPermissionIfNeeded()
+            } else if case .notAuthorized = locationService.geocodingState {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
             }
         }
     }
@@ -114,6 +118,14 @@ private struct LocationInfoRow: View {
                 subtext: locationService.displayLocationSubtext,
                 textSubtextPadding: 3
             )
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if case .notAuthorized = locationService.geocodingState {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            }
         }
     }
 }
@@ -284,7 +296,6 @@ private struct CaptureButton: View {
 
     var body: some View {
         PrimaryButton(enabled: frameCount < 999, action: {
-            playHaptic(.capture)
             onCapture()
         }, showShadow: false) {
             HStack(spacing: 0) {
