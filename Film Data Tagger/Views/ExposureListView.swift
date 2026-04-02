@@ -129,6 +129,7 @@ private struct ExposureRow: View, Equatable {
     var isPreFrame: Bool = false
     var canCycleExtraExposures: Bool = false
     var menuContext: (any ExposureMenuContext)?
+    var onCameraSwitched: ((UUID) -> Void)?
     var onDelete: ((LogItemSnapshot) -> Void)?
     var onCycleExtraExposures: (() -> Void)?
 
@@ -146,7 +147,7 @@ private struct ExposureRow: View, Equatable {
             .contextMenu {
                 if let menuContext {
                     Menu {
-                        MoveToRollMenu(item: item, menuContext: menuContext)
+                        MoveToRollMenu(item: item, menuContext: menuContext, onCameraSwitched: onCameraSwitched)
                     } label: {
                         Label("Move", systemImage: "rectangle.portrait.and.arrow.forward")
                     }
@@ -165,6 +166,7 @@ private struct ExposureRow: View, Equatable {
 private struct MoveToRollMenu: View {
     let item: LogItemSnapshot
     let menuContext: any ExposureMenuContext
+    var onCameraSwitched: ((UUID) -> Void)?
 
     private func rollSubtitle(_ roll: MenuRollEntry) -> String {
         var parts = "\(roll.exposureCount) / \(roll.totalCapacity)"
@@ -182,6 +184,7 @@ private struct MoveToRollMenu: View {
             if let rollID = camera.activeRollID {
                 Button {
                     menuContext.moveItem(item, toRollID: rollID)
+                    onCameraSwitched?(camera.id)
                 } label: {
                     Text(camera.name)
                     Text(camera.activeRollName ?? "")
@@ -301,6 +304,7 @@ struct ExposureListView: View {
                     isPreFrame: isPreFrame,
                     canCycleExtraExposures: index < 4,
                     menuContext: menuContext,
+                    onCameraSwitched: onCameraSwitched,
                     onDelete: onDelete,
                     onCycleExtraExposures: onCycleExtraExposures
                 )
