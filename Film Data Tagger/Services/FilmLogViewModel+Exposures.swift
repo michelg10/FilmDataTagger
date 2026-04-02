@@ -182,12 +182,12 @@ extension FilmLogViewModel: ExposuresViewModel {
         }
 
         // Geocode if we captured with coordinates but no place name.
-        // Fires independently — geocodes the location, updates snapshots in-memory,
-        // and tells the DataStore to persist without a full tree reload.
+        // Fires independently — patches in-memory snapshots for fast UI update.
+        // DB write is handled by Phase 3 above (which geocodes after persistence guarantees rows exist).
         if let location, placeName == nil {
             let ids = capturedIDs
             let capturedRoll = targetRoll
-            Task.detached(priority: .medium) { [store, weak self] in
+            Task.detached(priority: .medium) { [weak self] in
                 let result = await Geocoder.geocode(location)
                 guard let name = result.placeName else { return }
                 guard let self else { return }
@@ -205,7 +205,6 @@ extension FilmLogViewModel: ExposuresViewModel {
                     self.publishSnapshots()
                     self.persistOpenState()
                 }
-                await store.applyGeocoding(itemIDs: ids, placeName: name, cityName: result.cityName)
             }
         }
     }
