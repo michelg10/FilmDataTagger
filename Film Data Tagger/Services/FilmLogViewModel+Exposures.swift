@@ -40,6 +40,8 @@ extension FilmLogViewModel: ExposuresViewModel {
 
         // Phase 1 — Fast capture: pixel buffer → CGImage → thumbnail CGImage.
         // No encoding — just a VT call and a small scale+crop.
+        // Intentionally fail-fast: if either step fails (memory pressure, corrupt data),
+        // drop both rather than persisting a partial result that could cause issues downstream.
         let rawData: CaptureRawData? = if let pixelBuffer {
             await Task.detached(priority: .userInitiated) {
                 guard let frame = CameraManager.createImage(from: pixelBuffer) else { return nil as CaptureRawData? }
