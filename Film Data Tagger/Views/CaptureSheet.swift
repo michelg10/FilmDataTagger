@@ -44,6 +44,8 @@ private struct FullInfoRow<Icon: View>: View {
     let text: String
     let subtext: String
     var textSubtextPadding: CGFloat = 0
+    let textLineHeight: CGFloat = 20
+    let subtextLineHeight: CGFloat = 17
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -55,10 +57,12 @@ private struct FullInfoRow<Icon: View>: View {
                     .lineLimit(2)
                     .font(.system(size: 17, weight: .semibold, design: .default))
                     .opacity(0.95)
+                    .lineHeightCompat(points: textLineHeight)
                 Text(subtext)
                     .lineLimit(2)
                     .font(.system(size: 14, weight: .regular, design: .default))
                     .opacity(0.65)
+                    .lineHeightCompat(points: subtextLineHeight)
             }
         }
     }
@@ -96,7 +100,7 @@ private struct LocationInfoRow: View {
                     .font(.system(size: 17, weight: .semibold, design: .default)),
                 text: "Tap to set up",
                 subtext: "Allow Sprokbook to use your location",
-                textSubtextPadding: 3.0
+                textSubtextPadding: 3
             )
             .contentShape(Rectangle())
             .onTapGesture {
@@ -108,7 +112,7 @@ private struct LocationInfoRow: View {
                     .font(.system(size: 17, weight: .semibold, design: .default)),
                 text: locationService.displayLocationText,
                 subtext: locationService.displayLocationSubtext,
-                textSubtextPadding: 3.0
+                textSubtextPadding: 3
             )
         }
     }
@@ -126,6 +130,7 @@ private struct PreviewPlaceholder: View {
                 Image(systemName: icon)
                 Text(text)
                     .multilineTextAlignment(.center)
+                    .lineHeightCompat(points: 18)
             }
             .font(.system(size: 14, weight: .semibold, design: .rounded))
             .foregroundStyle(Color.white)
@@ -203,7 +208,8 @@ private struct CaptureSheetFullContent: View {
                         icon: Image(systemName: "clock.fill")
                             .font(.system(size: 17, weight: .semibold, design: .default)),
                         text: formatElapsed(from: lastCaptureDate, now: context.date) ?? "n/a",
-                        subtext: lastCaptureDate != nil ? "since last capture" : "No captures yet"
+                        subtext: lastCaptureDate != nil ? "since last capture" : "No captures yet",
+                        textSubtextPadding: 1
                     )
                 }
                 LocationInfoRow(locationService: locationService)
