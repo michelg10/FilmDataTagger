@@ -725,6 +725,7 @@ actor DataStore: ModelActor {
 
         let container = modelContainer
         Task.detached(priority: .background) {
+            defer { defaults.set(Date(), forKey: AppSettingsKeys.lastDataCleanDate) }
             let context = ModelContext(container)
 
             // --- 1. Orphan cleanup (two-strike) ---
@@ -777,9 +778,14 @@ actor DataStore: ModelActor {
             let existingRollIDs = Set(allRolls.map(\.id))
             await ImageCache.shared.bookkeeper.purgeStaleEntries(existingRollIDs: existingRollIDs)
 
-            // --- 3. Recompute media flags ---
+            // --- 3. Recompute media flags + 4. Purge orphaned thumbnails ---
+            // Both steps need the full item list. If the fetch fails, bail — an empty
+            // set would cause purgeOrphanedFiles to wipe the entire thumbnail cache.
 
-            let allItems = (try? context.fetch(FetchDescriptor<LogItem>())) ?? []
+            guard let allItems = try? context.fetch(FetchDescriptor<LogItem>()) else {
+                debugLog("Periodic cleanup: LogItem fetch failed, skipping media flags + thumbnail purge")
+                return
+            }
             var mediaFlagsChanged = false
             for item in allItems {
                 let hasPhoto = item.photoData != nil
@@ -806,10 +812,6 @@ actor DataStore: ModelActor {
 
             let liveItemIDs = Set(allItems.map(\.id))
             await ImageCache.shared.purgeOrphanedFiles(liveItemIDs: liveItemIDs)
-
-            // --- Done ---
-
-            defaults.set(Date(), forKey: AppSettingsKeys.lastDataCleanDate)
         }
     }
 

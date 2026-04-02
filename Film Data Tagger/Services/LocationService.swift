@@ -105,6 +105,7 @@ final class LocationService {
         let status = locationManager.authorizationStatus
         if status == .denied || status == .restricted {
             geocodingState = .notAuthorized
+            AppSettings.shared.clearShortcutLocationCache()
         } else if status == .authorizedWhenInUse || status == .authorizedAlways {
             geocodingState = .locating
             locationManager.startUpdating()
