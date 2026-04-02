@@ -151,6 +151,8 @@ struct ContentView: View {
         .sheet(isPresented: $showNewCamera, onDismiss: {
             if let id = pendingCameraNavigation {
                 pendingCameraNavigation = nil
+                selectedCameraID = id
+                viewModel.navigateToCamera(id)
                 path.append(id)
             }
         }) {

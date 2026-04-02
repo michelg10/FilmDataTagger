@@ -18,6 +18,8 @@ final class CameraController {
     private(set) var isRunning = false
     private(set) var permissionDenied = false
     private(set) var unavailable = false
+    /// True when reference photos are enabled but camera permission hasn't been requested yet.
+    private(set) var needsPermission = false
 
     var referencePhotosEnabled: Bool {
         didSet { settings.referencePhotosEnabled = referencePhotosEnabled }
@@ -59,15 +61,39 @@ final class CameraController {
     private func startCamera() async {
         let (deviceType, position, preset) = config()
         let status = await manager.start(deviceType: deviceType, position: position, preset: preset)
+        guard referencePhotosEnabled else { return } // toggled off during start
         isRunning = status == .running
         unavailable = status == .unavailable
     }
 
-    /// Start the camera session if reference photos are enabled. Call on exposure screen appear.
+    /// Start the camera session if reference photos are enabled and permission is already granted.
+    /// Call on exposure screen appear. Does NOT prompt for permission — use `requestPermissionIfNeeded()` for that.
     func ensureRunning() {
         stopTimer?.cancel()
         stopTimer = nil
         guard referencePhotosEnabled else { return }
+        Task(priority: .userInitiated) {
+            let status = AVCaptureDevice.authorizationStatus(for: .video)
+            switch status {
+            case .authorized:
+                needsPermission = false
+                await startCamera()
+            case .notDetermined:
+                needsPermission = true
+            case .denied, .restricted:
+                needsPermission = false
+                permissionDenied = true
+            @unknown default:
+                break
+            }
+        }
+    }
+
+    /// Request camera permission. Call when the user taps the reference photo preview to set up.
+    func requestPermissionIfNeeded() {
+        guard referencePhotosEnabled else { return }
+        guard AVCaptureDevice.authorizationStatus(for: .video) == .notDetermined else { return }
+        needsPermission = false
         Task(priority: .userInitiated) {
             let granted = await CameraManager.requestPermission()
             guard referencePhotosEnabled else { return } // may have been disabled during await

@@ -56,7 +56,7 @@ private struct FullInfoRow<Icon: View>: View {
                     .font(.system(size: 17, weight: .semibold, design: .default))
                     .opacity(0.95)
                 Text(subtext)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .font(.system(size: 14, weight: .regular, design: .default))
                     .opacity(0.65)
             }
@@ -74,8 +74,14 @@ private struct CompactLocationInfoRow: View {
         CompactInfoRow(
             icon: Image(systemName: "location.fill")
                 .font(.system(size: 15, weight: .semibold, design: .default)),
-            text: locationService.displayLocationText
+            text: locationService.needsPermission ? "Set up..." : locationService.displayLocationText
         )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if locationService.needsPermission {
+                locationService.requestPermissionIfNeeded()
+            }
+        }
     }
 }
 
@@ -84,13 +90,49 @@ private struct LocationInfoRow: View {
     let locationService: LocationService
 
     var body: some View {
-        FullInfoRow(
-            icon: Image(systemName: "location.fill")
-                .font(.system(size: 17, weight: .semibold, design: .default)),
-            text: locationService.displayLocationText,
-            subtext: locationService.displayLocationSubtext,
-            textSubtextPadding: 3.0
-        )
+        if locationService.needsPermission {
+            FullInfoRow(
+                icon: Image(systemName: "location.fill")
+                    .font(.system(size: 17, weight: .semibold, design: .default)),
+                text: "Tap to set up",
+                subtext: "Allow Sprokbook to use your location",
+                textSubtextPadding: 3.0
+            )
+            .contentShape(Rectangle())
+            .onTapGesture {
+                locationService.requestPermissionIfNeeded()
+            }
+        } else {
+            FullInfoRow(
+                icon: Image(systemName: "location.fill")
+                    .font(.system(size: 17, weight: .semibold, design: .default)),
+                text: locationService.displayLocationText,
+                subtext: locationService.displayLocationSubtext,
+                textSubtextPadding: 3.0
+            )
+        }
+    }
+}
+
+private struct PreviewPlaceholder: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .foregroundStyle(Color(hex: 0x454545))
+            VStack(spacing: 6) {
+                Image(systemName: icon)
+                Text(text)
+                    .multilineTextAlignment(.center)
+            }
+            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .foregroundStyle(Color.white)
+            .opacity(0.62)
+            .frame(width: 120)
+        }
+        .transition(.opacity)
     }
 }
 
@@ -100,23 +142,13 @@ private struct ReferencePhotoPreview: View {
 
     var body: some View {
         ZStack {
-            if camera.permissionDenied || camera.unavailable {
-                ZStack {
-                    Rectangle()
-                        .foregroundStyle(Color(hex: 0x454545))
-                    VStack(spacing: 6) {
-                        Image(systemName: camera.unavailable
-                              ? "camera.fill" : "hand.raised.slash.fill")
-                        Text(camera.unavailable
-                             ? "no camera\navailable" : "no camera\naccess")
-                            .multilineTextAlignment(.center)
-                    }
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.white)
-                    .opacity(0.62)
-                    .frame(width: 120)
-                }
-                .transition(.opacity)
+            if camera.needsPermission {
+                PreviewPlaceholder(icon: "camera.fill", text: "Tap to set up")
+            } else if camera.permissionDenied || camera.unavailable {
+                PreviewPlaceholder(
+                    icon: camera.unavailable ? "camera.fill" : "hand.raised.slash.fill",
+                    text: camera.unavailable ? "no camera\navailable" : "no camera\naccess"
+                )
             } else if camera.referencePhotosEnabled, camera.isRunning {
                 CameraPreview(previewView: camera.previewView)
                     .transition(.opacity)
@@ -128,30 +160,20 @@ private struct ReferencePhotoPreview: View {
                 }
                 .transition(.opacity)
             } else {
-                ZStack {
-                    Rectangle()
-                        .foregroundStyle(Color(hex: 0x454545))
-                    VStack(spacing: 6) {
-                        Image(systemName: "eye.slash")
-                        Text("reference photo\noff")
-                            .multilineTextAlignment(.center)
-                    }
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.white)
-                    .opacity(0.62)
-                    .frame(width: 120)
-                }
-                .transition(.opacity)
+                PreviewPlaceholder(icon: "eye.slash", text: "reference photo\noff")
             }
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .animation(.easeInOut(duration: 0.25), value: camera.needsPermission)
         .animation(.easeInOut(duration: 0.25), value: camera.referencePhotosEnabled)
         .animation(.easeInOut(duration: 0.25), value: camera.isRunning)
         .animation(.easeInOut(duration: 0.25), value: camera.permissionDenied)
         .onTapGesture {
             playHaptic(.viewfinderToggle)
-            if camera.unavailable {
+            if camera.needsPermission {
+                camera.requestPermissionIfNeeded()
+            } else if camera.unavailable {
                 // No camera hardware — nothing to do
             } else if camera.permissionDenied {
                 if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -161,7 +183,7 @@ private struct ReferencePhotoPreview: View {
                 camera.toggle()
             }
         }
-        .accessibilityLabel(camera.referencePhotosEnabled ? "Hide camera preview" : "Show camera preview")
+        .accessibilityLabel(camera.needsPermission ? "Set up reference photos" : camera.referencePhotosEnabled ? "Hide camera preview" : "Show camera preview")
     }
 }
 
@@ -181,7 +203,7 @@ private struct CaptureSheetFullContent: View {
                         icon: Image(systemName: "clock.fill")
                             .font(.system(size: 17, weight: .semibold, design: .default)),
                         text: formatElapsed(from: lastCaptureDate, now: context.date) ?? "n/a",
-                        subtext: lastCaptureDate != nil ? "since last capture" : "no captures yet"
+                        subtext: lastCaptureDate != nil ? "since last capture" : "No captures yet"
                     )
                 }
                 LocationInfoRow(locationService: locationService)
@@ -198,13 +220,15 @@ private struct CaptureSheetCompactContent: View {
     let locationService: LocationService
     let lastCaptureDate: Date?
 
-    private var showEyeSlash: Bool {
-        !camera.referencePhotosEnabled || camera.unavailable || camera.permissionDenied
+    private var iconName: String {
+        if camera.needsPermission { return "hand.raised.fill" }
+        if !camera.referencePhotosEnabled || camera.unavailable || camera.permissionDenied { return "eye.slash.fill" }
+        return "eye.fill"
     }
 
     var body: some View {
         HStack(spacing: 0) {
-            Image(systemName: showEyeSlash ? "eye.slash.fill" : "eye.fill")
+            Image(systemName: iconName)
                 .contentTransition(.symbolEffect(.replace, options: .speed(1.5)))
                 .font(.system(size: 16, weight: .semibold, design: .default))
                 .foregroundStyle(Color.white)
@@ -215,7 +239,9 @@ private struct CaptureSheetCompactContent: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     playHaptic(.viewfinderToggle)
-                    if camera.unavailable {
+                    if camera.needsPermission {
+                        camera.requestPermissionIfNeeded()
+                    } else if camera.unavailable {
                         // No camera hardware
                     } else if camera.permissionDenied {
                         if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -225,7 +251,7 @@ private struct CaptureSheetCompactContent: View {
                         camera.toggle()
                     }
                 }
-                .accessibilityLabel("Toggle camera preview")
+                .accessibilityLabel(camera.needsPermission ? "Set up reference photos" : "Toggle camera preview")
             if lastCaptureDate != nil {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     CompactInfoRow(

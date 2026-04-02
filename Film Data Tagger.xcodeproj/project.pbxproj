@@ -299,8 +299,8 @@
 				INFOPLIST_FILE = "Film Data Tagger/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Sprokbook;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Sprokbook uses your camera to capture a reference photo of the scene with each exposure.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Sprokbook uses your location to tag where each photo was taken.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Sprokbook uses your camera to capture a reference photo with each exposure. Your photos are stored on your device and iCloud account, and are never sent to Sprokbook's servers.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Sprokbook uses your location to tag where each photo was taken. Your location data is stored on your device and iCloud account, and is never sent to Sprokbook's servers.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -343,8 +343,8 @@
 				INFOPLIST_FILE = "Film Data Tagger/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Sprokbook;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.photography";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Sprokbook uses your camera to capture a reference photo of the scene with each exposure.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Sprokbook uses your location to tag where each photo was taken.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Sprokbook uses your camera to capture a reference photo with each exposure. Your photos are stored on your device and iCloud account, and are never sent to Sprokbook's servers.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Sprokbook uses your location to tag where each photo was taken. Your location data is stored on your device and iCloud account, and is never sent to Sprokbook's servers.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;

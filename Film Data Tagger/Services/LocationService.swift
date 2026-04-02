@@ -62,6 +62,8 @@ final class LocationService {
     nonisolated(unsafe) private var geocodeTask: Task<Void, Never>?
 
     var geocodingState: GeocodingState = .disabled
+    /// True when location is enabled but the user hasn't been prompted yet.
+    private(set) var needsPermission = false
     var currentLocation: CLLocation? { locationManager.currentLocation }
 
     /// Brief fallback to prevent "Locating..." flash during re-geocoding.
@@ -103,15 +105,24 @@ final class LocationService {
         let status = locationManager.authorizationStatus
         if status == .denied || status == .restricted {
             geocodingState = .notAuthorized
-        } else {
+        } else if status == .authorizedWhenInUse || status == .authorizedAlways {
             geocodingState = .locating
-            if status == .authorizedWhenInUse || status == .authorizedAlways {
-                locationManager.startUpdating()
-            } else {
-                locationManager.requestPermission()
-            }
+            locationManager.startUpdating()
             startLiveGeocoding()
+        } else if status == .notDetermined {
+            needsPermission = true
         }
+    }
+
+    /// Request location permission if not yet determined. Call when the user
+    /// starts a permission prompt flow
+    func requestPermissionIfNeeded() {
+        guard AppSettings.shared.locationEnabled else { return }
+        let status = locationManager.authorizationStatus
+        guard status == .notDetermined else { return }
+        needsPermission = false
+        geocodingState = .locating
+        locationManager.requestPermission()
     }
 
     private func handleAuthorizationChange(_ status: CLAuthorizationStatus) {
@@ -120,7 +131,7 @@ final class LocationService {
         switch status {
         case .authorizedWhenInUse, .authorizedAlways:
             locationManager.startUpdating()
-            if case .notAuthorized = geocodingState {
+            if geocodeTask == nil {
                 geocodingState = .locating
                 startLiveGeocoding()
             }
@@ -141,14 +152,18 @@ final class LocationService {
         if enabled {
             let status = locationManager.authorizationStatus
             if status == .denied || status == .restricted {
+                needsPermission = false
                 geocodingState = .notAuthorized
-            } else {
+            } else if status == .authorizedWhenInUse || status == .authorizedAlways {
+                needsPermission = false
                 geocodingState = .locating
-                locationManager.requestPermission()
                 locationManager.startUpdating()
                 startLiveGeocoding()
+            } else {
+                needsPermission = true
             }
         } else {
+            needsPermission = false
             geocodeTask?.cancel()
             geocodeTask = nil
             locationManager.stopUpdating()

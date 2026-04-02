@@ -336,7 +336,8 @@ struct ExposureListView: View {
             }
         }
         .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))
-        .padding(.horizontal, 16)
+        .padding(.leading, 16 - 12)
+        .padding(.trailing, 16)
         .padding(.top, 116)
 
         // Overscroll / drop zone for moving placeholders to end of list
@@ -400,7 +401,7 @@ struct ExposureListView: View {
                     .onScrollGeometryChange(for: Bool.self) { geo in
                         let maxOffset = geo.contentSize.height - geo.containerSize.height + geo.contentInsets.bottom
                         let currentOffset = geo.contentOffset.y + geo.contentInsets.top
-                        return currentOffset >= maxOffset - 500
+                        return currentOffset >= maxOffset - 300
                     } action: { prevIsNearBottom, isNearBottom in
                         if prevIsNearBottom != isNearBottom {
                             onNearBottomChanged?(isNearBottom)

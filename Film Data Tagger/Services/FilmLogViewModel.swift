@@ -332,6 +332,7 @@ final class FilmLogViewModel {
     // MARK: - Open State Persistence
 
     private struct PersistedOpenState: Codable {
+        let cameraName: String?
         let roll: RollSnapshot
         let items: [LogItemSnapshot]
     }
@@ -367,7 +368,7 @@ final class FilmLogViewModel {
         let rollState = RollState(snapshot: state.roll, items: state.items)
         let minimalCameraSnapshot = CameraSnapshot(
             id: cameraID,
-            name: "",
+            name: state.cameraName ?? "",
             createdAt: .distantPast,
             listOrder: 0,
             rollCount: 0,
@@ -389,7 +390,7 @@ final class FilmLogViewModel {
             guard let self else { return }
             let state = await MainActor.run { () -> PersistedOpenState? in
                 guard let roll = self._openRoll else { return nil }
-                return PersistedOpenState(roll: roll.snapshot, items: roll.items)
+                return PersistedOpenState(cameraName: self._openCamera?.snapshot.name, roll: roll.snapshot, items: roll.items)
             }
             if let state {
                 guard let data = try? PropertyListEncoder().encode(state) else {

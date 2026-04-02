@@ -58,24 +58,35 @@ private class ExposureScrollState {
 private struct FinishRollOverlay: View {
     let scrollState: ExposureScrollState
     let hasRoll: Bool
+    let isActiveRoll: Bool
     let hasItems: Bool
     let onFinishRoll: () -> Void
 
+    private var shouldShow: Bool {
+        guard hasRoll && hasItems else { return false }
+        if isActiveRoll { return true }
+        // Inactive rolls: only show scroll-to-bottom arrow when not near bottom
+        return !scrollState.isNearBottom
+    }
+
     var body: some View {
-        if hasRoll && hasItems {
-            FinishRollButton(
-                isNearBottom: scrollState.isNearBottom,
-                action: {
-                    if scrollState.isNearBottom {
-                        playHaptic(.newRollOrCamera)
-                        onFinishRoll()
-                    } else {
-                        scrollState.scrollToBottom?()
+        Group {
+            if shouldShow {
+                FinishRollButton(
+                    isNearBottom: isActiveRoll && scrollState.isNearBottom,
+                    action: {
+                        if isActiveRoll && scrollState.isNearBottom {
+                            playHaptic(.newRollOrCamera)
+                            onFinishRoll()
+                        } else {
+                            scrollState.scrollToBottom?()
+                        }
                     }
-                }
-            )
-            .transition(.blurReplace.combined(with: .scale(0.9)))
+                )
+                .transition(.blurReplace.combined(with: .scale(0.9)))
+            }
         }
+        .animation(.easeInOut(duration: 0.2), value: scrollState.isNearBottom)
     }
 }
 
@@ -133,6 +144,7 @@ struct ExposureScreen: View {
                 FinishRollOverlay(
                     scrollState: scrollState,
                     hasRoll: viewModel.openRollSnapshot != nil,
+                    isActiveRoll: viewModel.openRollSnapshot?.isActive ?? false,
                     hasItems: !logItems.isEmpty,
                     onFinishRoll: {
                         if let id = viewModel.openCameraSnapshot?.id {
