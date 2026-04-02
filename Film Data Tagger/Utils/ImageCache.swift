@@ -383,6 +383,24 @@ final class ImageCache: @unchecked Sendable {
         return decoded
     }
 
+    /// Remove thumbnail files from disk for items that no longer exist in the database.
+    @concurrent func purgeOrphanedFiles(liveItemIDs: Set<UUID>) async {
+        var purged = 0
+        for dir in [bgraURL, jpegURL] {
+            guard let files = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { continue }
+            for file in files {
+                guard let id = UUID(uuidString: file.lastPathComponent),
+                      !liveItemIDs.contains(id) else { continue }
+                try? FileManager.default.removeItem(at: file)
+                purged += 1
+                if purged % 10 == 0 { await Task.yield() }
+            }
+        }
+        if purged > 0 {
+            cacheLog("purgeOrphanedFiles: removed \(purged) orphaned thumbnail file(s)")
+        }
+    }
+
     /// Remove a thumbnail from all layers (item was deleted — not a cache miss).
     func evict(id: UUID) {
         evictionTracker.unregister(itemID: id)

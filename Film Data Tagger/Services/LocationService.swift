@@ -145,6 +145,7 @@ final class LocationService {
             fallbackPlaceName = nil
             fallbackID = nil
             geocodingState = .notAuthorized
+            AppSettings.shared.clearShortcutLocationCache()
         default:
             break
         }
@@ -173,6 +174,7 @@ final class LocationService {
             lastGeocodedLocation = nil
             fallbackPlaceName = nil
             fallbackID = nil
+            AppSettings.shared.clearShortcutLocationCache()
         }
     }
 

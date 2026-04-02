@@ -197,7 +197,7 @@ final class AppSettings {
         didSet {
             defaults.set(locationAccuracy.rawValue, forKey: AppSettingsKeys.locationAccuracy)
             // Invalidate cached Shortcut location — it may not meet the new accuracy tier
-            defaults.removeObject(forKey: AppSettingsKeys.shortcutCachedLocationTimestamp)
+            clearShortcutLocationCache()
         }
     }
 
@@ -242,6 +242,11 @@ final class AppSettings {
             speed: speed,
             timestamp: timestamp
         )
+    }
+
+    /// Invalidate the cached shortcut location (e.g. when location is disabled or permission revoked).
+    nonisolated func clearShortcutLocationCache() {
+        UserDefaults.standard.removeObject(forKey: AppSettingsKeys.shortcutCachedLocationTimestamp)
     }
 
     /// Persist a location for use by subsequent Shortcut invocations.

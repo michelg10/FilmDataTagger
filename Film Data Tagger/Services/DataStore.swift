@@ -572,6 +572,7 @@ actor DataStore: ModelActor {
 
     /// Export all data as JSON. The @concurrent ExportService runs off the actor's executor.
     func exportJSON() async -> URL? {
+        flushSave()
         let context = ModelContext(modelContainer)
         do {
             return try await ExportService.exportJSON(context: context)
@@ -583,6 +584,7 @@ actor DataStore: ModelActor {
 
     /// Export all data as CSV. The @concurrent ExportService runs off the actor's executor.
     func exportCSV() async -> URL? {
+        flushSave()
         let context = ModelContext(modelContainer)
         do {
             return try await ExportService.exportCSV(context: context)
@@ -799,6 +801,11 @@ actor DataStore: ModelActor {
                     debugLog("Media flags recompute: save failed: \(error)")
                 }
             }
+
+            // --- 4. Purge orphaned thumbnail files ---
+
+            let liveItemIDs = Set(allItems.map(\.id))
+            await ImageCache.shared.purgeOrphanedFiles(liveItemIDs: liveItemIDs)
 
             // --- Done ---
 
