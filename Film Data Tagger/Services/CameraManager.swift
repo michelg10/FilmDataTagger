@@ -115,13 +115,13 @@ final class CameraManager: NSObject, @unchecked Sendable {
                     newDevice.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
                     newDevice.unlockForConfiguration()
                 } catch {
-                    debugLog("CameraManager: lockForConfiguration failed in reconfigure: \(error)")
+                    errorLog("CameraManager: lockForConfiguration failed in reconfigure: \(error)")
                 }
                 self.frameLock.lock()
                 self.frameSkip = max(1, Int(targetFPS) / Self.targetCapturesPerSecond)
                 self.frameLock.unlock()
             } else {
-                debugLog("CameraManager: reconfigure failed for requested device")
+                errorLog("CameraManager: reconfigure failed for requested device")
             }
 
             self.session.commitConfiguration()
@@ -172,17 +172,17 @@ final class CameraManager: NSObject, @unchecked Sendable {
     /// Encode a CGImage to HEIC data (JPEG fallback).
     static func encode(_ image: CGImage, quality: CGFloat) -> Data? {
         guard let opaque = stripAlpha(image) else {
-            debugLog("CameraManager: encode — stripAlpha failed")
+            errorLog("CameraManager: encode — stripAlpha failed")
             return nil
         }
         let data = NSMutableData()
         guard let dest = CGImageDestinationCreateWithData(data, "public.heic" as CFString, 1, nil) else {
-            debugLog("CameraManager: encode — HEIC destination failed, falling back to JPEG")
+            errorLog("CameraManager: encode — HEIC destination failed, falling back to JPEG")
             return UIImage(cgImage: opaque).jpegData(compressionQuality: quality)
         }
         CGImageDestinationAddImage(dest, opaque, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
         guard CGImageDestinationFinalize(dest) else {
-            debugLog("CameraManager: encode — HEIC finalize failed, falling back to JPEG")
+            errorLog("CameraManager: encode — HEIC finalize failed, falling back to JPEG")
             return UIImage(cgImage: opaque).jpegData(compressionQuality: quality)
         }
         return data as Data
@@ -208,7 +208,7 @@ final class CameraManager: NSObject, @unchecked Sendable {
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
         ) else {
-            debugLog("CameraManager: generateThumbnail — context failed")
+            errorLog("CameraManager: generateThumbnail — context failed")
             return nil
         }
         ctx.interpolationQuality = .medium
@@ -241,7 +241,7 @@ final class CameraManager: NSObject, @unchecked Sendable {
               let input = try? AVCaptureDeviceInput(device: device) else {
             session.commitConfiguration()
             self.isConfigured = false
-            debugLog("CameraManager: configureSession failed — no camera device available")
+            errorLog("CameraManager: configureSession failed — no camera device available")
             return false
         }
 
@@ -261,7 +261,7 @@ final class CameraManager: NSObject, @unchecked Sendable {
             device.activeVideoMaxFrameDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS))
             device.unlockForConfiguration()
         } catch {
-            debugLog("CameraManager: lockForConfiguration failed in configureSession: \(error)")
+            errorLog("CameraManager: lockForConfiguration failed in configureSession: \(error)")
         }
 
         // Compute frame skip to hit ~5 captures/sec

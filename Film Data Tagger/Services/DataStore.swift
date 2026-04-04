@@ -54,7 +54,7 @@ actor DataStore: ModelActor {
             allRolls = try modelContext.fetch(FetchDescriptor<Roll>())
             allItems = try modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)]))
         } catch {
-            debugLog("loadAll fetch failed: \(error)")
+            errorLog("loadAll fetch failed: \(error)")
         }
 
         // Build snapshots and seed the diff cache (minimal — own fields only)
@@ -510,7 +510,7 @@ actor DataStore: ModelActor {
             freshRolls = try modelContext.fetch(FetchDescriptor<Roll>()).map { $0.snapshot }
             freshItems = try modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)])).map { $0.snapshot }
         } catch {
-            debugLog("handleRemoteChange: fetch failed, skipping: \(error)")
+            errorLog("handleRemoteChange: fetch failed, skipping: \(error)")
             return
         }
 
@@ -577,7 +577,7 @@ actor DataStore: ModelActor {
         do {
             return try await ExportService.exportJSON(context: context)
         } catch {
-            debugLog("exportJSON failed: \(error)")
+            errorLog("exportJSON failed: \(error)")
             return nil
         }
     }
@@ -589,7 +589,7 @@ actor DataStore: ModelActor {
         do {
             return try await ExportService.exportCSV(context: context)
         } catch {
-            debugLog("exportCSV failed: \(error)")
+            errorLog("exportCSV failed: \(error)")
             return nil
         }
     }
@@ -768,7 +768,7 @@ actor DataStore: ModelActor {
                     try context.save()
                     debugLog("Orphan cleanup: deleted \(deletedRolls) roll(s), \(deletedItems) item(s)")
                 } catch {
-                    debugLog("Orphan cleanup: save failed, \(deletedRolls) roll(s) and \(deletedItems) item(s) will be retried: \(error)")
+                    errorLog("Orphan cleanup: save failed, \(deletedRolls) roll(s) and \(deletedItems) item(s) will be retried: \(error)")
                 }
             }
 
@@ -783,7 +783,7 @@ actor DataStore: ModelActor {
             // set would cause purgeOrphanedFiles to wipe the entire thumbnail cache.
 
             guard let allItems = try? context.fetch(FetchDescriptor<LogItem>()) else {
-                debugLog("Periodic cleanup: LogItem fetch failed, skipping media flags + thumbnail purge")
+                errorLog("Periodic cleanup: LogItem fetch failed, skipping media flags + thumbnail purge")
                 return
             }
             var mediaFlagsChanged = false
@@ -804,7 +804,7 @@ actor DataStore: ModelActor {
                     try context.save()
                     debugLog("Media flags recompute: corrected flags")
                 } catch {
-                    debugLog("Media flags recompute: save failed: \(error)")
+                    errorLog("Media flags recompute: save failed: \(error)")
                 }
             }
 
@@ -823,7 +823,7 @@ actor DataStore: ModelActor {
         do {
             return try modelContext.fetch(descriptor).first
         } catch {
-            debugLog("fetchCamera(\(id)) failed: \(error)")
+            errorLog("fetchCamera(\(id)) failed: \(error)")
             return nil
         }
     }
@@ -883,7 +883,7 @@ actor DataStore: ModelActor {
         do {
             try modelContext.save()
         } catch {
-            debugLog("DataStore save failed: \(error)")
+            errorLog("DataStore save failed: \(error)")
         }
     }
 
@@ -892,7 +892,7 @@ actor DataStore: ModelActor {
         do {
             return try modelContext.fetch(descriptor).first
         } catch {
-            debugLog("fetchRoll(\(id)) failed: \(error)")
+            errorLog("fetchRoll(\(id)) failed: \(error)")
             return nil
         }
     }
@@ -902,7 +902,7 @@ actor DataStore: ModelActor {
         do {
             return try modelContext.fetch(descriptor).first
         } catch {
-            debugLog("fetchLogItem(\(id)) failed: \(error)")
+            errorLog("fetchLogItem(\(id)) failed: \(error)")
             return nil
         }
     }

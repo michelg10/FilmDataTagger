@@ -47,7 +47,7 @@ nonisolated struct ExportService {
         let json = serializeJSON(root, indent: 0)
         let url = tempURL(ext: "json")
         guard let data = json.data(using: .utf8) else {
-            debugLog("exportJSON: UTF-8 encoding failed")
+            errorLog("exportJSON: UTF-8 encoding failed")
             throw ExportError.encodingFailed
         }
         try data.write(to: url)
@@ -141,10 +141,12 @@ nonisolated struct ExportService {
 
         let url = tempURL(ext: "csv")
         guard let data = csv.data(using: .utf8) else {
-            debugLog("exportCSV: UTF-8 encoding failed")
+            errorLog("exportCSV: UTF-8 encoding failed")
             throw ExportError.encodingFailed
         }
-        try data.write(to: url)
+        // UTF-8 BOM so Excel correctly interprets non-ASCII characters
+        let bom = Data([0xEF, 0xBB, 0xBF])
+        try (bom + data).write(to: url)
         return url
     }
 

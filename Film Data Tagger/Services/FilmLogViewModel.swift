@@ -342,13 +342,13 @@ final class FilmLogViewModel {
             return
         }
         guard let data = try? PropertyListEncoder().encode(state) else {
-            debugLog("flushOpenState: failed to encode")
+            errorLog("flushOpenState: failed to encode")
             return
         }
         do {
             try data.write(to: Self.openStateURL, options: .atomic)
         } catch {
-            debugLog("flushOpenState: failed to write: \(error)")
+            errorLog("flushOpenState: failed to write: \(error)")
         }
     }
 
@@ -360,13 +360,13 @@ final class FilmLogViewModel {
         persistTask = Task.detached(priority: .utility) {
             if let state {
                 guard let data = try? PropertyListEncoder().encode(state) else {
-                    debugLog("writeOpenStateAsync: failed to encode")
+                    errorLog("writeOpenStateAsync: failed to encode")
                     return
                 }
                 do {
                     try data.write(to: Self.openStateURL, options: .atomic)
                 } catch {
-                    debugLog("writeOpenStateAsync: failed to write: \(error)")
+                    errorLog("writeOpenStateAsync: failed to write: \(error)")
                 }
             } else {
                 try? FileManager.default.removeItem(at: Self.openStateURL)
@@ -399,14 +399,14 @@ final class FilmLogViewModel {
         do {
             data = try Data(contentsOf: Self.openStateURL)
         } catch {
-            debugLog("restoreOpenStateFromDisk: could not read plist: \(error)")
+            errorLog("restoreOpenStateFromDisk: could not read plist: \(error)")
             return
         }
         let state: PersistedOpenState
         do {
             state = try PropertyListDecoder().decode(PersistedOpenState.self, from: data)
         } catch {
-            debugLog("restoreOpenStateFromDisk: decode failed: \(error)")
+            errorLog("restoreOpenStateFromDisk: decode failed: \(error)")
             return
         }
         guard let cameraID = state.roll.cameraID else {
@@ -441,13 +441,13 @@ final class FilmLogViewModel {
             guard !Task.isCancelled else { return }
             if let state {
                 guard let data = try? PropertyListEncoder().encode(state) else {
-                    debugLog("persistOpenState: failed to encode")
+                    errorLog("persistOpenState: failed to encode")
                     return
                 }
                 do {
                     try data.write(to: Self.openStateURL, options: .atomic)
                 } catch {
-                    debugLog("persistOpenState: failed to write: \(error)")
+                    errorLog("persistOpenState: failed to write: \(error)")
                 }
             } else {
                 try? FileManager.default.removeItem(at: Self.openStateURL)

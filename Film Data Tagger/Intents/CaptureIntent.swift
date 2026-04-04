@@ -184,7 +184,7 @@ private class OneTimeLocationDelegate: NSObject, CLLocationManagerDelegate {
         Task(priority: .userInitiated) { @MainActor in
             guard !self.hasCompleted else { return }
             self.hasCompleted = true
-            debugLog("CaptureIntent location failed: \(error.localizedDescription)")
+            errorLog("CaptureIntent location failed: \(error.localizedDescription)")
             self.completion(nil)
         }
     }

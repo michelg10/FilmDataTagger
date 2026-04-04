@@ -114,7 +114,7 @@ actor CacheBookkeeper {
         guard isDirty else { return }
         isDirty = false
         guard let data = try? PropertyListEncoder().encode(rollAccessDates) else {
-            debugLog("CacheBookkeeper: failed to encode rollAccessDates")
+            errorLog("CacheBookkeeper: failed to encode rollAccessDates")
             return
         }
         try? data.write(to: Self.file, options: .atomic)
@@ -309,7 +309,7 @@ final class ImageCache: @unchecked Sendable {
         let start = CFAbsoluteTimeGetCurrent()
         let uiImage = UIImage(cgImage: image)
         guard let jpegData = uiImage.jpegData(compressionQuality: 0.8) else {
-            debugLog("persistThumbnails: JPEG encode failed")
+            errorLog("persistThumbnails: JPEG encode failed")
             return
         }
         cacheLog("persistThumbnails: JPEG encoded \(jpegData.count / 1024)KB — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
@@ -318,7 +318,7 @@ final class ImageCache: @unchecked Sendable {
             do {
                 try jpegData.write(to: jpegPath(for: id), options: .atomic)
             } catch {
-                debugLog("persistThumbnails: JPEG write failed for \(id): \(error)")
+                errorLog("persistThumbnails: JPEG write failed for \(id): \(error)")
             }
         }
         cacheLog("persistThumbnails: \(ids.count) items total — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
@@ -538,7 +538,7 @@ final class ImageCache: @unchecked Sendable {
             try fileData.write(to: bgraPath(for: id), options: .atomic)
             cacheLog("saveBGRA(\(id)): \(width)×\(height) \(fileData.count / 1024)KB — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
         } catch {
-            debugLog("saveBGRA(\(id)): write failed: \(error)")
+            errorLog("saveBGRA(\(id)): write failed: \(error)")
         }
 
         // Return decoded image backed by the bitmap context
@@ -566,7 +566,7 @@ final class ImageCache: @unchecked Sendable {
             cacheLog("saveJPEG(\(id)): \(data.count / 1024)KB — \(String(format: "%.1f", (CFAbsoluteTimeGetCurrent() - start) * 1000))ms")
             return true
         } catch {
-            debugLog("saveJPEG(\(id)): write failed: \(error)")
+            errorLog("saveJPEG(\(id)): write failed: \(error)")
             return false
         }
     }
