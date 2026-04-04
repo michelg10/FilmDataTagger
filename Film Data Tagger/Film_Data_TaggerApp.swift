@@ -53,6 +53,7 @@ struct Film_Data_TaggerApp: App {
 
     init() {
         _ = AppVersionTracker.shared
+        Task.detached(priority: .background) { _ = AppInstallTracker.shared }
         let store = SharedDataStore.shared
         let vm = FilmLogViewModel(store: store)
         vm.setup()
