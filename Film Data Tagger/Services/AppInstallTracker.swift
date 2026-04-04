@@ -55,5 +55,8 @@ actor AppInstallTracker {
         } else {
             firstEverOpened = thisDeviceFirstOpened
         }
+
+        let iso = ISO8601DateFormatter()
+        debugLog("AppInstallTracker: this device first opened \(iso.string(from: thisDeviceFirstOpened)), earliest across all devices \(iso.string(from: firstEverOpened))")
     }
 }
