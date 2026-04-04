@@ -52,6 +52,7 @@ struct Film_Data_TaggerApp: App {
     @State private var viewModel: FilmLogViewModel
 
     init() {
+        _ = AppVersionTracker.shared
         let store = SharedDataStore.shared
         let vm = FilmLogViewModel(store: store)
         vm.setup()
