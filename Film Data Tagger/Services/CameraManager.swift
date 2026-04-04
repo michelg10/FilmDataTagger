@@ -248,7 +248,7 @@ final class CameraManager: NSObject, @unchecked Sendable {
         if session.canAddInput(input) {
             session.addInput(input)
         } else {
-            debugLog("CameraManager: could not add input to session")
+            errorLog("CameraManager: could not add input to session")
         }
 
         // Lock frame rate — prefer 60fps, fall back to device max
@@ -273,7 +273,7 @@ final class CameraManager: NSObject, @unchecked Sendable {
         if session.canAddOutput(videoOutput) {
             session.addOutput(videoOutput)
         } else {
-            debugLog("CameraManager: could not add video output to session")
+            errorLog("CameraManager: could not add video output to session")
         }
 
         session.commitConfiguration()

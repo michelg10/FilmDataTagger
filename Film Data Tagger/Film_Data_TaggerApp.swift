@@ -52,12 +52,14 @@ struct Film_Data_TaggerApp: App {
     @State private var viewModel: FilmLogViewModel
 
     init() {
-        _ = AppVersionTracker.shared
-        Task.detached(priority: .background) { _ = AppInstallTracker.shared }
         let store = SharedDataStore.shared
         let vm = FilmLogViewModel(store: store)
         vm.setup()
         _viewModel = State(initialValue: vm)
+        RunLoop.main.perform(inModes: [.default]) {
+            _ = AppVersionTracker.shared
+            _ = AppInstallTracker.shared
+        }
     }
 
     @Environment(\.scenePhase) private var scenePhase

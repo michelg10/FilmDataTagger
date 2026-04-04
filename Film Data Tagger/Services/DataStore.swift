@@ -101,7 +101,11 @@ actor DataStore: ModelActor {
         }
 
         let treeMs = (CFAbsoluteTimeGetCurrent() - fetchStart) * 1000 - fetchMs
+        let totalMs = fetchMs + treeMs
         debugLog("loadAll: fetch \(String(format: "%.1f", fetchMs))ms + tree \(String(format: "%.1f", treeMs))ms (\(cameras.count) cameras, \(allRolls.count) rolls, \(allItems.count) items)")
+        if totalMs > 2000 {
+            errorLog("loadAll took \(String(format: "%.0f", totalMs))ms (fetch \(String(format: "%.0f", fetchMs))ms + tree \(String(format: "%.0f", treeMs))ms, \(cameras.count) cameras, \(allRolls.count) rolls, \(allItems.count) items)")
+        }
 
         return (tree, version)
     }

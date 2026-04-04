@@ -7,20 +7,21 @@ import Foundation
 
 /// Tracks the first-ever app open across all of the user's devices via iCloud KVS.
 /// Each device gets a stable UUID and records its own first-open date into a shared map.
-actor AppInstallTracker {
+@MainActor
+final class AppInstallTracker {
     static let shared = AppInstallTracker()
 
     private static let deviceIDKey = "deviceUUID"
     private static let firstOpenMapKey = "firstOpenDates"
 
     /// This device's stable identifier.
-    nonisolated let deviceID: String
+    let deviceID: String
 
     /// This device's first-open date.
-    nonisolated let thisDeviceFirstOpened: Date
+    let thisDeviceFirstOpened: Date
 
     /// The earliest first-open date across all of the user's devices.
-    nonisolated let firstEverOpened: Date
+    let firstEverOpened: Date
 
     private init() {
         let local = UserDefaults.standard
