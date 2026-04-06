@@ -10,7 +10,7 @@ struct RollsPage: View {
 
     var body: some View {
         SettingsDetailPage(title: "Rolls") {
-            SettingsSection {
+            SettingsSection(header: "Finish roll") {
                 SettingsRow(text: "Create roll upon finish") {
                     Toggle("", isOn: $settings.createRollUponFinish)
                         .labelsHidden()
