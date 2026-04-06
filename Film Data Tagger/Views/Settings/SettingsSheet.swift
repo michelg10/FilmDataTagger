@@ -88,6 +88,7 @@ struct SettingsSheet: View {
     }
 }
 
+#if DEBUG
 #Preview {
     let container = PreviewSampleData.makeContainer()
     let viewModel = FilmLogViewModel(store: PreviewSampleData.makeStore(container: container))
@@ -95,3 +96,4 @@ struct SettingsSheet: View {
         .modelContainer(container)
         .preferredColorScheme(.dark)
 }
+#endif
