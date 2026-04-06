@@ -35,7 +35,7 @@ enum PhotoQuality: String, CaseIterable {
         switch self {
         case .low: "Low"
         case .medium: "Medium"
-        case .high: "High (Recommended)"
+        case .high: "High (recommended)"
         case .maximum: "Maximum"
         }
     }
