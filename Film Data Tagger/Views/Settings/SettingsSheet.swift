@@ -6,6 +6,10 @@
 import SwiftUI
 import CloudKit
 
+#if DEBUG
+import SwiftData
+#endif
+
 struct SettingsSheet: View {
     let viewModel: FilmLogViewModel
     @Environment(\.dismiss) private var dismiss

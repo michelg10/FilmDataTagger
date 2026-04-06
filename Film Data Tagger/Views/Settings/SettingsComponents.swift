@@ -295,38 +295,6 @@ struct DismissButton: View {
     }
 }
 
-struct SettingsMenuButton: View {
-    @Environment(\.dismissSheet) private var dismissSheet
-
-    var body: some View {
-        Menu {
-            Button {
-                UIApplication.shared.open(URL(string: "https://sprokbook.com/support.html")!)
-            } label: {
-                Label("Support", systemImage: "questionmark.circle")
-            }
-            Button {
-                // TODO: Share debug data action
-            } label: {
-                Label("Share debug data…", systemImage: "stethoscope")
-            }
-            Divider()
-            Button {
-                dismissSheet?()
-            } label: {
-                Label("Close", systemImage: "xmark")
-            }
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 16, weight: .bold, design: .default))
-                .foregroundStyle(Color.white.opacity(0.95))
-                .frame(width: 44, height: 44)
-                .glassEffectCompat(in: Circle())
-        }
-        .accessibilityLabel("Support options")
-    }
-}
-
 struct BackButton: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -386,7 +354,6 @@ struct BackButton: View {
 #Preview("Buttons") {
     VStack(spacing: 0) {
         DismissButton()
-        SettingsMenuButton()
         BackButton()
     }
     .padding(20)

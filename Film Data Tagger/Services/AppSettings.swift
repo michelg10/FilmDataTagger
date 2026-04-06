@@ -167,6 +167,7 @@ enum LocationAccuracy: String, CaseIterable {
     }
 }
 
+/// NOTE: When adding new settings, also update DebugReport.settingsDump() so they appear in debug reports.
 @Observable @MainActor
 final class AppSettings {
     static let shared = AppSettings()

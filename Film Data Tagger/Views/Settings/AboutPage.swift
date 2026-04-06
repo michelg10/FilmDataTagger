@@ -7,7 +7,9 @@ import SwiftUI
 
 struct AboutPage: View {
     let cameras: [CameraSnapshot]
+    @Environment(\.dismissSheet) private var dismissSheet
     @State private var showBuildNumber = false
+    @State private var showShareDebugData = false
 
     private var totalRolls: Int { cameras.reduce(0) { $0 + $1.rollCount } }
     private var totalExposures: Int { cameras.reduce(0) { $0 + $1.totalExposureCount } }
@@ -17,19 +19,6 @@ struct AboutPage: View {
 
     var body: some View {
         VStack(alignment: .center, spacing: 0) {
-            HStack(spacing: 0) {
-                BackButton()
-                Spacer()
-                Text("About")
-                    .font(.system(size: 18, weight: .bold, design: .default))
-                    .fontWidth(.expanded)
-                    .foregroundStyle(Color.white)
-                    .padding(.top, 3)
-                Spacer()
-                SettingsMenuButton()
-            }.frame(height: 44)
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
             Spacer(minLength: 0)
             Image("app-icon-image")
                 .resizable()
@@ -58,16 +47,56 @@ struct AboutPage: View {
             .font(.system(size: 20, weight: .semibold, design: .default))
             .fontWidth(.expanded)
             .opacity(0.8)
-            .padding(.bottom, 42)
+            .padding(.bottom, 42 + 68)
             Spacer(minLength: 0)
             Text("Made with \(Image(systemName: "heart.fill")) by Michel")
                 .font(.system(size: 17, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color.white.opacity(0.5))
                 .padding(.bottom, 21)
+        }.toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 0) {
+                    BackButton()
+                    Spacer()
+                    Text("About")
+                        .font(.system(size: 18, weight: .bold, design: .default))
+                        .fontWidth(.expanded)
+                        .foregroundStyle(Color.white)
+                        .padding(.top, 3)
+                    Spacer()
+                    Menu {
+                        Button {
+                            UIApplication.shared.open(URL(string: "https://sprokbook.com/support.html")!)
+                        } label: {
+                            Label("Support", systemImage: "questionmark.circle")
+                        }
+                        Button {
+                            showShareDebugData = true
+                        } label: {
+                            Label("Share debug data…", systemImage: "stethoscope")
+                        }
+                        Divider()
+                        Button {
+                            dismissSheet?()
+                        } label: {
+                            Label("Close", systemImage: "xmark")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 16, weight: .bold, design: .default))
+                            .foregroundStyle(Color.white.opacity(0.95))
+                            .frame(width: 44, height: 44)
+                            .glassEffectCompat(in: Circle())
+                    }
+                }.frame(width: UIScreen.currentWidth - 32, height: 44, alignment: .leading)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(hex: 0x121212))
         .navigationBarBackButtonHidden()
+        .sheet(isPresented: $showShareDebugData) {
+            ShareDebugDataSheet(cameras: cameras)
+        }
     }
 }
 

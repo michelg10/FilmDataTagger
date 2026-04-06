@@ -5,6 +5,10 @@
 
 import SwiftUI
 
+#if DEBUG
+import SwiftData
+#endif
+
 struct ExportPage: View {
     let viewModel: FilmLogViewModel
     @State private var activeExport: ExportType?
