@@ -36,7 +36,7 @@ struct GeneralPage: View {
                         .toggleStyle(.switch)
                 }
             }
-            SettingsSection(header: "Hold capture for", caption: "Hold the Capture button to log a frame without time or location data.") {
+            SettingsSection(header: "Hold Capture for", caption: "Hold the Capture button to log a frame without time or location data.") {
                 SettingsRow(text: "Placeholders") {
                     Toggle("", isOn: $settings.holdCapturePlaceholders)
                         .labelsHidden()
