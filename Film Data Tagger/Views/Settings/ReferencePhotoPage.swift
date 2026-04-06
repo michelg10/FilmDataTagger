@@ -33,3 +33,10 @@ struct ReferencePhotoPage: View {
         .onAppear { availableCameras = PreferredCamera.available }
     }
 }
+
+#Preview {
+    NavigationStack {
+        ReferencePhotoPage()
+    }
+    .preferredColorScheme(.dark)
+}

@@ -81,5 +81,12 @@ struct SettingsSheet: View {
             }
         }
     }
+}
 
+#Preview {
+    let container = PreviewSampleData.makeContainer()
+    let viewModel = FilmLogViewModel(store: PreviewSampleData.makeStore(container: container))
+    SettingsSheet(viewModel: viewModel)
+        .modelContainer(container)
+        .preferredColorScheme(.dark)
 }

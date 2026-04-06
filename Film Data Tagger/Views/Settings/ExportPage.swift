@@ -59,3 +59,13 @@ struct ExportPage: View {
         }
     }
 }
+
+#Preview {
+    let container = PreviewSampleData.makeContainer()
+    let viewModel = FilmLogViewModel(store: PreviewSampleData.makeStore(container: container))
+    NavigationStack {
+        ExportPage(viewModel: viewModel)
+    }
+    .modelContainer(container)
+    .preferredColorScheme(.dark)
+}

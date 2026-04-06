@@ -342,3 +342,54 @@ struct BackButton: View {
         .accessibilityLabel("Back")
     }
 }
+
+#Preview("Section with rows") {
+    ScrollView {
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsSection(header: "Example", caption: "This is a caption.") {
+                SettingsRow(text: "Toggle row") {
+                    Toggle("", isOn: .constant(true))
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                }
+                SettingsSeparator()
+                SettingsNavRow(text: "Nav row") { Text("Detail") }
+                SettingsSeparator()
+                SettingsActionRow(text: "Action", color: .accentColor) {}
+            }
+        }.padding(.horizontal, 16)
+    }
+    .background(Color(hex: 0x121212))
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Hero section") {
+    ScrollView {
+        VStack(alignment: .leading, spacing: 0) {
+            SettingsHeroSection(
+                icon: {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 16).fill(Color(hex: 0x303030))
+                        Image(systemName: "star.fill")
+                            .foregroundStyle(.white)
+                    }
+                },
+                title: "Hero Title",
+                subtitle: "This is a subtitle explaining the feature."
+            )
+        }.padding(.horizontal, 16)
+    }
+    .background(Color(hex: 0x121212))
+    .preferredColorScheme(.dark)
+}
+
+#Preview("Buttons") {
+    VStack(spacing: 0) {
+        DismissButton()
+        SettingsMenuButton()
+        BackButton()
+    }
+    .padding(20)
+    .background(Color(hex: 0x121212))
+    .preferredColorScheme(.dark)
+}

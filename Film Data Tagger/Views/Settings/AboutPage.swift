@@ -70,3 +70,10 @@ struct AboutPage: View {
         .navigationBarBackButtonHidden()
     }
 }
+
+#Preview {
+    NavigationStack {
+        AboutPage(cameras: [])
+    }
+    .preferredColorScheme(.dark)
+}
