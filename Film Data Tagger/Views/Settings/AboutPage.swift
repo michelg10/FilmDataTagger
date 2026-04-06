@@ -7,6 +7,7 @@ import SwiftUI
 
 struct AboutPage: View {
     let cameras: [CameraSnapshot]
+    var onTripleTapIcon: (() -> Void)?
     @Environment(\.dismissSheet) private var dismissSheet
     @State private var showBuildNumber = false
     @State private var showShareDebugData = false
@@ -25,6 +26,8 @@ struct AboutPage: View {
                 .frame(width: 130, height: 130)
                 .clipShape(RoundedRectangle(cornerRadius: 32))
                 .shadow(color: .black.opacity(0.88), radius: 28, x: 0, y: 0)
+                .contentShape(Rectangle())
+                .onTapGesture(count: 3) { onTripleTapIcon?() }
                 .padding(.bottom, 25)
 
             let versionText = Text(Self.version).foregroundStyle(Color.white.opacity(0.5))

@@ -51,7 +51,7 @@ struct SettingsSheet: View {
                         SettingsSeparator()
                         SettingsNavRow(text: "Export...") { ExportPage(viewModel: viewModel) }
                         SettingsSeparator()
-                        SettingsNavRow(text: "About") { AboutPage(cameras: viewModel.cameraList) }
+                        SettingsNavRow(text: "About") { AboutPage(cameras: viewModel.cameraList, onTripleTapIcon: viewModel.forceRunMaintenance) }
                     }
                 }.padding(.horizontal, 16)
                 .offset(y: -38)

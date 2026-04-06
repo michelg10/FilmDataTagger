@@ -516,4 +516,8 @@ final class FilmLogViewModel {
     func exportCSV() async -> URL? {
         await store.exportCSV()
     }
+
+    func forceRunMaintenance() {
+        Task { await store.runPeriodicCleanupIfNeeded(force: true) }
+    }
 }

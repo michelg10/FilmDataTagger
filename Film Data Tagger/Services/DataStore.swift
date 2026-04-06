@@ -719,9 +719,9 @@ actor DataStore: ModelActor {
     /// Runs every 72h. Fires a detached background task to avoid blocking the actor.
     ///
     /// Not high priority: do not await
-    func runPeriodicCleanupIfNeeded() {
+    func runPeriodicCleanupIfNeeded(force: Bool = false) {
         let defaults = UserDefaults.standard
-        if let lastClean = defaults.object(forKey: AppSettingsKeys.lastDataCleanDate) as? Date,
+        if !force, let lastClean = defaults.object(forKey: AppSettingsKeys.lastDataCleanDate) as? Date,
            Date().timeIntervalSince(lastClean) < 72 * 60 * 60 { return }
 
         let previousRollIDs = Set(defaults.stringArray(forKey: AppSettingsKeys.pendingOrphanRollIDs) ?? [])
