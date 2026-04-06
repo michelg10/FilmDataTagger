@@ -719,17 +719,28 @@ actor DataStore: ModelActor {
     /// Runs every 72h. Fires a detached background task to avoid blocking the actor.
     ///
     /// Not high priority: do not await
+    private var cleanupInProgress = false
+    private func markCleanupDone() { cleanupInProgress = false }
     func runPeriodicCleanupIfNeeded(force: Bool = false) {
+        guard !cleanupInProgress else {
+            debugLog("Periodic cleanup: already in progress, skipping")
+            return
+        }
         let defaults = UserDefaults.standard
         if !force, let lastClean = defaults.object(forKey: AppSettingsKeys.lastDataCleanDate) as? Date,
            Date().timeIntervalSince(lastClean) < 72 * 60 * 60 { return }
 
+        cleanupInProgress = true
+        debugLog("Periodic cleanup: starting\(force ? " (forced)" : "")")
         let previousRollIDs = Set(defaults.stringArray(forKey: AppSettingsKeys.pendingOrphanRollIDs) ?? [])
         let previousItemIDs = Set(defaults.stringArray(forKey: AppSettingsKeys.pendingOrphanItemIDs) ?? [])
 
         let container = modelContainer
-        Task.detached(priority: .background) {
-            defer { defaults.set(Date(), forKey: AppSettingsKeys.lastDataCleanDate) }
+        Task.detached(priority: .background) { [weak self] in
+            defer {
+                defaults.set(Date(), forKey: AppSettingsKeys.lastDataCleanDate)
+                Task { await self?.markCleanupDone() }
+            }
             let context = ModelContext(container)
 
             // --- 1. Orphan cleanup (two-strike) ---
@@ -770,7 +781,7 @@ actor DataStore: ModelActor {
             if deletedRolls > 0 || deletedItems > 0 {
                 do {
                     try context.save()
-                    debugLog("Orphan cleanup: deleted \(deletedRolls) roll(s), \(deletedItems) item(s)")
+                    errorLog("Orphan cleanup: deleted \(deletedRolls) roll(s), \(deletedItems) item(s)")
                 } catch {
                     errorLog("Orphan cleanup: save failed, \(deletedRolls) roll(s) and \(deletedItems) item(s) will be retried: \(error)")
                 }
