@@ -114,6 +114,20 @@ extension FilmLogViewModel: RollsViewModel {
         }
     }
 
+    /// Deactivate the current active roll without creating a new one.
+    func unloadRoll() {
+        guard let camera = _openCamera,
+              let roll = camera.activeRoll else { return }
+        roll.snapshot.isActive = false
+        camera.activeRoll = nil
+        camera.snapshot.activeRoll = nil
+        publishSnapshots()
+        persistOpenState()
+        Task.detached(priority: .medium) { [store, rollID = roll.id] in
+            await store.unloadRoll(id: rollID)
+        }
+    }
+
     func deleteRoll(id: UUID) {
         guard let camera = _openCamera else {
             debugLog("deleteRoll: no open camera, cannot delete roll \(id)")

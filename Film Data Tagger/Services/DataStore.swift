@@ -315,6 +315,19 @@ actor DataStore: ModelActor {
         save()
     }
 
+    /// Deactivate a roll without deleting it. The VM has already updated its local state optimistically.
+    ///
+    /// Not high priority: do not await
+    func unloadRoll(id: UUID) {
+        guard let roll = fetchRoll(id) else {
+            debugLog("unloadRoll: roll \(id) not found")
+            remoteDataChanged.send()
+            return
+        }
+        roll.isActive = false
+        save()
+    }
+
     /// Delete a roll and all its exposures (cascade).
     /// The VM has already removed it from its local state optimistically.
     ///

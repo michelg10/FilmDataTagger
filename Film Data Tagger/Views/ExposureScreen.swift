@@ -8,7 +8,12 @@
 import SwiftUI
 
 struct FinishRollButton: View {
-    let icon: String = "checkmark.arrow.trianglehead.counterclockwise"
+    let createRollUponFinish: Bool
+    private var icon: String {
+        createRollUponFinish
+            ? "plus.arrow.trianglehead.counterclockwise"
+            : "checkmark.arrow.trianglehead.counterclockwise"
+    }
     let text: String = "Finish roll"
     let isNearBottom: Bool
     let action: () -> Void
@@ -60,24 +65,50 @@ private struct FinishRollOverlay: View {
     let hasRoll: Bool
     let isActiveRoll: Bool
     let hasItems: Bool
+    let rollCapacity: Int
+    let itemCount: Int
+    let extraExposures: Int
     let onFinishRoll: () -> Void
+    let onUnloadRoll: () -> Void
+    private var settings: AppSettings { .shared }
+
+    private var isNearEndOfRoll: Bool {
+        rollCapacity - itemCount + extraExposures <= 4
+    }
 
     private var shouldShow: Bool {
         guard hasRoll && hasItems else { return false }
-        if isActiveRoll { return true }
-        // Inactive rolls: only show scroll-to-bottom arrow when not near bottom
-        return !scrollState.isNearBottom
+        
+        // if the scroll state is not near bottom, always show the button (it's a scroll to bottom button)
+        guard scrollState.isNearBottom else {
+            return true
+        }
+        
+        // now the button is guaranteed to be a "finish roll" button
+        if isActiveRoll {
+            if settings.hideFinishUntilLastShot {
+                return isNearEndOfRoll
+            }
+            return true
+        }
+        // Inactive rolls: don't show
+        return false
     }
 
     var body: some View {
         Group {
             if shouldShow {
                 FinishRollButton(
+                    createRollUponFinish: settings.createRollUponFinish,
                     isNearBottom: isActiveRoll && scrollState.isNearBottom,
                     action: {
                         if isActiveRoll && scrollState.isNearBottom {
                             playHaptic(.newRollOrCamera)
-                            onFinishRoll()
+                            if settings.createRollUponFinish {
+                                onFinishRoll()
+                            } else {
+                                onUnloadRoll()
+                            }
                         } else {
                             scrollState.scrollToBottom?()
                         }
@@ -87,6 +118,7 @@ private struct FinishRollOverlay: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: scrollState.isNearBottom)
+        .animation(.easeInOut(duration: 0.2), value: shouldShow)
     }
 }
 
@@ -154,10 +186,16 @@ struct ExposureScreen: View {
                     hasRoll: viewModel.openRollSnapshot != nil,
                     isActiveRoll: viewModel.openRollSnapshot?.isActive ?? false,
                     hasItems: !logItems.isEmpty,
+                    rollCapacity: viewModel.openRollSnapshot?.totalCapacity ?? 0,
+                    itemCount: logItems.count,
+                    extraExposures: viewModel.openRollSnapshot?.extraExposures ?? 0,
                     onFinishRoll: {
                         if let id = viewModel.openCameraSnapshot?.id {
                             newRollCameraID = id
                         }
+                    },
+                    onUnloadRoll: {
+                        viewModel.unloadRoll()
                     }
                 )
                 .frame(maxWidth: .infinity)
