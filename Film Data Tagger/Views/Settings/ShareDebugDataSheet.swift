@@ -47,7 +47,7 @@ struct ShareDebugDataSheet: View {
         VStack(alignment: .leading, spacing: 0) {
             Button { dismiss() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .bold, design: .default))
+                    .font(.system(size: 20, weight: .semibold, design: .default))
                     .foregroundStyle(Color.white.opacity(0.95))
                     .frame(width: 44, height: 44)
                     .glassEffectCompat(in: Circle())
