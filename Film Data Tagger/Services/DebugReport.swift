@@ -55,7 +55,13 @@ enum DebugReport {
 
         let settings = await MainActor.run { settingsDump() }
         let appInfo = await MainActor.run { appInfoDump(cameras: cameras) }
-        let iCloudStatus = await (try? CKContainer.default().accountStatus()) ?? .couldNotDetermine
+        let iCloudStatus: CKAccountStatus
+        if let status = (try? await withTimeout(seconds: 5) { try await CKContainer.default().accountStatus() }) {
+            iCloudStatus = status
+        } else {
+            errorLog("DebugReport: iCloud status timed out")
+            iCloudStatus = .couldNotDetermine
+        }
         let storageInfo = storageDump()
 
         // Build the report string
@@ -298,5 +304,18 @@ enum DebugReport {
             return "\(hours)h \(minutes)m"
         }
         return "\(minutes)m"
+    }
+
+    private static func withTimeout<T: Sendable>(seconds: TimeInterval, operation: @escaping @Sendable () async throws -> T) async throws -> T {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask { try await operation() }
+            group.addTask {
+                try await Task.sleep(for: .seconds(seconds))
+                throw CancellationError()
+            }
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
     }
 }

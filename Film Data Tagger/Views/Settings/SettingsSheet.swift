@@ -46,7 +46,6 @@ struct SettingsSheet: View {
                         SettingsRow(text: "iCloud sync") {
                             Text(iCloudStatusLabel)
                                 .foregroundStyle(Color.white.opacity(0.7))
-                                .fontWidth(.expanded)
                                 .font(.system(size: 17, weight: .medium, design: .default))
                         }
                         SettingsSeparator()
