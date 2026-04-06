@@ -278,6 +278,7 @@ struct ExposureListView: View {
     var cameraName: String = ""
     var filmStock: String = ""
     var extraExposures: Int = 0
+    var isActiveRoll: Bool = true
     var scrollContextID: UUID? = nil
     var onDelete: ((LogItemSnapshot) -> Void)?
     var onMovePlaceholderBefore: ((LogItemSnapshot, LogItemSnapshot) -> Void)?
@@ -302,7 +303,7 @@ struct ExposureListView: View {
                     item: item,
                     exposureNumber: frameNumber,
                     isPreFrame: isPreFrame,
-                    canCycleExtraExposures: index < 4,
+                    canCycleExtraExposures: index < 4 && isActiveRoll && AppSettings.shared.preFramesEnabled,
                     menuContext: menuContext,
                     onCameraSwitched: onCameraSwitched,
                     onDelete: onDelete,

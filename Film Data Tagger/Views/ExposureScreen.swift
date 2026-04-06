@@ -143,6 +143,7 @@ struct ExposureScreen: View {
                 filmStock: viewModel.openRollSnapshot?.filmStock
                     ?? (viewModel.openCameraSnapshot != nil ? "No roll selected" : ""),
                 extraExposures: viewModel.openRollSnapshot?.extraExposures ?? 0,
+                isActiveRoll: viewModel.openRollSnapshot?.isActive ?? false,
                 scrollContextID: viewModel.openRollSnapshot?.id ?? viewModel.openCameraSnapshot?.id,
                 onDelete: { viewModel.deleteItem($0) },
                 onMovePlaceholderBefore: { viewModel.movePlaceholder($0, before: $1) },
