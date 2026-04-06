@@ -30,12 +30,14 @@ struct SettingsSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    SettingsSection(header: "Capture") {
-                        SettingsNavRow(text: "General") { GeneralPage() }
+                    SettingsSection {
+                        SettingsNavRow(text: "Capture") { CapturePage() }
                         SettingsSeparator()
                         SettingsNavRow(text: "Reference photo") { ReferencePhotoPage() }
                         SettingsSeparator()
                         SettingsNavRow(text: "Location") { LocationPage() }
+                        SettingsSeparator()
+                        SettingsNavRow(text: "Rolls") { RollsPage() }
                     }
                     SettingsSection(header: "Accessibility") {
                         SettingsRow(text: "Reduce haptics") {
