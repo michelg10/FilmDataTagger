@@ -18,7 +18,7 @@ enum ReferencePhotoStartup: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .preserveLast: "Preserve last setting"
+        case .preserveLast: "Remember last setting"
         case .on: "On"
         case .off: "Off"
         }
@@ -167,6 +167,20 @@ enum LocationAccuracy: String, CaseIterable {
     }
 }
 
+enum CaptureControlsPreference: String, CaseIterable {
+    case expanded
+    case collapsed
+    case preserveLast
+
+    var label: String {
+        switch self {
+        case .expanded: "Expanded"
+        case .collapsed: "Collapsed"
+        case .preserveLast: "Remember last setting"
+        }
+    }
+}
+
 /// NOTE: When adding new settings, also update DebugReport.settingsDump() so they appear in debug reports.
 @Observable @MainActor
 final class AppSettings {
@@ -204,6 +218,32 @@ final class AppSettings {
 
     var reduceHaptics: Bool {
         didSet { defaults.set(reduceHaptics, forKey: AppSettingsKeys.reduceHaptics) }
+    }
+
+    // MARK: - General
+
+    var captureControlsPreference: CaptureControlsPreference {
+        didSet { defaults.set(captureControlsPreference.rawValue, forKey: AppSettingsKeys.captureControlsPreference) }
+    }
+
+    var createRollUponFinish: Bool {
+        didSet { defaults.set(createRollUponFinish, forKey: AppSettingsKeys.createRollUponFinish) }
+    }
+
+    var hideFinishUntilLastShot: Bool {
+        didSet { defaults.set(hideFinishUntilLastShot, forKey: AppSettingsKeys.hideFinishUntilLastShot) }
+    }
+
+    var preFramesEnabled: Bool {
+        didSet { defaults.set(preFramesEnabled, forKey: AppSettingsKeys.preFramesEnabled) }
+    }
+
+    var holdCapturePlaceholders: Bool {
+        didSet { defaults.set(holdCapturePlaceholders, forKey: AppSettingsKeys.holdCapturePlaceholders) }
+    }
+
+    var holdCaptureLostFrames: Bool {
+        didSet { defaults.set(holdCaptureLostFrames, forKey: AppSettingsKeys.holdCaptureLostFrames) }
     }
 
     var lastAppLaunchDate: Date? {
@@ -289,7 +329,20 @@ final class AppSettings {
             ? true : d.bool(forKey: AppSettingsKeys.locationEnabled)
         locationAccuracy = d.string(forKey: AppSettingsKeys.locationAccuracy)
             .flatMap(LocationAccuracy.init) ?? .high
-        reduceHaptics = d.bool(forKey: AppSettingsKeys.reduceHaptics)
+        reduceHaptics = d.object(forKey: AppSettingsKeys.reduceHaptics) == nil
+            ? false : d.bool(forKey: AppSettingsKeys.reduceHaptics)
+        captureControlsPreference = d.string(forKey: AppSettingsKeys.captureControlsPreference)
+            .flatMap(CaptureControlsPreference.init) ?? .expanded
+        createRollUponFinish = d.object(forKey: AppSettingsKeys.createRollUponFinish) == nil
+            ? true : d.bool(forKey: AppSettingsKeys.createRollUponFinish)
+        hideFinishUntilLastShot = d.object(forKey: AppSettingsKeys.hideFinishUntilLastShot) == nil
+            ? false : d.bool(forKey: AppSettingsKeys.hideFinishUntilLastShot)
+        preFramesEnabled = d.object(forKey: AppSettingsKeys.preFramesEnabled) == nil
+            ? false : d.bool(forKey: AppSettingsKeys.preFramesEnabled)
+        holdCapturePlaceholders = d.object(forKey: AppSettingsKeys.holdCapturePlaceholders) == nil
+            ? true : d.bool(forKey: AppSettingsKeys.holdCapturePlaceholders)
+        holdCaptureLostFrames = d.object(forKey: AppSettingsKeys.holdCaptureLostFrames) == nil
+            ? true : d.bool(forKey: AppSettingsKeys.holdCaptureLostFrames)
         lastAppLaunchDate = d.object(forKey: AppSettingsKeys.lastAppLaunchDate) as? Date
         lastForegroundDate = d.object(forKey: AppSettingsKeys.lastForegroundDate) as? Date
         lastDataCleanDate = d.object(forKey: AppSettingsKeys.lastDataCleanDate) as? Date
@@ -305,6 +358,12 @@ nonisolated enum AppSettingsKeys {
     static let locationEnabled = "locationEnabled"
     static let locationAccuracy = "locationAccuracy"
     static let reduceHaptics = "reduceHaptics"
+    static let captureControlsPreference = "captureControlsPreference"
+    static let createRollUponFinish = "createRollUponFinish"
+    static let hideFinishUntilLastShot = "hideFinishUntilLastShot"
+    static let preFramesEnabled = "preFramesEnabled"
+    static let holdCapturePlaceholders = "holdCapturePlaceholders"
+    static let holdCaptureLostFrames = "holdCaptureLostFrames"
     static let lastAppLaunchDate = "lastAppLaunchDate"
     static let lastForegroundDate = "lastForegroundDate"
     static let lastDataCleanDate = "lastDataCleanDate"

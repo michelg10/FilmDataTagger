@@ -219,6 +219,12 @@ enum DebugReport {
         d += "Location enabled: \(s.locationEnabled)\n"
         d += "Location accuracy: \(s.locationAccuracy.rawValue)\n"
         d += "Reduce haptics: \(s.reduceHaptics)\n"
+        d += "Capture controls: \(s.captureControlsPreference.rawValue)\n"
+        d += "Create roll upon finish: \(s.createRollUponFinish)\n"
+        d += "Hide finish until last shot: \(s.hideFinishUntilLastShot)\n"
+        d += "Pre-frames enabled: \(s.preFramesEnabled)\n"
+        d += "Hold capture placeholders: \(s.holdCapturePlaceholders)\n"
+        d += "Hold capture lost frames: \(s.holdCaptureLostFrames)\n"
         return d
     }
 
