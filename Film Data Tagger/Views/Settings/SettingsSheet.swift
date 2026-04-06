@@ -30,7 +30,7 @@ struct SettingsSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    SettingsSection {
+                    SettingsSection(header: "General") {
                         SettingsNavRow(text: "Capture") { CapturePage() }
                         SettingsSeparator()
                         SettingsNavRow(text: "Reference photo") { ReferencePhotoPage() }
