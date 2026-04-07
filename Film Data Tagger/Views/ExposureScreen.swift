@@ -210,7 +210,7 @@ struct ExposureScreen: View {
                         playHaptic(.capture)
                         await viewModel.logExposure()
                     },
-                    onAddPlaceholder: { viewModel.logPlaceholder() },
+                    onAddPlaceholder: { viewModel.logPlaceholderLike(.placeholder) },
                     expanded: Binding(get: { viewModel.captureExpanded }, set: { viewModel.captureExpanded = $0 })
                 )
                 .clipShape(captureSheetRectangle)

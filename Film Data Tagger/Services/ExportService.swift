@@ -16,7 +16,7 @@ enum ExportError: Error {
 }
 
 nonisolated struct ExportService {
-    private static let exportVersion = 1
+    private static let exportVersion = 2
 
     // MARK: - JSON
 
@@ -86,7 +86,7 @@ nonisolated struct ExportService {
         if let rollID = e.roll?.id { obj.append(("rollID", rollID.uuidString)) }
         obj.append(("createdAt", iso8601.string(from: e.createdAt)))
         obj.append(("hasRealCreatedAt", e.hasRealCreatedAt))
-        obj.append(("isPlaceholder", e.isPlaceholder))
+        obj.append(("exposureType", e.exposureType.rawValue))
         if let notes = e.notes { obj.append(("notes", notes)) }
         if let lat = e.latitude { obj.append(("latitude", lat)) }
         if let lon = e.longitude { obj.append(("longitude", lon)) }
@@ -110,7 +110,7 @@ nonisolated struct ExportService {
         iso8601.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let exposures = try context.fetch(FetchDescriptor<LogItem>())
 
-        var csv = "id,rollID,cameraID,cameraName,filmStock,createdAt,isPlaceholder,notes,"
+        var csv = "id,rollID,cameraID,cameraName,filmStock,createdAt,exposureType,notes,"
         csv += "latitude,longitude,altitude,horizontalAccuracy,verticalAccuracy,"
         csv += "course,speed,locationTimestamp,placeName,cityName,timeZoneIdentifier,source\n"
 
@@ -122,7 +122,7 @@ nonisolated struct ExportService {
             row.append(csvEscape(e.roll?.camera?.name ?? ""))
             row.append(csvEscape(e.roll?.filmStock ?? ""))
             row.append(iso8601.string(from: e.createdAt))
-            row.append(e.isPlaceholder ? "true" : "false")
+            row.append(e.exposureType.rawValue)
             row.append(csvEscape(e.notes ?? ""))
             row.append(e.latitude.map { "\($0)" } ?? "")
             row.append(e.longitude.map { "\($0)" } ?? "")

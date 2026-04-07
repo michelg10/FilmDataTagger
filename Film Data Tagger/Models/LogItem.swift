@@ -31,6 +31,55 @@ nonisolated enum ExposureSource: Equatable {
     }
 }
 
+/// Distinguishes regular captured exposures from manually-positioned markers
+/// (placeholders, lost frames). Stored on `LogItem` as a raw string via `exposureTypeRaw`
+/// for CloudKit compatibility
+nonisolated enum ExposureType: Equatable, Hashable, Sendable {
+    case regular
+    case placeholder
+    case lostFrame
+    /// Forward-compat for cases written by newer clients we don't recognize yet.
+    case unknown(String)
+
+    var rawValue: String {
+        switch self {
+        case .regular:        "regular"
+        case .placeholder:    "placeholder"
+        case .lostFrame:      "lostFrame"
+        case .unknown(let v): v
+        }
+    }
+
+    init(_ rawValue: String) {
+        switch rawValue {
+        case "regular":     self = .regular
+        case "placeholder": self = .placeholder
+        case "lostFrame":   self = .lostFrame
+        default:            self = .unknown(rawValue)
+        }
+    }
+
+    /// True for placeholder + lostFrame — the "no captured metadata, hand-positioned" family.
+    /// Drag/sort/no-metadata-display logic should branch on this, not on the specific case.
+    var isPlaceholderLike: Bool {
+        switch self {
+        case .placeholder, .lostFrame: true
+        case .regular, .unknown:       false
+        }
+    }
+}
+
+extension ExposureType: Codable {
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = ExposureType(raw)
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
+    }
+}
+
 @Model
 final class LogItem {
     #Index<LogItem>([\.id], [\.createdAt], [\.placeName])
@@ -66,8 +115,16 @@ final class LogItem {
     /// The time zone identifier at the time of capture (e.g., "America/Los_Angeles")
     var timeZoneIdentifier: String?
 
-    /// When true, this item is a placeholder with no captured metadata
+    /// LEGACY (read-only since 1.1): used as a fallback when `exposureTypeRaw == nil`
+    /// for rows pushed by 1.0.x CloudKit clients that don't know about `exposureTypeRaw`.
+    /// 1.1+ never writes to this field; new rows leave it at the default `false`.
+    /// Do not use directly — use `exposureType` instead.
     var isPlaceholder: Bool = false
+
+    /// Raw storage for `exposureType` (regular / placeholder / lostFrame).
+    /// Optional with `nil` default so SwiftData lightweight-migrates legacy rows automatically.
+    /// Resolved via the `exposureType` accessor, which falls back to `isPlaceholder` when nil.
+    var exposureTypeRaw: String?
 
     /// How this exposure was created (raw storage for ExposureSource enum)
     var source: String?
@@ -84,6 +141,17 @@ final class LogItem {
         set { source = newValue.rawValue }
     }
 
+    /// Typed accessor for `exposureTypeRaw`. Reads fall back to the legacy `isPlaceholder`
+    /// field when the raw value is nil (CloudKit drift from 1.0.x clients, or pre-backfill rows).
+    /// Writes only touch `exposureTypeRaw` — `isPlaceholder` stays at its default forever.
+    @Transient var exposureType: ExposureType {
+        get {
+            if let raw = exposureTypeRaw { return ExposureType(raw) }
+            return isPlaceholder ? .placeholder : .regular
+        }
+        set { exposureTypeRaw = newValue.rawValue }
+    }
+
     /// Reference photo captured at time of logging (HEIC data, stored externally by SwiftData)
     @Attribute(.externalStorage) var photoData: Data?
 
@@ -95,13 +163,24 @@ final class LogItem {
         self.roll = roll
         self.createdAt = Date()
         self.timeZoneIdentifier = TimeZone.current.identifier
-        self.isPlaceholder = false
+        self.exposureTypeRaw = ExposureType.regular.rawValue
     }
 
     /// Create a placeholder exposure (no metadata captured)
     static func placeholder(roll: Roll) -> LogItem {
         let item = LogItem(roll: roll)
-        item.isPlaceholder = true
+        item.exposureType = .placeholder
+        item.hasRealCreatedAt = false
+        return item
+    }
+
+    /// Create a lost-frame marker (frame was exposed but the data is gone —
+    /// double-exposure mishap, light leak, given-away Polaroid, etc.).
+    /// Functionally identical to `placeholder` for sort/drag/no-metadata purposes,
+    /// but distinguished for display.
+    static func lostFrame(roll: Roll) -> LogItem {
+        let item = LogItem(roll: roll)
+        item.exposureType = .lostFrame
         item.hasRealCreatedAt = false
         return item
     }
@@ -152,7 +231,7 @@ final class LogItem {
             placeName: placeName,
             cityName: cityName,
             timeZoneIdentifier: timeZoneIdentifier,
-            isPlaceholder: isPlaceholder,
+            exposureType: exposureType,
             source: source,
             hasThumbnail: cachedHasThumbnail,
             hasPhoto: cachedHasPhoto,

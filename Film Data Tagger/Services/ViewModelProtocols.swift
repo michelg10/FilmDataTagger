@@ -48,7 +48,7 @@ protocol ExposuresViewModel: AnyObject, Observable {
     var camera: CameraController { get }
     var locationService: LocationService { get }
     func logExposure() async
-    func logPlaceholder()
+    func logPlaceholderLike(_ type: ExposureType)
     func deleteItem(_ item: LogItemSnapshot)
     func movePlaceholder(_ item: LogItemSnapshot, before target: LogItemSnapshot)
     func movePlaceholder(_ item: LogItemSnapshot, after target: LogItemSnapshot)

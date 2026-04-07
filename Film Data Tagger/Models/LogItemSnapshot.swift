@@ -20,7 +20,7 @@ struct LogItemSnapshot: Identifiable, Hashable, Sendable, Codable {
     var cityName: String?
     var timeZoneIdentifier: String?
     // State
-    var isPlaceholder: Bool
+    var exposureType: ExposureType
     var source: String?
     // Media (thumbnails loaded via ImageCache, not carried in the snapshot)
     var hasThumbnail: Bool

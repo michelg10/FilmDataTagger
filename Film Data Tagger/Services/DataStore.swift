@@ -207,16 +207,24 @@ actor DataStore: ModelActor {
         save()
     }
 
-    /// Persist a new placeholder. The VM has already updated its local state optimistically.
+    /// Persist a new placeholder-like item (placeholder or lost frame).
+    /// The VM has already updated its local state optimistically.
     ///
     /// Not high priority: do not await
-    func logPlaceholder(id: UUID, rollID: UUID, createdAt: Date) {
+    func logPlaceholderLike(id: UUID, rollID: UUID, createdAt: Date, type: ExposureType) {
         guard let roll = fetchRoll(rollID) else {
-            debugLog("logPlaceholder: roll \(rollID) not found")
+            debugLog("logPlaceholderLike: roll \(rollID) not found")
             remoteDataChanged.send()
             return
         }
-        let item = LogItem.placeholder(roll: roll)
+        let item: LogItem
+        switch type {
+        case .placeholder: item = LogItem.placeholder(roll: roll)
+        case .lostFrame:   item = LogItem.lostFrame(roll: roll)
+        default:
+            debugLog("logPlaceholderLike: invalid type \(type), ignoring")
+            return
+        }
         item.id = id
         item.createdAt = createdAt
         modelContext.insert(item)
@@ -747,8 +755,10 @@ actor DataStore: ModelActor {
 
     // MARK: - Maintenance
 
-    /// Periodic cleanup: orphan data, stale cache entries.
+    /// Periodic cleanup: orphan data, stale cache entries, schema backfills.
     /// Runs every 72h. Fires a detached background task to avoid blocking the actor.
+    /// Each subtask is a `nonisolated static` helper below — adding a new hygiene
+    /// pass means writing one helper and adding one line to this shell.
     ///
     /// Not high priority: do not await
     private var cleanupInProgress = false
@@ -775,90 +785,130 @@ actor DataStore: ModelActor {
             }
             let context = ModelContext(container)
 
-            // --- 1. Orphan cleanup (two-strike) ---
+            Self.cleanupOrphans(
+                context: context,
+                previousRollIDs: previousRollIDs,
+                previousItemIDs: previousItemIDs,
+                defaults: defaults
+            )
+            Self.backfillExposureType(context: context)
+            await Self.purgeStaleCacheBookkeepers(context: context)
 
-            let orphanedRolls = (try? context.fetch(FetchDescriptor<Roll>(
-                predicate: #Predicate<Roll> { $0.camera == nil }
-            ))) ?? []
-            let candidateRollIDs = orphanedRolls.map { $0.id.uuidString }
-
-            let orphanedItems = (try? context.fetch(FetchDescriptor<LogItem>(
-                predicate: #Predicate<LogItem> { $0.roll == nil }
-            ))) ?? []
-            let candidateItemIDs = orphanedItems.map { $0.id.uuidString }
-
-            // Persist current candidates for the next run's comparison
-            defaults.set(candidateRollIDs, forKey: AppSettingsKeys.pendingOrphanRollIDs)
-            defaults.set(candidateItemIDs, forKey: AppSettingsKeys.pendingOrphanItemIDs)
-
-            // Only delete IDs that were also flagged on the previous run
-            let confirmedRollIDs = Set(candidateRollIDs).intersection(previousRollIDs)
-            let confirmedItemIDs = Set(candidateItemIDs).intersection(previousItemIDs)
-
-            var deletedRolls = 0
-            for roll in orphanedRolls where confirmedRollIDs.contains(roll.id.uuidString) {
-                for item in roll.logItems ?? [] {
-                    ImageCache.shared.evict(id: item.id)
-                }
-                context.delete(roll)
-                deletedRolls += 1
-            }
-            var deletedItems = 0
-            for item in orphanedItems where confirmedItemIDs.contains(item.id.uuidString) {
-                ImageCache.shared.evict(id: item.id)
-                context.delete(item)
-                deletedItems += 1
-            }
-
-            if deletedRolls > 0 || deletedItems > 0 {
-                do {
-                    try context.save()
-                    errorLog("Orphan cleanup: deleted \(deletedRolls) roll(s), \(deletedItems) item(s)")
-                } catch {
-                    errorLog("Orphan cleanup: save failed, \(deletedRolls) roll(s) and \(deletedItems) item(s) will be retried: \(error)")
-                }
-            }
-
-            // --- 2. Purge stale cache bookkeeper entries ---
-
-            let allRolls = (try? context.fetch(FetchDescriptor<Roll>())) ?? []
-            let existingRollIDs = Set(allRolls.map(\.id))
-            await ImageCache.shared.bookkeeper.purgeStaleEntries(existingRollIDs: existingRollIDs)
-
-            // --- 3. Recompute media flags + 4. Purge orphaned thumbnails ---
-            // Both steps need the full item list. If the fetch fails, bail — an empty
-            // set would cause purgeOrphanedFiles to wipe the entire thumbnail cache.
-
+            // Recompute media flags + purge orphaned thumbnails share a fetch.
+            // Bail on fetch failure — an empty set would wipe the entire thumbnail cache.
             guard let allItems = try? context.fetch(FetchDescriptor<LogItem>()) else {
                 errorLog("Periodic cleanup: LogItem fetch failed, skipping media flags + thumbnail purge")
                 return
             }
-            var mediaFlagsChanged = false
-            for item in allItems {
-                let hasPhoto = item.photoData != nil
-                let hasThumbnail = item.thumbnailData != nil
-                if item.cachedHasPhoto != hasPhoto {
-                    item.cachedHasPhoto = hasPhoto
-                    mediaFlagsChanged = true
-                }
-                if item.cachedHasThumbnail != hasThumbnail {
-                    item.cachedHasThumbnail = hasThumbnail
-                    mediaFlagsChanged = true
-                }
-            }
-            if mediaFlagsChanged {
-                do {
-                    try context.save()
-                    debugLog("Media flags recompute: corrected flags")
-                } catch {
-                    errorLog("Media flags recompute: save failed: \(error)")
-                }
-            }
+            Self.recomputeMediaFlags(context: context, items: allItems)
+            await ImageCache.shared.purgeOrphanedFiles(liveItemIDs: Set(allItems.map(\.id)))
+        }
+    }
 
-            // --- 4. Purge orphaned thumbnail files ---
+    // MARK: - Cleanup subtasks
 
-            let liveItemIDs = Set(allItems.map(\.id))
-            await ImageCache.shared.purgeOrphanedFiles(liveItemIDs: liveItemIDs)
+    /// Two-strike orphan deletion: rows whose parent has been gone for two consecutive
+    /// cleanup runs are deleted. Updates the persisted candidate lists for next run.
+    private nonisolated static func cleanupOrphans(
+        context: ModelContext,
+        previousRollIDs: Set<String>,
+        previousItemIDs: Set<String>,
+        defaults: UserDefaults
+    ) {
+        let orphanedRolls = (try? context.fetch(FetchDescriptor<Roll>(
+            predicate: #Predicate<Roll> { $0.camera == nil }
+        ))) ?? []
+        let candidateRollIDs = orphanedRolls.map { $0.id.uuidString }
+
+        let orphanedItems = (try? context.fetch(FetchDescriptor<LogItem>(
+            predicate: #Predicate<LogItem> { $0.roll == nil }
+        ))) ?? []
+        let candidateItemIDs = orphanedItems.map { $0.id.uuidString }
+
+        // Persist current candidates for the next run's comparison
+        defaults.set(candidateRollIDs, forKey: AppSettingsKeys.pendingOrphanRollIDs)
+        defaults.set(candidateItemIDs, forKey: AppSettingsKeys.pendingOrphanItemIDs)
+
+        // Only delete IDs that were also flagged on the previous run
+        let confirmedRollIDs = Set(candidateRollIDs).intersection(previousRollIDs)
+        let confirmedItemIDs = Set(candidateItemIDs).intersection(previousItemIDs)
+
+        var deletedRolls = 0
+        for roll in orphanedRolls where confirmedRollIDs.contains(roll.id.uuidString) {
+            for item in roll.logItems ?? [] {
+                ImageCache.shared.evict(id: item.id)
+            }
+            context.delete(roll)
+            deletedRolls += 1
+        }
+        var deletedItems = 0
+        for item in orphanedItems where confirmedItemIDs.contains(item.id.uuidString) {
+            ImageCache.shared.evict(id: item.id)
+            context.delete(item)
+            deletedItems += 1
+        }
+
+        if deletedRolls > 0 || deletedItems > 0 {
+            do {
+                try context.save()
+                errorLog("Orphan cleanup: deleted \(deletedRolls) roll(s), \(deletedItems) item(s)")
+            } catch {
+                errorLog("Orphan cleanup: save failed, \(deletedRolls) roll(s) and \(deletedItems) item(s) will be retried: \(error)")
+            }
+        }
+    }
+
+    /// Pure data hygiene: populate `exposureTypeRaw` for legacy rows that have it nil.
+    /// The read accessor falls back to `isPlaceholder` forever, so this is *not* required
+    /// for correctness — it just normalizes the data over time. Idempotent: re-running
+    /// is a no-op once everything is backfilled. Also picks up CloudKit drift from 1.0.x
+    /// clients (records pushed with `exposureTypeRaw == nil`) on subsequent runs.
+    private nonisolated static func backfillExposureType(context: ModelContext) {
+        let unmigrated = (try? context.fetch(FetchDescriptor<LogItem>(
+            predicate: #Predicate<LogItem> { $0.exposureTypeRaw == nil }
+        ))) ?? []
+        if unmigrated.isEmpty { return }
+        for item in unmigrated {
+            item.exposureTypeRaw = item.isPlaceholder ? "placeholder" : "regular"
+        }
+        do {
+            try context.save()
+            errorLog("exposureType backfill: migrated \(unmigrated.count) item(s)")
+        } catch {
+            errorLog("exposureType backfill: save failed: \(error)")
+        }
+    }
+
+    /// Drop bookkeeper entries for rolls that no longer exist.
+    private nonisolated static func purgeStaleCacheBookkeepers(context: ModelContext) async {
+        let allRolls = (try? context.fetch(FetchDescriptor<Roll>())) ?? []
+        let existingRollIDs = Set(allRolls.map(\.id))
+        await ImageCache.shared.bookkeeper.purgeStaleEntries(existingRollIDs: existingRollIDs)
+    }
+
+    /// Recompute the cached `cachedHasPhoto` / `cachedHasThumbnail` flags from the actual
+    /// blob presence. Repairs cases where SwiftData/CloudKit got the flags out of sync.
+    private nonisolated static func recomputeMediaFlags(context: ModelContext, items: [LogItem]) {
+        var mediaFlagsChanged = false
+        for item in items {
+            let hasPhoto = item.photoData != nil
+            let hasThumbnail = item.thumbnailData != nil
+            if item.cachedHasPhoto != hasPhoto {
+                item.cachedHasPhoto = hasPhoto
+                mediaFlagsChanged = true
+            }
+            if item.cachedHasThumbnail != hasThumbnail {
+                item.cachedHasThumbnail = hasThumbnail
+                mediaFlagsChanged = true
+            }
+        }
+        if mediaFlagsChanged {
+            do {
+                try context.save()
+                debugLog("Media flags recompute: corrected flags")
+            } catch {
+                errorLog("Media flags recompute: save failed: \(error)")
+            }
         }
     }
 

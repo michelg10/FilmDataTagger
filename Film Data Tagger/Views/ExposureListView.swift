@@ -54,7 +54,7 @@ private struct ExposureRowDropDelegate: DropDelegate {
         guard dropTargetIndex != nil else { return false }
         guard let draggingPlaceholderID,
               let draggedItem = logItems.first(where: { $0.id == draggingPlaceholderID }),
-              draggedItem.isPlaceholder,
+              draggedItem.exposureType.isPlaceholderLike,
               index < logItems.count else {
             return false
         }
@@ -116,7 +116,7 @@ private struct ExposureEndDropDelegate: DropDelegate {
         guard dropTargetIndex != nil else { return false }
         guard let draggingPlaceholderID,
               let draggedItem = logItems.first(where: { $0.id == draggingPlaceholderID }),
-              draggedItem.isPlaceholder,
+              draggedItem.exposureType.isPlaceholderLike,
               let onMovePlaceholderToEnd else {
             return false
         }
@@ -325,7 +325,7 @@ struct ExposureListView: View {
                 .transition(.asymmetric(insertion: .opacity.animation(.easeOut(duration: 0.12)), removal: .identity))
                 .contentShape(Rectangle())
                 .id(item.id)
-                .if(item.isPlaceholder) { view in
+                .if(item.exposureType.isPlaceholderLike) { view in
                     view.onDrag {
                         draggingPlaceholderID = item.id
                         return NSItemProvider(object: item.id.uuidString as NSString)
