@@ -81,7 +81,7 @@ struct NewCameraSheet: View {
                         }
                         .accessibilityLabel("About camera types")
                         UIKitSegmentedControl(
-                            segments: ["Standard", "Instant Film"],
+                            segments: ["Film", "Instant film"],
                             selectedIndex: Binding(
                                 get: { isInstantFilm ? 1 : 0 },
                                 set: { index in
