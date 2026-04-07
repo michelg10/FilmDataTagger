@@ -294,6 +294,8 @@ struct ExposureListView: View {
     var onCameraSwitched: ((UUID) -> Void)?
     var onUnloadRoll: (() -> Void)?
     var onLoadRoll: (() -> Void)?
+    var onAddPlaceholder: (() -> Void)?
+    var onAddLostFrame: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var draggingPlaceholderID: UUID?
     @State private var dropTargetIndex: Int?
@@ -465,12 +467,14 @@ struct ExposureListView: View {
                             }
                         }
                         Button {
-                            // TODO: Add placeholder
+                            playHaptic(.addPlaceholder)
+                            onAddPlaceholder?()
                         } label: {
                             Label("Add placeholder", systemImage: "questionmark.square.dashed")
                         }
                         Button {
-                            // TODO: Add lost frame
+                            playHaptic(.addPlaceholder)
+                            onAddLostFrame?()
                         } label: {
                             Label("Add lost frame", systemImage: "xmark.square")
                         }

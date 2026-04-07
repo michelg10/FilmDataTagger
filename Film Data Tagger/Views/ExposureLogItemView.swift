@@ -24,6 +24,7 @@ struct ExposureLogItemView: View {
             onFrameNumberTapped: onCycleExtraExposures,
             previewImage: previewImage,
             isFromShortcut: item.source == ExposureSource.shortcut.rawValue,
+            exposureType: item.exposureType,
             timeText: timeText,
             timeSecondaryText: timeSecondaryText,
             onTimeTapped: item.hasDifferentTimeZone ? { showingLocalTime.toggle() } : nil,

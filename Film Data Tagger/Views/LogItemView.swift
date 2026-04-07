@@ -14,6 +14,7 @@ struct LogItemView: View {
     var onFrameNumberTapped: (() -> Void)?
     let previewImage: Image?
     var isFromShortcut: Bool = false
+    var exposureType: ExposureType = .regular
     let timeText: Text
     let timeSecondaryText: Text?
     var onTimeTapped: (() -> Void)?
@@ -51,21 +52,25 @@ struct LogItemView: View {
                     previewImage
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                } else if isFromShortcut {
-                    ZStack {
-                        Rectangle()
-                            .foregroundStyle(Color(hex: 0x313131))
-                        Image("shortcuts-symbol")
-                            .frame(width: 60, height: 60)
-                    }
                 } else {
                     ZStack {
                         Rectangle()
                             .foregroundStyle(Color(hex: 0x313131))
-                        Image(systemName: "eye.slash.fill")
-                            .font(.system(size: 20, weight: .bold, design: .default))
-                            .foregroundStyle(Color.white)
-                            .opacity(0.45)
+                        switch exposureType {
+                        case .regular:
+                            if isFromShortcut {
+                                Image("shortcuts-symbol")
+                                    .frame(width: 60, height: 60)
+                            } else {
+                                placeholderIcon("eye.slash.fill", size: 20, weight: .bold)
+                            }
+                        case .placeholder:
+                            placeholderIcon("questionmark", size: 23, weight: .bold)
+                        case .lostFrame:
+                            placeholderIcon("xmark", size: 22, weight: .bold)
+                        case .unknown:
+                            placeholderIcon("exclamationmark.triangle.fill", size: 25, weight: .bold)
+                        }
                     }
                 }
             }
@@ -82,6 +87,14 @@ struct LogItemView: View {
             }.frame(maxWidth: .infinity, alignment: .leading)
         }.foregroundStyle(Color.white)
         .frame(height: 60, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func placeholderIcon(_ name: String, size: CGFloat, weight: Font.Weight) -> some View {
+        Image(systemName: name)
+            .font(.system(size: size, weight: weight, design: .default))
+            .foregroundStyle(Color.white)
+            .opacity(0.45)
     }
 
     @ViewBuilder

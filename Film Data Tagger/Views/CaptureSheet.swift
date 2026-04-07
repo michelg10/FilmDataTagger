@@ -361,6 +361,7 @@ struct CaptureSheet: View {
     let roll: RollSnapshot?
     let onCapture: () async -> Void
     let onAddPlaceholder: () -> Void
+    let onAddLostFrame: () -> Void
     @Binding var expanded: Bool
 
     private var frameCount: Int { roll?.exposureCount ?? 0 }
@@ -458,7 +459,7 @@ struct CaptureSheet: View {
                 onCapture: { Task(priority: .userInitiated) { await onCapture() } },
                 onCaptureAndNote: { /* TODO: Capture and Note */ },
                 onAddPlaceholder: onAddPlaceholder,
-                onAddLostFrame: { /* TODO: Add lost frame */ }
+                onAddLostFrame: onAddLostFrame
             )
         }
         .frame(maxWidth: .infinity)
@@ -520,6 +521,7 @@ struct CaptureSheet: View {
             roll: nil,
             onCapture: {},
             onAddPlaceholder: {},
+            onAddLostFrame: {},
             expanded: .constant(true)
         )
         .padding([.bottom, .leading, .trailing], 8)

@@ -179,7 +179,9 @@ struct ExposureScreen: View {
                             viewModel.loadRoll()
                         }
                     }
-                }
+                },
+                onAddPlaceholder: { viewModel.logPlaceholderLike(.placeholder) },
+                onAddLostFrame: { viewModel.logPlaceholderLike(.lostFrame) }
             )
             // Inactive roll overlay
             if !(viewModel.openRollSnapshot?.isActive ?? false) {
@@ -211,6 +213,7 @@ struct ExposureScreen: View {
                         await viewModel.logExposure()
                     },
                     onAddPlaceholder: { viewModel.logPlaceholderLike(.placeholder) },
+                    onAddLostFrame: { viewModel.logPlaceholderLike(.lostFrame) },
                     expanded: Binding(get: { viewModel.captureExpanded }, set: { viewModel.captureExpanded = $0 })
                 )
                 .clipShape(captureSheetRectangle)
