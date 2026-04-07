@@ -279,6 +279,9 @@ struct ExposureListView: View {
     var filmStock: String = ""
     var extraExposures: Int = 0
     var isActiveRoll: Bool = true
+    var bottomInset: CGFloat = CaptureSheet.fullHeight
+    var nearBottomThreshold: CGFloat = 300
+    let pastRollOverscroll: CGFloat = 150
     var scrollContextID: UUID? = nil
     var onDelete: ((LogItemSnapshot) -> Void)?
     var onMovePlaceholderBefore: ((LogItemSnapshot, LogItemSnapshot) -> Void)?
@@ -289,9 +292,18 @@ struct ExposureListView: View {
     var onScrollToBottomRegistered: ((@escaping () -> Void) -> Void)?
     var menuContext: (any ExposureMenuContext)?
     var onCameraSwitched: ((UUID) -> Void)?
+    var onUnloadRoll: (() -> Void)?
+    var onLoadRoll: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var draggingPlaceholderID: UUID?
     @State private var dropTargetIndex: Int?
+
+    var totalBottomPadding: CGFloat {
+        isActiveRoll ? 278 + 118 + 40 - 8 : pastRollOverscroll
+    }
+    var overscrollHeight: CGFloat {
+        isActiveRoll ? bottomInset + 118 : pastRollOverscroll
+    }
 
     @ViewBuilder
     private func exposureScrollContent() -> some View {
@@ -343,7 +355,7 @@ struct ExposureListView: View {
 
         // Overscroll / drop zone for moving placeholders to end of list
         Color.clear
-            .frame(height: 396)
+            .frame(height: overscrollHeight)
             .contentShape(Rectangle())
             .overlay(alignment: .top) {
                 ExposureDropIndicatorLine(active: dropTargetIndex == logItems.count)
@@ -363,7 +375,7 @@ struct ExposureListView: View {
             .id("scrollAnchor")
 
         Color.clear
-            .frame(height: 40 - 8)
+            .frame(height: totalBottomPadding - overscrollHeight)
     }
 
     var body: some View {
@@ -402,11 +414,9 @@ struct ExposureListView: View {
                     .onScrollGeometryChange(for: Bool.self) { geo in
                         let maxOffset = geo.contentSize.height - geo.containerSize.height + geo.contentInsets.bottom
                         let currentOffset = geo.contentOffset.y + geo.contentInsets.top
-                        return currentOffset >= maxOffset - 300
-                    } action: { prevIsNearBottom, isNearBottom in
-                        if prevIsNearBottom != isNearBottom {
-                            onNearBottomChanged?(isNearBottom)
-                        }
+                        return currentOffset >= maxOffset - nearBottomThreshold
+                    } action: { _, isNearBottom in
+                        onNearBottomChanged?(isNearBottom)
                     }
                 }
             }
@@ -434,8 +444,46 @@ struct ExposureListView: View {
                             onCameraSwitched: onCameraSwitched
                         )
                     }
+                    Spacer(minLength: 0)
+                    Menu {
+                        Button {
+                            // TODO: Notes
+                        } label: {
+                            Label("Notes", systemImage: "text.pad.header")
+                        }
+                        if isActiveRoll {
+                            Button {
+                                onUnloadRoll?()
+                            } label: {
+                                Label("Unload roll", systemImage: "checkmark.arrow.trianglehead.counterclockwise")
+                            }
+                        } else {
+                            Button {
+                                onLoadRoll?()
+                            } label: {
+                                Label("Load roll", systemImage: "arrow.clockwise")
+                            }
+                        }
+                        Button {
+                            // TODO: Add placeholder
+                        } label: {
+                            Label("Add placeholder", systemImage: "questionmark.square.dashed")
+                        }
+                        Button {
+                            // TODO: Add lost frame
+                        } label: {
+                            Label("Add lost frame", systemImage: "xmark.square")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 16, weight: .bold, design: .default))
+                            .foregroundStyle(Color.white.opacity(0.95))
+                            .frame(width: 44, height: 44)
+                            .glassEffectCompat(in: Circle())
+                    }
+                    .accessibilityLabel("Roll options")
                 }
-                .frame(width: UIScreen.currentWidth - 32, height: 44, alignment: .leading)
+                .frame(width: UIScreen.currentWidth - 32, height: 44)
             }
         }
         .preferredColorScheme(.dark)

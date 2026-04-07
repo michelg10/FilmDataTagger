@@ -292,7 +292,10 @@ private struct CaptureButton: View {
     let frameCount: Int
     let frameNumber: Int
     let onCapture: () -> Void
+    let onCaptureAndNote: () -> Void
     let onAddPlaceholder: () -> Void
+    let onAddLostFrame: () -> Void
+    private var settings: AppSettings { .shared }
 
     var body: some View {
         PrimaryButton(enabled: frameCount < 999, action: {
@@ -306,10 +309,25 @@ private struct CaptureButton: View {
         }
         .contextMenu {
             Button {
-                playHaptic(.addPlaceholder)
-                onAddPlaceholder()
+                onCaptureAndNote()
             } label: {
-                Label("Add placeholder", systemImage: "questionmark.square.dashed")
+                Label("Capture and note", systemImage: "text.pad.header")
+            }
+            if settings.holdCapturePlaceholders {
+                Button {
+                    playHaptic(.addPlaceholder)
+                    onAddPlaceholder()
+                } label: {
+                    Label("Add placeholder", systemImage: "questionmark.square.dashed")
+                }
+            }
+            if settings.holdCaptureLostFrames {
+                Button {
+                    playHaptic(.addPlaceholder)
+                    onAddLostFrame()
+                } label: {
+                    Label("Add lost frame", systemImage: "xmark.square")
+                }
             }
         }
         .padding(.horizontal, 15)
@@ -343,6 +361,7 @@ struct CaptureSheet: View {
     let roll: RollSnapshot?
     let onCapture: () async -> Void
     let onAddPlaceholder: () -> Void
+    @Binding var expanded: Bool
 
     private var frameCount: Int { roll?.exposureCount ?? 0 }
     private var frameNumber: Int { frameCount - (roll?.extraExposures ?? 0) + 1 }
@@ -350,7 +369,7 @@ struct CaptureSheet: View {
 
     private static let captureButtonHeight: CGFloat = 63 + 26
 
-    @State private var selectedDetent: Detent = .full
+    private var selectedDetent: Detent { expanded ? .full : .compact }
     @State private var dragStartHeight: CGFloat?
     @State private var dragHeight: CGFloat?
 
@@ -437,7 +456,9 @@ struct CaptureSheet: View {
                 frameCount: frameCount,
                 frameNumber: frameNumber,
                 onCapture: { Task(priority: .userInitiated) { await onCapture() } },
-                onAddPlaceholder: onAddPlaceholder
+                onCaptureAndNote: { /* TODO: Capture and Note */ },
+                onAddPlaceholder: onAddPlaceholder,
+                onAddLostFrame: { /* TODO: Add lost frame */ }
             )
         }
         .frame(maxWidth: .infinity)
@@ -450,7 +471,7 @@ struct CaptureSheet: View {
         dragStartHeight = nil
 
         withAnimation(Self.detentAnimation) {
-            selectedDetent = detent
+            expanded = detent == .full
             dragHeight = nil
         }
 
@@ -498,7 +519,8 @@ struct CaptureSheet: View {
             locationService: vm.locationService,
             roll: nil,
             onCapture: {},
-            onAddPlaceholder: {}
+            onAddPlaceholder: {},
+            expanded: .constant(true)
         )
         .padding([.bottom, .leading, .trailing], 8)
     }

@@ -39,6 +39,15 @@ final class FilmLogViewModel {
     /// Open roll items (exposure screen body).
     private(set) var openRollItems: [LogItemSnapshot] = []
 
+    // MARK: - Capture control state
+
+    /// Whether the capture sheet is expanded. Persisted to UserDefaults for the .preserveLast preference.
+    var captureExpanded: Bool {
+        didSet {
+            UserDefaults.standard.set(captureExpanded, forKey: "lastCaptureControlExpanded")
+        }
+    }
+
     // MARK: - Internal tree (internal for extension access, views see only protocols)
 
     var _cameras: [CameraState] = []
@@ -253,6 +262,13 @@ final class FilmLogViewModel {
 
     init(store: DataStore) {
         self.store = store
+
+        switch AppSettings.shared.captureControlsPreference {
+        case .expanded: captureExpanded = true
+        case .collapsed: captureExpanded = false
+        case .preserveLast: captureExpanded = UserDefaults.standard.object(forKey: "lastCaptureControlExpanded") == nil
+            ? true : UserDefaults.standard.bool(forKey: "lastCaptureControlExpanded")
+        }
 
         // Sync restore from disk — sets openCamera/openRoll before ContentView.init reads them
         restoreOpenStateFromDisk()

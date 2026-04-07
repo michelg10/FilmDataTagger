@@ -114,6 +114,24 @@ extension FilmLogViewModel: RollsViewModel {
         }
     }
 
+    /// Activate the currently open roll. If another roll is currently active on this camera, it will be deactivated.
+    func loadRoll() {
+        guard let camera = _openCamera,
+              let roll = _openRoll else { return }
+        // Deactivate the previously active roll
+        if let previousActive = camera.activeRoll, previousActive.id != roll.id {
+            previousActive.snapshot.isActive = false
+        }
+        roll.snapshot.isActive = true
+        camera.activeRoll = roll
+        camera.snapshot.activeRoll = roll.snapshot
+        publishSnapshots()
+        persistOpenState()
+        Task.detached(priority: .medium) { [store, rollID = roll.id] in
+            await store.loadRoll(id: rollID)
+        }
+    }
+
     /// Deactivate the current active roll without creating a new one.
     func unloadRoll() {
         guard let camera = _openCamera,

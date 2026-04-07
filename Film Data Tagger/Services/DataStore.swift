@@ -315,6 +315,25 @@ actor DataStore: ModelActor {
         save()
     }
 
+    /// Activate a roll. Deactivates any other active roll on the same camera. The VM has already updated its local state optimistically.
+    ///
+    /// Not high priority: do not await
+    func loadRoll(id: UUID) {
+        guard let roll = fetchRoll(id) else {
+            debugLog("loadRoll: roll \(id) not found")
+            remoteDataChanged.send()
+            return
+        }
+        // Deactivate any other active roll on the same camera
+        if let camera = roll.camera {
+            for r in camera.rolls ?? [] where r.isActive && r.id != id {
+                r.isActive = false
+            }
+        }
+        roll.isActive = true
+        save()
+    }
+
     /// Deactivate a roll without deleting it. The VM has already updated its local state optimistically.
     ///
     /// Not high priority: do not await

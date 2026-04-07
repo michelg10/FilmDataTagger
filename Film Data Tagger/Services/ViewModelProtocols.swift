@@ -55,6 +55,8 @@ protocol ExposuresViewModel: AnyObject, Observable {
     func movePlaceholderToEnd(_ item: LogItemSnapshot)
     func cycleExtraExposures()
     func unloadRoll()
+    func loadRoll()
+    var captureExpanded: Bool { get set }
 }
 
 // MARK: - Exposure Menus (camera switcher + move-to-roll)

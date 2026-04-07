@@ -167,12 +167,12 @@ struct ContentView: View {
                 path.append(ExposureMarker())
             }
         }) { cameraID in
-            let activeRoll = viewModel.openCameraRolls?.activeRoll
+            let referenceRoll = viewModel.openCameraRolls?.activeRoll ?? viewModel.openCameraRolls?.pastRolls.first
             RollFormSheet(
                 cameraID: cameraID,
-                defaultFilmStock: activeRoll?.filmStock,
-                defaultCapacity: activeRoll?.capacity,
-                allowSubmitWithPlaceholder: activeRoll != nil,
+                defaultFilmStock: referenceRoll?.filmStock,
+                defaultCapacity: referenceRoll?.capacity,
+                allowSubmitWithPlaceholder: referenceRoll != nil,
                 onRollCreated: {
                     pendingRollNavigation = true
                 },

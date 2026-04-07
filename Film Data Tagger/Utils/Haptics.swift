@@ -14,6 +14,7 @@ enum Haptic {
     case sheetDetentChange
     case newRollOrCamera
     case cycleExtraExposures
+    case loadUnloadRoll
 
     var intensity: Float {
         switch self {
@@ -23,6 +24,7 @@ enum Haptic {
         case .sheetDetentChange: return 0.44
         case .newRollOrCamera:        return 0.77
         case .cycleExtraExposures:    return 0.30
+        case .loadUnloadRoll:    return 0.76
         }
     }
 
@@ -34,6 +36,7 @@ enum Haptic {
         case .sheetDetentChange: return 0.18
         case .newRollOrCamera:        return 0.31
         case .cycleExtraExposures:    return 0.75
+        case .loadUnloadRoll:    return 0.71
         }
     }
 }
