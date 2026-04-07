@@ -106,6 +106,7 @@ Debug info may include:
                     }
                     .frame(height: 61)
                     .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
                 }
                 .glassEffectCompat(tint: .accentColor, in: Capsule(), interactive: true, fallbackColor: .accentColor)
                 .buttonStyle(.plain)
@@ -118,7 +119,8 @@ Debug info may include:
                         .foregroundStyle(Color.white.opacity(0.5))
                         .padding(.vertical, 20)
                         .frame(maxWidth: .infinity)
-                }.contentShape(Rectangle())
+                        .contentShape(Rectangle())
+                }
                 .buttonStyle(.plain)
             }.padding(.horizontal, 26)
         }.frame(maxWidth: .infinity)
