@@ -7,6 +7,7 @@ import Foundation
 import UIKit
 import AVFoundation
 import CloudKit
+import StoreKit
 
 /// Generates a debug report file containing device info, app settings, and the error log.
 enum DebugReport {
@@ -122,7 +123,7 @@ enum DebugReport {
 
         // Distribution channel
         report += "--- Distribution ---\n"
-        report += "Channel: \(distributionChannel())\n"
+        report += "Channel: \(await distributionChannel())\n"
         report += "\n"
 
         // Error log
@@ -237,18 +238,23 @@ enum DebugReport {
         return "Storage: \(free / 1024 / 1024 / 1024) GB free / \(total / 1024 / 1024 / 1024) GB total\n"
     }
 
-    private static func distributionChannel() -> String {
-        if let receiptURL = Bundle.main.appStoreReceiptURL {
-            if receiptURL.lastPathComponent == "sandboxReceipt" {
-                return "TestFlight"
+    private static func distributionChannel() async -> String {
+        do {
+            let result = try await AppTransaction.shared
+            let appTransaction: AppTransaction
+            switch result {
+            case .verified(let tx), .unverified(let tx, _):
+                appTransaction = tx
             }
-            return "App Store"
+            switch appTransaction.environment {
+            case .production: return "App Store"
+            case .sandbox:    return "TestFlight"
+            case .xcode:      return "Xcode"
+            default:          return "Unknown"
+            }
+        } catch {
+            return "Failed: \(error)"
         }
-        #if DEBUG
-        return "Debug"
-        #else
-        return "Unknown"
-        #endif
     }
 
     private static func batteryStateString(_ state: UIDevice.BatteryState) -> String {

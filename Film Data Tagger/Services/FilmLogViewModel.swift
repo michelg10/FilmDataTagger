@@ -380,12 +380,12 @@ final class FilmLogViewModel {
                     return
                 }
                 do {
-                    try data.write(to: Self.openStateURL, options: .atomic)
+                    try await data.write(to: Self.openStateURL, options: .atomic)
                 } catch {
                     errorLog("writeOpenStateAsync: failed to write: \(error)")
                 }
             } else {
-                try? FileManager.default.removeItem(at: Self.openStateURL)
+                try? await FileManager.default.removeItem(at: Self.openStateURL)
             }
         }
     }
@@ -461,12 +461,12 @@ final class FilmLogViewModel {
                     return
                 }
                 do {
-                    try data.write(to: Self.openStateURL, options: .atomic)
+                    try await data.write(to: Self.openStateURL, options: .atomic)
                 } catch {
                     errorLog("persistOpenState: failed to write: \(error)")
                 }
             } else {
-                try? FileManager.default.removeItem(at: Self.openStateURL)
+                try? await FileManager.default.removeItem(at: Self.openStateURL)
             }
         }
     }

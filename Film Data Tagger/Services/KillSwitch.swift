@@ -185,16 +185,30 @@ final class KillSwitch {
     // MARK: - Network
 
     private nonisolated func fetch() async {
-        var request = URLRequest(url: Self.manifestURL)
+        var request = await URLRequest(url: Self.manifestURL)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 10
 
         let data: Data
+        let response: URLResponse
         do {
-            (data, _) = try await URLSession.shared.data(for: request)
+            (data, response) = try await URLSession.shared.data(for: request)
         } catch {
             // Fail open — keep persisted state from last successful fetch.
             debugLog("KillSwitch fetch failed: \(error)")
+            return
+        }
+
+        // Only trust 200 responses. A 404, 5xx, or any other status means
+        // either the manifest was removed, the host is misconfigured, or
+        // GitHub Pages is serving an error page that could decode as garbage.
+        // Fail open in all those cases.
+        guard let http = response as? HTTPURLResponse else {
+            errorLog("KillSwitch fetch: response was not an HTTPURLResponse")
+            return
+        }
+        guard http.statusCode == 200 else {
+            errorLog("KillSwitch fetch: non-200 status \(http.statusCode), ignoring response")
             return
         }
 
