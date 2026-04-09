@@ -217,7 +217,7 @@ struct ExposureScreen: View {
                     expanded: Binding(get: { viewModel.captureExpanded }, set: { viewModel.captureExpanded = $0 })
                 )
                 .clipShape(captureSheetRectangle)
-                .glassEffectCompat(in: captureSheetRectangle)
+                .glassEffectCompat(in: captureSheetRectangle, interactive: false)
                 .overlay(alignment: .top) {
                     FinishRollOverlay(
                         scrollState: scrollState,

@@ -51,8 +51,7 @@ struct ShareDebugDataSheet: View {
                     .foregroundStyle(Color.white.opacity(0.95))
                     .frame(width: 44, height: 44)
                     .contentShape(Circle())
-                    .glassEffectCompat(in: Circle())
-            }
+            }.glassEffectCompat(in: Circle())
             .accessibilityLabel("Close")
             .padding(.trailing, 16)
             .frame(maxWidth: .infinity, alignment: .trailing)

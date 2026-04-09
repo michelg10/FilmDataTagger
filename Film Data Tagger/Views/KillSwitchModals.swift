@@ -37,8 +37,7 @@ struct KillModal<HamburgerMenuContents: View>: View {
                         Image(systemName: "xmark")
                             .frame(width: 44, height: 44)
                             .contentShape(Circle())
-                            .glassEffectCompat(in: Circle(), interactive: true)
-                    }
+                    }.glassEffectCompat(in: Circle(), interactive: true)
                 }
             }.font(.system(size: 20, weight: .semibold, design: .default))
             .foregroundStyle(Color.white.opacity(0.95))
