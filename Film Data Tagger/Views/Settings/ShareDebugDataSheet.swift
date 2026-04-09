@@ -108,7 +108,7 @@ Debug info may include:
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
                 }
-                .glassEffectCompat(tint: .accentColor, in: Capsule(), interactive: true, fallbackColor: .accentColor)
+                .glassEffectCompat(tint: .accentColor, in: Capsule(), interactive: true, fallbackColor: Color(hex: 0x005dcb))
                 .buttonStyle(.plain)
                 Button {
                     dismiss()

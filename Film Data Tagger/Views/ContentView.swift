@@ -31,6 +31,10 @@ struct ContentView: View {
     @State private var pendingRollNavigation = false
     @State private var selectedCameraID: UUID?
     @State private var showSettings = false
+    /// Populated from `.task` so the singleton's first access happens *after*
+    /// the first frame, never as part of `ContentView.init()`. Until populated,
+    /// the kill switch sheet is implicitly hidden because state defaults to .none.
+    @State private var killSwitch: KillSwitch?
 
     init(viewModel: FilmLogViewModel) {
         self.viewModel = viewModel
@@ -183,6 +187,41 @@ struct ContentView: View {
         .preferredColorScheme(.dark)
         .sheet(isPresented: $showSettings) {
             SettingsSheet(viewModel: viewModel)
+        }
+        .task {
+            if killSwitch == nil {
+                let ks = KillSwitch.shared
+                await ks.setup()
+                killSwitch = ks
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { (killSwitch?.state ?? .none) != .none },
+            set: { _ in /* never dismissed by binding — only by user actions */ }
+        )) {
+            // Single sheet, content switches based on state. This avoids
+            // SwiftUI brittleness around presenting one modal while another
+            // is still mid-dismiss when a soft kill escalates to a hard kill.
+            Group {
+                if let killSwitch {
+                    switch killSwitch.state {
+                    case .soft:
+                        SoftKillModal(
+                            appStoreURL: killSwitch.appStoreURL,
+                            onDontShowAgain: { killSwitch.dismissSoftKillForever() },
+                            onDismiss: { killSwitch.dismissSoftKillTemporary() }
+                        )
+                    case .hard:
+                        HardKillModal(
+                            appStoreURL: killSwitch.appStoreURL,
+                            onContinueAnyway: { killSwitch.continueAnyway() }
+                        )
+                    case .none:
+                        EmptyView()
+                    }
+                }
+            }
+            .interactiveDismissDisabled(true)
         }
         .onChange(of: cameras.map(\.id)) {
             validateNavigationPath()
