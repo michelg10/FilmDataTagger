@@ -60,7 +60,8 @@ actor DataStore: ModelActor {
         // Build snapshots and seed the diff cache (minimal — own fields only)
         let cameraSnapshots = cameras.map { $0.snapshot }
         let rollSnapshots = allRolls.map { $0.snapshot }
-        let itemSnapshots = allItems.map { $0.snapshot }
+        let fmts = LogItem.SnapshotDateFormatters()
+        let itemSnapshots = allItems.map { $0.snapshot(formatters: fmts) }
         let fetchMs = (CFAbsoluteTimeGetCurrent() - fetchStart) * 1000
         lastCameras = cameraSnapshots
         lastRolls = rollSnapshots
@@ -552,7 +553,8 @@ actor DataStore: ModelActor {
         do {
             freshCameras = try modelContext.fetch(FetchDescriptor<Camera>(sortBy: [SortDescriptor(\.listOrder)])).map { $0.snapshot }
             freshRolls = try modelContext.fetch(FetchDescriptor<Roll>()).map { $0.snapshot }
-            freshItems = try modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)])).map { $0.snapshot }
+            let remoteFmts = LogItem.SnapshotDateFormatters()
+            freshItems = try modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)])).map { $0.snapshot(formatters: remoteFmts) }
         } catch {
             errorLog("handleRemoteChange: fetch failed, skipping: \(error)")
             return

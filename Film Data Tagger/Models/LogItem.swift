@@ -203,13 +203,30 @@ final class LogItem {
 
     // MARK: - Snapshot
 
-    var snapshot: LogItemSnapshot {
-        // Capture TZ formatting (immutable)
+    /// Reusable formatter cache for bulk snapshot creation. Avoids constructing
+    /// a new `Date.FormatStyle` for every item in `loadAll()`.
+    final class SnapshotDateFormatters {
+        let localTime = Date.FormatStyle.dateTime.hour().minute()
+        let localDate = Date.FormatStyle.dateTime.month().day().year()
+        private var capturedCache: [String: (time: Date.FormatStyle, date: Date.FormatStyle)] = [:]
+
+        func captured(for tz: TimeZone) -> (time: Date.FormatStyle, date: Date.FormatStyle) {
+            let key = tz.identifier
+            if let cached = capturedCache[key] { return cached }
+            var timeFmt = Date.FormatStyle.dateTime.hour().minute()
+            timeFmt.timeZone = tz
+            var dateFmt = Date.FormatStyle.dateTime.month().day().year()
+            dateFmt.timeZone = tz
+            let pair = (timeFmt, dateFmt)
+            capturedCache[key] = pair
+            return pair
+        }
+    }
+
+    func snapshot(formatters: SnapshotDateFormatters) -> LogItemSnapshot {
+        // Capture TZ formatting — reuses cached formatters per timezone
         let capturedTZ = timeZoneIdentifier.flatMap { TimeZone(identifier: $0) } ?? .current
-        var capTimeFmt = Date.FormatStyle.dateTime.hour().minute()
-        capTimeFmt.timeZone = capturedTZ
-        var capDateFmt = Date.FormatStyle.dateTime.month().day().year()
-        capDateFmt.timeZone = capturedTZ
+        let (capTimeFmt, capDateFmt) = formatters.captured(for: capturedTZ)
 
         // Device TZ formatting (recomputed by DataStore on TZ change)
         let hasDifferentTZ = capturedTZ.secondsFromGMT(for: createdAt)
@@ -237,11 +254,17 @@ final class LogItem {
             hasPhoto: cachedHasPhoto,
             formattedTime: createdAt.formatted(capTimeFmt),
             formattedDate: createdAt.formatted(capDateFmt),
-            localFormattedTime: createdAt.formatted(.dateTime.hour().minute()),
-            localFormattedDate: createdAt.formatted(.dateTime.month().day().year()),
+            localFormattedTime: createdAt.formatted(formatters.localTime),
+            localFormattedDate: createdAt.formatted(formatters.localDate),
             hasDifferentTimeZone: hasDifferentTZ,
             capturedTZLabel: capturedTZLabel
         )
+    }
+
+    /// Convenience for single-item snapshots (e.g. previews) where formatter
+    /// reuse doesn't matter.
+    var snapshot: LogItemSnapshot {
+        snapshot(formatters: SnapshotDateFormatters())
     }
 
     /// Extracts a city name from a time zone identifier (e.g., "America/Los_Angeles" → "Los Angeles")
