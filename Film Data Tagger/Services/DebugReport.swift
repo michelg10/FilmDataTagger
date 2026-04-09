@@ -200,9 +200,9 @@ enum DebugReport {
 
         var s = ""
         s += "Version: \(version) (build \(build))\n"
-        s += "Device UUID: \(install.deviceID)\n"
-        s += "First opened (this device): \(iso.string(from: install.thisDeviceFirstOpened))\n"
-        s += "First opened (any device): \(iso.string(from: install.firstEverOpened))\n"
+        s += "Device UUID: \(install.deviceID ?? "loading")\n"
+        s += "First opened (this device): \(install.thisDeviceFirstOpened.map { iso.string(from: $0) } ?? "loading")\n"
+        s += "First opened (any device): \(install.firstEverOpened.map { iso.string(from: $0) } ?? "loading")\n"
         s += "Previous build: \(versionTracker.previousBuild.map(String.init) ?? "none")\n"
         s += "Last launch: \(lastLaunch)\n"
         s += "Data: \(cameras.count) cameras, \(totalRolls) rolls, \(totalExposures) exposures\n"

@@ -189,11 +189,21 @@ struct ContentView: View {
             SettingsSheet(viewModel: viewModel)
         }
         .task {
+            // Run on main, after first frame. Order matters: version tracker
+            // first so KillSwitch reads a fully-initialized currentBuild;
+            // install tracker last since nothing depends on it. Yield between
+            // each step so the main runloop can handle anything pending
+            // (rendering updates, gestures) between blocks of synchronous work.
+            await Task.yield()
+            _ = AppVersionTracker.shared
+            await Task.yield()
             if killSwitch == nil {
                 let ks = KillSwitch.shared
                 await ks.setup()
                 killSwitch = ks
             }
+            await Task.yield()
+            _ = AppInstallTracker.shared
         }
         .sheet(isPresented: Binding(
             get: { (killSwitch?.state ?? .none) != .none },
