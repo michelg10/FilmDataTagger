@@ -9,6 +9,31 @@ import AppIntents
 import SwiftData
 import CoreLocation
 
+/// Per-process ModelContainer for the AppIntents extension. Lives here (not
+/// in the main app) because the intent extension runs in its own process and
+/// needs its own container; the main app uses `SharedDataStore` instead and
+/// has no SwiftUI dependence on a shared container.
+enum SharedModelContainer {
+    @MainActor
+    static let shared: ModelContainer = {
+        let schema = Schema(versionedSchema: SchemaV1.self)
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .automatic
+        )
+        do {
+            return try ModelContainer(
+                for: schema,
+                migrationPlan: FilmDataTaggerMigrationPlan.self,
+                configurations: [config]
+            )
+        } catch {
+            fatalError("Could not create ModelContainer: \(error)")
+        }
+    }()
+}
+
 // MARK: - Camera App Entity
 
 struct CameraEntity: AppEntity {

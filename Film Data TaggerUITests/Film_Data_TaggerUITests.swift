@@ -34,7 +34,9 @@ final class Film_Data_TaggerUITests: XCTestCase {
     @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
+        let options = XCTMeasureOptions()
+        options.iterationCount = 10
+        measure(metrics: [XCTApplicationLaunchMetric()], options: options) {
             XCUIApplication().launch()
         }
     }
