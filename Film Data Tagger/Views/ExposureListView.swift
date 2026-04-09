@@ -130,6 +130,7 @@ private struct ExposureRow: View, Equatable {
     let exposureNumber: Int?
     var isPreFrame: Bool = false
     var canCycleExtraExposures: Bool = false
+    var canLongPressCycleExtraExposures: Bool = false
     var menuContext: (any ExposureMenuContext)?
     var onCameraSwitched: ((UUID) -> Void)?
     var onDelete: ((LogItemSnapshot) -> Void)?
@@ -139,11 +140,12 @@ private struct ExposureRow: View, Equatable {
         lhs.item == rhs.item &&
         lhs.exposureNumber == rhs.exposureNumber &&
         lhs.isPreFrame == rhs.isPreFrame &&
-        lhs.canCycleExtraExposures == rhs.canCycleExtraExposures
+        lhs.canCycleExtraExposures == rhs.canCycleExtraExposures &&
+        lhs.canLongPressCycleExtraExposures == rhs.canLongPressCycleExtraExposures
     }
 
     var body: some View {
-        ExposureLogItemView(item: item, exposureNumber: exposureNumber, isPreFrame: isPreFrame, onCycleExtraExposures: canCycleExtraExposures ? onCycleExtraExposures : nil)
+        ExposureLogItemView(item: item, exposureNumber: exposureNumber, isPreFrame: isPreFrame, onCycleExtraExposures: canCycleExtraExposures ? onCycleExtraExposures : nil, onLongPressCycleExtraExposures: canLongPressCycleExtraExposures ? onCycleExtraExposures : nil)
             .frame(height: exposureItemHeight, alignment: .center)
             .contentShape(Rectangle())
             .contextMenu {
@@ -318,6 +320,7 @@ struct ExposureListView: View {
                     exposureNumber: frameNumber,
                     isPreFrame: isPreFrame,
                     canCycleExtraExposures: index < 4 && isActiveRoll && AppSettings.shared.preFramesEnabled,
+                    canLongPressCycleExtraExposures: index < 4 && !isActiveRoll && AppSettings.shared.preFramesEnabled,
                     menuContext: menuContext,
                     onCameraSwitched: onCameraSwitched,
                     onDelete: onDelete,

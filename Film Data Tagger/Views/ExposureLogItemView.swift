@@ -15,6 +15,7 @@ struct ExposureLogItemView: View {
     let exposureNumber: Int?
     var isPreFrame: Bool = false
     var onCycleExtraExposures: (() -> Void)?
+    var onLongPressCycleExtraExposures: (() -> Void)?
     @State private var showingLocalTime = false
     @State private var previewImage: Image?
 
@@ -23,6 +24,7 @@ struct ExposureLogItemView: View {
             exposureNumber: exposureNumber,
             isPreFrame: isPreFrame,
             onFrameNumberTapped: onCycleExtraExposures,
+            onFrameNumberLongPressed: onLongPressCycleExtraExposures,
             previewImage: previewImage,
             isFromShortcut: item.source == ExposureSource.shortcut.rawValue,
             exposureType: item.exposureType,
