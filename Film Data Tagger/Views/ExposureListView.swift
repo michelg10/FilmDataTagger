@@ -396,10 +396,8 @@ struct ExposureListView: View {
                     ScrollView {
                         exposureScrollContent()
                     }
+                    .defaultScrollAnchor(.bottom)
                     .onAppear {
-                        if !logItems.isEmpty {
-                            proxy.scrollTo("scrollAnchor", anchor: .bottom)
-                        }
                         onScrollToBottomRegistered?({
                             withAnimation {
                                 proxy.scrollTo("scrollAnchor", anchor: .bottom)

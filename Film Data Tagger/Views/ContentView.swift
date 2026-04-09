@@ -36,6 +36,16 @@ struct ContentView: View {
     /// the kill switch sheet is implicitly hidden because state defaults to .none.
     @State private var killSwitch: KillSwitch?
 
+    /// Defers construction of CameraListView (the NavigationStack root) on
+    /// deep-link cold launches. When `false`, the root renders as
+    /// `Color.clear` — CameraListView's body never evaluates, saving work
+    /// and preventing stale animation state. Flips to `true` when the user
+    /// navigates close enough to the root that CameraListView needs to be
+    /// ready (path.count ≤ 1), and stays `true` thereafter.
+    @State private var renderRoot: Bool
+
+    @Environment(\.scenePhase) private var scenePhase
+
     init(viewModel: FilmLogViewModel) {
         self.viewModel = viewModel
         var initialPath = NavigationPath()
@@ -50,6 +60,7 @@ struct ContentView: View {
         }
         _path = State(initialValue: initialPath)
         _selectedCameraID = State(initialValue: initialCameraID)
+        _renderRoot = State(initialValue: initialPath.isEmpty)
     }
 
     // Path depth: 0 = camera list, 1 = roll list, 2 = exposure screen
@@ -62,38 +73,44 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            CameraListView(viewModel: viewModel, onCameraSelected: { id in
-                    guard path.isEmpty else { return }
-                    selectedCameraID = id
-                    viewModel.navigateToCamera(id)
-                    path.append(id)
-                })
-                .navigationDestination(for: UUID.self) { id in
-                    if cameras.contains(where: { $0.id == id }) {
-                        RollListView(
-                            viewModel: viewModel,
-                            onRollSelected: { _ in
-                                guard !isOnExposureList else { return }
-                                path.append(ExposureMarker())
-                            }
-                        )
-                    }
+            Group {
+                if renderRoot {
+                    CameraListView(viewModel: viewModel, onCameraSelected: { id in
+                        guard path.isEmpty else { return }
+                        selectedCameraID = id
+                        viewModel.navigateToCamera(id)
+                        path.append(id)
+                    })
+                } else {
+                    Color.clear
                 }
-                .navigationDestination(for: ExposureMarker.self) { _ in
-                    ExposureScreen(
+            }
+            .navigationDestination(for: UUID.self) { id in
+                if cameras.contains(where: { $0.id == id }) {
+                    RollListView(
                         viewModel: viewModel,
-                        menuContext: viewModel,
-                        onCameraSwitched: { cameraID in
-                            var newPath = NavigationPath()
-                            newPath.append(cameraID)
-                            newPath.append(ExposureMarker())
-                            path = newPath
-                            selectedCameraID = cameraID
-                        },
-                        onCreateRoll: { viewModel.createRoll(cameraID: $0, filmStock: $1, capacity: $2) },
-                        onEditRoll: { viewModel.editRoll(id: $0, filmStock: $1, capacity: $2) }
+                        onRollSelected: { _ in
+                            guard !isOnExposureList else { return }
+                            path.append(ExposureMarker())
+                        }
                     )
                 }
+            }
+            .navigationDestination(for: ExposureMarker.self) { _ in
+                ExposureScreen(
+                    viewModel: viewModel,
+                    menuContext: viewModel,
+                    onCameraSwitched: { cameraID in
+                        var newPath = NavigationPath()
+                        newPath.append(cameraID)
+                        newPath.append(ExposureMarker())
+                        path = newPath
+                        selectedCameraID = cameraID
+                    },
+                    onCreateRoll: { viewModel.createRoll(cameraID: $0, filmStock: $1, capacity: $2) },
+                    onEditRoll: { viewModel.editRoll(id: $0, filmStock: $1, capacity: $2) }
+                )
+            }
         }
         .overlay(alignment: .bottom) {
             HStack(spacing: 0) {
@@ -189,11 +206,13 @@ struct ContentView: View {
             SettingsSheet(viewModel: viewModel)
         }
         .task {
-            // Run on main, after first frame. Order matters: version tracker
-            // first so KillSwitch reads a fully-initialized currentBuild;
-            // install tracker last since nothing depends on it. Yield between
-            // each step so the main runloop can handle anything pending
-            // (rendering updates, gestures) between blocks of synchronous work.
+            // Run on main, after first frame. The VM setup awaits the deferred
+            // DataStore (built off-main since App.init), then wires up the
+            // Combine sink and kicks off the loadAll pipeline. Order matters:
+            // version tracker before KillSwitch (which reads currentBuild),
+            // install tracker last (nothing depends on it). Yield between
+            // steps so the main runloop can handle anything pending.
+            await viewModel.setup()
             await Task.yield()
             _ = AppVersionTracker.shared
             await Task.yield()
@@ -239,6 +258,18 @@ struct ContentView: View {
         .onChange(of: viewModel.openRollSnapshot?.id) {
             validateNavigationPath()
         }
+        .onChange(of: path.count) { _, newCount in
+            // Construct CameraListView one navigation step before it would
+            // be visible, so SwiftUI has it ready for the pop animation.
+            if newCount <= 1 { renderRoot = true }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                viewModel.onForeground()
+            } else if phase == .background {
+                viewModel.onBackground()
+            }
+        }
     }
 
     /// Pop the nav path if the selected camera or roll no longer exists (e.g. deleted via iCloud sync).
@@ -260,7 +291,8 @@ struct ContentView: View {
 
 #Preview {
     let container = PreviewSampleData.makeContainer()
-    let viewModel = FilmLogViewModel(store: PreviewSampleData.makeStore(container: container))
+    let viewModel = FilmLogViewModel(previewStore: PreviewSampleData.makeStore(container: container))
     ContentView(viewModel: viewModel)
         .modelContainer(container)
+        .environment(viewModel)
 }

@@ -16,7 +16,9 @@ extension FilmLogViewModel: RollsViewModel {
         publishSnapshots()
         // Pre-warm active roll thumbnails
         if let activeRollID = _openCamera?.activeRoll?.id {
-            Task.detached(priority: .utility) { [store] in
+            Task.detached(priority: .utility) { [weak self] in
+                guard let self else { return }
+                let store = await self.store
                 await store.warmRollThumbnails(activeRollID)
             }
         }
@@ -27,10 +29,14 @@ extension FilmLogViewModel: RollsViewModel {
         _openRoll = roll(rollID)
         publishSnapshots()
         persistOpenState()
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.warmRollThumbnails(rollID)
         }
-        Task.detached(priority: .utility) { [store] in
+        Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.geocodeItemsInRoll(rollID)
             await store.repairPlaceholderTimestamps(rollID: rollID)
         }
@@ -47,10 +53,14 @@ extension FilmLogViewModel: RollsViewModel {
         _openRoll = activeRoll
         publishSnapshots()
         persistOpenState()
-        Task.detached(priority: .medium) { [store] in
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.warmRollThumbnails(activeRoll.id)
         }
-        Task.detached(priority: .utility) { [store] in
+        Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.geocodeItemsInRoll(activeRoll.id)
             await store.repairPlaceholderTimestamps(rollID: activeRoll.id)
         }
@@ -91,7 +101,9 @@ extension FilmLogViewModel: RollsViewModel {
         camera.snapshot.activeRoll = newRoll.snapshot
         publishSnapshots()
         persistOpenState()
-        Task.detached(priority: .medium) { [store] in
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.createRoll(id: id, cameraID: cameraID, filmStock: filmStock, capacity: capacity, createdAt: createdAt)
         }
         return id
@@ -109,7 +121,9 @@ extension FilmLogViewModel: RollsViewModel {
         }
         publishSnapshots()
         persistOpenState()
-        Task.detached(priority: .medium) { [store] in
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.editRoll(id: id, filmStock: filmStock, capacity: capacity)
         }
     }
@@ -127,7 +141,10 @@ extension FilmLogViewModel: RollsViewModel {
         camera.snapshot.activeRoll = roll.snapshot
         publishSnapshots()
         persistOpenState()
-        Task.detached(priority: .medium) { [store, rollID = roll.id] in
+        let rollID = roll.id
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.loadRoll(id: rollID)
         }
     }
@@ -141,7 +158,10 @@ extension FilmLogViewModel: RollsViewModel {
         camera.snapshot.activeRoll = nil
         publishSnapshots()
         persistOpenState()
-        Task.detached(priority: .medium) { [store, rollID = roll.id] in
+        let rollID = roll.id
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.unloadRoll(id: rollID)
         }
     }
@@ -166,7 +186,9 @@ extension FilmLogViewModel: RollsViewModel {
         }
         publishSnapshots()
         persistOpenState()
-        Task.detached(priority: .medium) { [store] in
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.deleteRoll(id: id)
         }
     }

@@ -22,7 +22,9 @@ extension FilmLogViewModel: CamerasViewModel {
         )
         _cameras.append(CameraState(snapshot: snapshot))
         publishSnapshots()
-        Task.detached(priority: .medium) { [store] in
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.createCamera(id: id, name: name, listOrder: listOrder, createdAt: createdAt)
         }
         return id
@@ -33,7 +35,9 @@ extension FilmLogViewModel: CamerasViewModel {
             target.snapshot.name = name
         }
         publishSnapshots()
-        Task.detached(priority: .medium) { [store] in
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.renameCamera(id: id, name: name)
         }
     }
@@ -46,7 +50,9 @@ extension FilmLogViewModel: CamerasViewModel {
         _cameras.removeAll { $0.id == id }
         publishSnapshots()
         persistOpenState()
-        Task.detached(priority: .medium) { [store] in
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.deleteCamera(id: id)
         }
     }
@@ -61,7 +67,9 @@ extension FilmLogViewModel: CamerasViewModel {
         }
         _cameras = reordered
         publishSnapshots()
-        Task.detached(priority: .medium) { [store] in
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.reorderCameras(orderedIDs: orderedIDs)
         }
     }

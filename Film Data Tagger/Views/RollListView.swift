@@ -340,14 +340,13 @@ struct RollListView: View {
         let pastRoll = Roll(filmStock: "Fuji Superia 400", camera: camera)
         pastRoll.isActive = false
         context.insert(pastRoll)
-        let vm = FilmLogViewModel(store: PreviewSampleData.makeStore(container: container))
-        vm.setup()
-        return vm
+        return FilmLogViewModel(previewStore: PreviewSampleData.makeStore(container: container))
     }()
 
     NavigationStack {
         RollListView(viewModel: viewModel)
     }
     .modelContainer(container)
+    .environment(viewModel)
     .preferredColorScheme(.dark)
 }

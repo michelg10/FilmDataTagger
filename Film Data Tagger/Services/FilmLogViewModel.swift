@@ -7,12 +7,32 @@
 
 import Foundation
 import SwiftUI
+import SwiftData
 import Combine
 
 @Observable
 @MainActor
 final class FilmLogViewModel {
-    let store: DataStore
+    /// Future for the data store. Construction runs off-main during init so
+    /// the main thread is never blocked waiting for SwiftData/CloudKit setup.
+    /// All store-touching code paths should access via the async `store`
+    /// accessor below, which awaits this task. Once the task completes,
+    /// subsequent reads return immediately (Task caches the result).
+    ///
+    /// `nonisolated let` so non-MainActor callers can capture this Task
+    /// directly without bouncing through the main actor (e.g.
+    /// `ExposureLogItemView`'s thumbnail-recovery `Task.detached`).
+    @ObservationIgnored
+    nonisolated let storeTask: Task<DataStore, Never>
+
+    /// Async accessor for the data store. Returns immediately once the
+    /// background init has completed; otherwise suspends until it does.
+    /// Store operations are already optimistic — this just extends that
+    /// to the store object itself, so callers never need nil checks.
+    nonisolated var store: DataStore {
+        get async { await storeTask.value }
+    }
+
     let settings = AppSettings.shared
     let camera = CameraController()
     let locationService = LocationService()
@@ -260,8 +280,17 @@ final class FilmLogViewModel {
         }
     }
 
-    init(store: DataStore) {
-        self.store = store
+    /// Designated init. Stores the supplied storeTask and runs the
+    /// synchronous launch-prefix work (preference reads + persisted-state
+    /// restore).
+    ///
+    /// **Don't call directly.** Use `init()` for production, or
+    /// `init(previewStore:)` (in `FilmLogViewModel+Preview.swift`) for
+    /// SwiftUI previews. This init is `internal` only because Swift
+    /// requires the designated init to be visible to convenience inits in
+    /// other-file extensions.
+    init(storeTask: Task<DataStore, Never>) {
+        self.storeTask = storeTask
 
         switch AppSettings.shared.captureControlsPreference {
         case .expanded: captureExpanded = true
@@ -272,16 +301,46 @@ final class FilmLogViewModel {
 
         // Sync restore from disk — sets openCamera/openRoll before ContentView.init reads them
         restoreOpenStateFromDisk()
+    }
+
+    /// Production init. Kicks off SwiftData/CloudKit container construction
+    /// off-main; the main thread does NOT wait — the storeTask is awaited
+    /// later by callers via the `store` accessor.
+    convenience init() {
+        self.init(storeTask: Task.detached(priority: .userInitiated) {
+            let schema = Schema(versionedSchema: SchemaV1.self)
+            let config = ModelConfiguration(
+                schema: schema,
+                isStoredInMemoryOnly: false,
+                cloudKitDatabase: .automatic
+            )
+            let container: ModelContainer
+            do {
+                container = try ModelContainer(
+                    for: schema,
+                    migrationPlan: FilmDataTaggerMigrationPlan.self,
+                    configurations: [config]
+                )
+            } catch {
+                fatalError("Could not create ModelContainer: \(error)")
+            }
+            return DataStore(modelContainer: container)
+        })
+    }
+
+    // MARK: - Setup
+
+    /// Async setup. Called from ContentView's `.task` after first frame paints.
+    /// Awaits the deferred store, then wires up the Combine sink and kicks off
+    /// the background load pipeline. None of this work blocks the launch path.
+    func setup() async {
+        let store = await self.store
 
         store.remoteDataChanged
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.handleRemoteDataChanged() }
             .store(in: &cancellables)
-    }
 
-    // MARK: - Setup
-
-    func setup() {
         camera.setup()
         locationService.setup()
 
@@ -290,9 +349,10 @@ final class FilmLogViewModel {
         recordAppLaunch()
 
         // Full async load — replaces the minimal persisted state with the real tree
-        Task.detached(priority: .userInitiated) { [store, weak self] in
-            let (tree, version) = await store.loadAll()
+        Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
+            let store = await self.store
+            let (tree, version) = await store.loadAll()
 
             await self.applyFullTree(tree, version: version)
             await store.observeRemoteChanges()
@@ -300,7 +360,8 @@ final class FilmLogViewModel {
             // Background work — lower priority, not blocking UI
             Task.detached(priority: .utility) { [weak self] in
                 guard let self else { return }
-                
+                let store = await self.store
+
                 await store.startTimezoneChangeDetection()
                 await store.warmThumbnailCache()
 
@@ -326,10 +387,14 @@ final class FilmLogViewModel {
         camera.recheckPermission()
         let cutoff = settings.lastForegroundDate ?? Date()
         settings.lastForegroundDate = Date()
-        Task.detached(priority: .medium) { [store] in
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.checkTimezoneChange()
         }
-        Task.detached(priority: .utility) { [store] in
+        Task.detached(priority: .utility) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.geocodeItemsIfNeeded(since: cutoff)
         }
     }
@@ -337,7 +402,9 @@ final class FilmLogViewModel {
     /// Called when the app enters background. Flushes any pending debounced saves.
     func onBackground() {
         flushOpenState()
-        Task.detached(priority: .userInitiated) { [store] in
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.flushSave()
         }
     }
@@ -380,12 +447,12 @@ final class FilmLogViewModel {
                     return
                 }
                 do {
-                    try await data.write(to: Self.openStateURL, options: .atomic)
+                    try data.write(to: Self.openStateURL, options: .atomic)
                 } catch {
                     errorLog("writeOpenStateAsync: failed to write: \(error)")
                 }
             } else {
-                try? await FileManager.default.removeItem(at: Self.openStateURL)
+                try? FileManager.default.removeItem(at: Self.openStateURL)
             }
         }
     }
@@ -403,7 +470,7 @@ final class FilmLogViewModel {
         let items: [LogItemSnapshot]
     }
 
-    private static let openStateURL: URL = {
+    private static nonisolated let openStateURL: URL = {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         return support.appendingPathComponent("openState.plist")
@@ -461,12 +528,12 @@ final class FilmLogViewModel {
                     return
                 }
                 do {
-                    try await data.write(to: Self.openStateURL, options: .atomic)
+                    try data.write(to: Self.openStateURL, options: .atomic)
                 } catch {
                     errorLog("persistOpenState: failed to write: \(error)")
                 }
             } else {
-                try? await FileManager.default.removeItem(at: Self.openStateURL)
+                try? FileManager.default.removeItem(at: Self.openStateURL)
             }
         }
     }
@@ -511,9 +578,10 @@ final class FilmLogViewModel {
 
     /// Handle remote data changes — reload the tree from the DataStore.
     private func handleRemoteDataChanged() {
-        Task.detached(priority: .userInitiated) { [store, weak self] in
-            let (tree, version) = await store.loadAll()
+        Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
+            let store = await self.store
+            let (tree, version) = await store.loadAll()
             await self.applyFullTree(tree, version: version)
         }
     }
@@ -526,14 +594,20 @@ final class FilmLogViewModel {
     // MARK: - Export
 
     func exportJSON() async -> URL? {
-        await store.exportJSON()
+        let store = await self.store
+        return await store.exportJSON()
     }
 
     func exportCSV() async -> URL? {
-        await store.exportCSV()
+        let store = await self.store
+        return await store.exportCSV()
     }
 
     func forceRunMaintenance() {
-        Task { await store.runPeriodicCleanupIfNeeded(force: true) }
+        Task { [weak self] in
+            guard let self else { return }
+            let store = await self.store
+            await store.runPeriodicCleanupIfNeeded(force: true)
+        }
     }
 }

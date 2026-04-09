@@ -144,7 +144,9 @@ extension FilmLogViewModel: ExposuresViewModel {
         // All encoding and I/O happens here, off the critical path.
         guard !capturedIDs.isEmpty, let targetRoll else { return }
         let rollID = targetRoll.id
-        Task.detached(priority: .medium) { [store] in
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             // Encode once — shared across all items
             var photoData: Data? = nil
             var thumbnailData: Data? = nil
@@ -249,8 +251,11 @@ extension FilmLogViewModel: ExposuresViewModel {
         }
         publishSnapshots()
         persistOpenState()
-        Task.detached(priority: .medium) { [store] in
-            await store.logPlaceholderLike(id: id, rollID: roll.id, createdAt: createdAt, type: type)
+        let rollID = roll.id
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
+            await store.logPlaceholderLike(id: id, rollID: rollID, createdAt: createdAt, type: type)
         }
     }
 
@@ -276,7 +281,9 @@ extension FilmLogViewModel: ExposuresViewModel {
         }
         publishSnapshots()
         persistOpenState()
-        Task.detached(priority: .medium) { [store] in
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.deleteItem(id: item.id)
         }
     }
@@ -336,7 +343,9 @@ extension FilmLogViewModel: ExposuresViewModel {
 
         publishSnapshots()
         persistOpenState()
-        Task.detached(priority: .medium) { [store] in
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.moveItem(id: item.id, toRollID: toRollID)
         }
     }
@@ -395,7 +404,9 @@ extension FilmLogViewModel: ExposuresViewModel {
         }
         publishSnapshots()
         persistOpenState()
-        Task.detached(priority: .medium) { [store] in
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
             await store.movePlaceholder(id: id, newTimestamp: newTimestamp)
         }
     }
@@ -417,8 +428,11 @@ extension FilmLogViewModel: ExposuresViewModel {
         publishSnapshots()
         persistOpenState()
         let count = roll.snapshot.extraExposures
-        Task.detached(priority: .medium) { [store] in
-            await store.setExtraExposures(rollID: roll.id, count: count)
+        let rollID = roll.id
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
+            await store.setExtraExposures(rollID: rollID, count: count)
         }
     }
 }

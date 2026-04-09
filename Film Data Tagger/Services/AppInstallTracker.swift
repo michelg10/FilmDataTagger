@@ -22,8 +22,8 @@ import Foundation
 final class AppInstallTracker {
     static let shared = AppInstallTracker()
 
-    private static let deviceIDKey = "deviceUUID"
-    private static let firstOpenMapKey = "firstOpenDates"
+    private nonisolated static let deviceIDKey = "deviceUUID"
+    private nonisolated static let firstOpenMapKey = "firstOpenDates"
 
     /// This device's stable identifier. nil until the background load completes.
     private(set) var deviceID: String?
@@ -36,7 +36,11 @@ final class AppInstallTracker {
     private(set) var firstEverOpened: Date?
 
     private init() {
-        Task.detached(priority: .background) { [weak self] in
+        // Strong self capture is fine — the Task is one-shot, so the closure
+        // (and its strong reference to self) is released as soon as the work
+        // completes. There's no retain cycle because self doesn't hold the
+        // Task.
+        Task.detached(priority: .background) { [self] in
             let local = UserDefaults.standard
             let cloud = NSUbiquitousKeyValueStore.default
             cloud.synchronize()
@@ -77,7 +81,6 @@ final class AppInstallTracker {
             debugLog("AppInstallTracker: this device first opened \(iso.string(from: thisDeviceFirstOpened)), earliest across all devices \(iso.string(from: firstEverOpened))")
 
             await MainActor.run {
-                guard let self else { return }
                 self.deviceID = deviceID
                 self.thisDeviceFirstOpened = thisDeviceFirstOpened
                 self.firstEverOpened = firstEverOpened

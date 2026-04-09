@@ -551,7 +551,7 @@ struct CaptureSheet: View {
 
 #Preview {
     let container = try! ModelContainer(for: LogItem.self, Roll.self, Camera.self)
-    let vm = FilmLogViewModel(store: PreviewSampleData.makeStore(container: container))
+    let vm = FilmLogViewModel(previewStore: PreviewSampleData.makeStore(container: container))
     ZStack(alignment: .bottom) {
         Color.black.ignoresSafeArea()
         CaptureSheet(
@@ -565,4 +565,5 @@ struct CaptureSheet: View {
         )
         .padding([.bottom, .leading, .trailing], 8)
     }
+    .environment(vm)
 }

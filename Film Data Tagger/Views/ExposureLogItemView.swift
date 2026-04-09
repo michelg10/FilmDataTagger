@@ -10,6 +10,7 @@ import SwiftData
 
 /// Bridges a LogItemSnapshot to LogItemView
 struct ExposureLogItemView: View {
+    @Environment(FilmLogViewModel.self) private var viewModel
     let item: LogItemSnapshot
     let exposureNumber: Int?
     var isPreFrame: Bool = false
@@ -48,8 +49,10 @@ struct ExposureLogItemView: View {
             }
             // Cache miss — recover from SwiftData (disk cache may have been purged by iOS)
             guard !Task.isCancelled else { return }
+            let storeTask = viewModel.storeTask
             let recovered = await Task.detached(priority: .userInitiated) {
-                guard let data = await SharedDataStore.shared.fetchThumbnailData(for: id) else { return nil as UIImage? }
+                let store = await storeTask.value
+                guard let data = await store.fetchThumbnailData(for: id) else { return nil as UIImage? }
                 return await ImageCache.shared.decodeAndCache(for: id, data: data)
             }.value
             if !Task.isCancelled, let recovered {
@@ -93,17 +96,21 @@ struct ExposureLogItemView: View {
 #Preview("With location") {
     let container = PreviewSampleData.makeContainer()
     let items = PreviewSampleData.sampleItems(from: container)
+    let vm = FilmLogViewModel(previewStore: PreviewSampleData.makeStore(container: container))
     return ExposureLogItemView(item: items[0].snapshot, exposureNumber: 1)
         .padding(.horizontal, 16)
         .background(Color.black)
         .modelContainer(container)
+        .environment(vm)
 }
 
 #Preview("With notes") {
     let container = PreviewSampleData.makeContainer()
     let items = PreviewSampleData.sampleItems(from: container)
+    let vm = FilmLogViewModel(previewStore: PreviewSampleData.makeStore(container: container))
     return ExposureLogItemView(item: items[1].snapshot, exposureNumber: 2)
         .padding(.horizontal, 16)
         .background(Color.black)
         .modelContainer(container)
+        .environment(vm)
 }

@@ -438,14 +438,13 @@ struct CameraListView: View {
         let roll2 = Roll(filmStock: "Fuji Superia 400", camera: camera2)
         container.mainContext.insert(roll2)
 
-        let vm = FilmLogViewModel(store: PreviewSampleData.makeStore(container: container))
-        vm.setup()
-        return vm
+        return FilmLogViewModel(previewStore: PreviewSampleData.makeStore(container: container))
     }()
 
     NavigationStack {
         CameraListView(viewModel: viewModel)
     }
     .modelContainer(container)
+    .environment(viewModel)
     .preferredColorScheme(.dark)
 }
