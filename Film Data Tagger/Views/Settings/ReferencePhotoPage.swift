@@ -7,7 +7,6 @@ import SwiftUI
 
 struct ReferencePhotoPage: View {
     @Bindable private var settings = AppSettings.shared
-    @State private var availableCameras: [PreferredCamera] = []
 
     var body: some View {
         SettingsDetailPage(title: "Reference photo") {
@@ -24,13 +23,12 @@ struct ReferencePhotoPage: View {
                 }
             }
             SettingsSection(header: "Preferred camera") {
-                ForEach(availableCameras, id: \.self) { option in
-                    if option != availableCameras.first { SettingsSeparator() }
+                ForEach(settings.availableCameras, id: \.self) { option in
+                    if option != settings.availableCameras.first { SettingsSeparator() }
                     SettingsOptionRow(text: option.label, value: option, selection: $settings.preferredCamera)
                 }
             }
         }
-        .onAppear { availableCameras = PreferredCamera.available }
     }
 }
 

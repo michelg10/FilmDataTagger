@@ -33,9 +33,9 @@ final class FilmLogViewModel {
         get async { await storeTask.value }
     }
 
-    let settings = AppSettings.shared
-    let camera = CameraController()
-    let locationService = LocationService()
+    let settings: AppSettings
+    let camera: CameraController
+    let locationService: LocationService
 
     // MARK: - View-facing published snapshots (value types only)
 
@@ -291,8 +291,11 @@ final class FilmLogViewModel {
     /// other-file extensions.
     init(storeTask: Task<DataStore, Never>) {
         self.storeTask = storeTask
+        self.settings = AppSettings.shared
+        self.camera = CameraController()
+        self.locationService = LocationService()
 
-        switch AppSettings.shared.captureControlsPreference {
+        switch settings.captureControlsPreference {
         case .expanded: captureExpanded = true
         case .collapsed: captureExpanded = false
         case .preserveLast: captureExpanded = UserDefaults.standard.object(forKey: "lastCaptureControlExpanded") == nil

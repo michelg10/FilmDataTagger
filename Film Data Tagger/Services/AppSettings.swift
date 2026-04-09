@@ -106,7 +106,9 @@ enum PreferredCamera: String, CaseIterable {
         self == .front ? .front : .back
     }
 
-    static var available: [PreferredCamera] {
+    /// Probes AVCaptureDevice hardware to determine which cameras exist on
+    /// this device. Takes ~50ms on real hardware — call off-main only.
+    static nonisolated func queryAvailable() async -> [PreferredCamera] {
         allCases.filter {
             AVCaptureDevice.default($0.deviceType, for: .video, position: $0.position) != nil
         }
@@ -258,6 +260,11 @@ final class AppSettings {
         didSet { defaults.set(lastDataCleanDate, forKey: AppSettingsKeys.lastDataCleanDate) }
     }
 
+    /// Cameras available on this hardware. Defaults to all cases until the
+    /// background probe completes (~50ms on real hardware). Views that
+    /// display camera options (e.g. `ReferencePhotoPage`) just read this.
+    private(set) var availableCameras: [PreferredCamera] = PreferredCamera.allCases
+
     // MARK: - Location cache (for accelerating consecutive Shortcut triggers)
 
     /// Returns a cached location if one exists within the TTL for the current accuracy setting, otherwise nil.
@@ -316,15 +323,15 @@ final class AppSettings {
             .flatMap(ReferencePhotoStartup.init) ?? .preserveLast
         photoQuality = d.string(forKey: AppSettingsKeys.photoQuality)
             .flatMap(PhotoQuality.init) ?? .high
-        let savedCamera = d.string(forKey: AppSettingsKeys.preferredCamera).flatMap(PreferredCamera.init)
-        let available = PreferredCamera.available
-        preferredCamera = if let savedCamera, available.contains(savedCamera) {
-            savedCamera
-        } else if available.contains(.ultraWide) {
-            .ultraWide
-        } else {
-            available.first ?? .wide
-        }
+
+        // Trust the saved value. The camera pipeline (CameraManager) already
+        // falls back gracefully if the device type doesn't exist on this
+        // hardware. Hardware validation is deferred to a background task
+        // that updates preferredCamera after launch if the saved value is
+        // no longer valid (e.g. iCloud restore from a different device).
+        preferredCamera = d.string(forKey: AppSettingsKeys.preferredCamera)
+            .flatMap(PreferredCamera.init) ?? .ultraWide
+
         locationEnabled = d.object(forKey: AppSettingsKeys.locationEnabled) == nil
             ? true : d.bool(forKey: AppSettingsKeys.locationEnabled)
         locationAccuracy = d.string(forKey: AppSettingsKeys.locationAccuracy)
@@ -346,6 +353,24 @@ final class AppSettings {
         lastAppLaunchDate = d.object(forKey: AppSettingsKeys.lastAppLaunchDate) as? Date
         lastForegroundDate = d.object(forKey: AppSettingsKeys.lastForegroundDate) as? Date
         lastDataCleanDate = d.object(forKey: AppSettingsKeys.lastDataCleanDate) as? Date
+
+        // Probe available cameras off-main (~50ms on real hardware). The
+        // result is cached in `availableCameras`; views read that directly.
+        // Also validates the saved preferredCamera against what's actually
+        // on this hardware (handles iCloud restore from a different device).
+        Task.detached(priority: .utility) { [self] in
+            let available = await PreferredCamera.queryAvailable()
+            await MainActor.run {
+                self.availableCameras = available
+                if !available.contains(self.preferredCamera) {
+                    self.preferredCamera = if available.contains(.ultraWide) {
+                        .ultraWide
+                    } else {
+                        available.first ?? .wide
+                    }
+                }
+            }
+        }
     }
 
 }
