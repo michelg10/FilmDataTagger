@@ -157,36 +157,13 @@ private struct ReferencePhotoPreview: View {
     let camera: CameraController
     let size: CGFloat
 
+    private var isTappable: Bool {
+        // The unavailable branch is a no-op, so don't glow for it.
+        !camera.unavailable
+    }
+
     var body: some View {
-        ZStack {
-            if camera.needsPermission {
-                PreviewPlaceholder(icon: "camera.fill", text: "Tap to set up")
-            } else if camera.permissionDenied || camera.unavailable {
-                PreviewPlaceholder(
-                    icon: camera.unavailable ? "camera.fill" : "hand.raised.slash.fill",
-                    text: camera.unavailable ? "no camera\navailable" : "no camera\naccess"
-                )
-            } else if camera.referencePhotosEnabled, camera.isRunning {
-                CameraPreview(previewView: camera.previewView)
-                    .transition(.opacity)
-            } else if camera.referencePhotosEnabled {
-                ZStack {
-                    Color(hex: 0x454545)
-                    ProgressView()
-                        .tint(.white)
-                }
-                .transition(.opacity)
-            } else {
-                PreviewPlaceholder(icon: "eye.slash", text: "reference photo\noff")
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .animation(.easeInOut(duration: 0.25), value: camera.needsPermission)
-        .animation(.easeInOut(duration: 0.25), value: camera.referencePhotosEnabled)
-        .animation(.easeInOut(duration: 0.25), value: camera.isRunning)
-        .animation(.easeInOut(duration: 0.25), value: camera.permissionDenied)
-        .onTapGesture {
+        Button {
             playHaptic(.viewfinderToggle)
             if camera.needsPermission {
                 camera.requestPermissionIfNeeded()
@@ -199,8 +176,70 @@ private struct ReferencePhotoPreview: View {
             } else {
                 camera.toggle()
             }
+        } label: {
+            ZStack {
+                if camera.needsPermission {
+                    PreviewPlaceholder(icon: "camera.fill", text: "Tap to set up")
+                } else if camera.permissionDenied || camera.unavailable {
+                    PreviewPlaceholder(
+                        icon: camera.unavailable ? "camera.fill" : "hand.raised.slash.fill",
+                        text: camera.unavailable ? "no camera\navailable" : "no camera\naccess"
+                    )
+                } else if camera.referencePhotosEnabled, camera.isRunning {
+                    CameraPreview(previewView: camera.previewView)
+                        .transition(.opacity)
+                } else if camera.referencePhotosEnabled {
+                    ZStack {
+                        Color(hex: 0x454545)
+                        ProgressView()
+                            .tint(.white)
+                    }
+                    .transition(.opacity)
+                } else {
+                    PreviewPlaceholder(icon: "eye.slash", text: "reference photo\noff")
+                }
+            }
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .animation(.easeInOut(duration: 0.25), value: camera.needsPermission)
+            .animation(.easeInOut(duration: 0.25), value: camera.referencePhotosEnabled)
+            .animation(.easeInOut(duration: 0.25), value: camera.isRunning)
+            .animation(.easeInOut(duration: 0.25), value: camera.permissionDenied)
         }
+        .buttonStyle(TapGlowButtonStyle(isTappable: isTappable, cornerRadius: 20))
         .accessibilityLabel(camera.needsPermission ? "Set up reference photos" : camera.referencePhotosEnabled ? "Hide camera preview" : "Show camera preview")
+    }
+}
+
+/// Custom button style that overlays a press-driven glow on top of the label.
+/// Glow appears immediately on touch-down and fades out on release, matching
+/// the responsiveness of standard system buttons.
+private struct TapGlowButtonStyle: ButtonStyle {
+    let isTappable: Bool
+    let cornerRadius: CGFloat
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .overlay {
+                if isTappable {
+                    TapGlowOverlay(isPressed: configuration.isPressed, cornerRadius: cornerRadius)
+                }
+            }
+    }
+}
+
+private struct TapGlowOverlay: View {
+    let isPressed: Bool
+    let cornerRadius: CGFloat
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color.white)
+            .opacity(isPressed ? 0.08 : 0)
+            .blendMode(.plusLighter)
+            .allowsHitTesting(false)
+            // Snap on press-down (nil animation = instant), ease back on release.
+            .animation(isPressed ? nil : .easeOut(duration: 0.25), value: isPressed)
     }
 }
 

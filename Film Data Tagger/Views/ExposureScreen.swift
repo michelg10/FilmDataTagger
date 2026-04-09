@@ -175,7 +175,7 @@ struct ExposureScreen: View {
                         showReplaceRollAlert = true
                     } else {
                         playHaptic(.loadUnloadRoll)
-                        withAnimation(.easeOut(duration: 0.3)) {
+                        withAnimation(.easeInOut(duration: 0.3)) {
                             viewModel.loadRoll()
                         }
                     }
