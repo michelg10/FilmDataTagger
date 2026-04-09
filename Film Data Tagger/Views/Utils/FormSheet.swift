@@ -33,6 +33,7 @@ struct FormSheet<Content: View>: View {
                         .font(.system(size: 20, weight: .semibold, design: .default))
                         .foregroundStyle(Color.white.opacity(0.95))
                         .frame(width: 44, height: 44)
+                        .contentShape(Circle())
                 }.glassEffectCompat(
                     tint: .white.opacity(formIsAboveAnotherSheet ? 0.07 : 0.06),
                     in: Circle(),
@@ -84,7 +85,7 @@ struct FormTextFieldStyle: TextFieldStyle {
                     .foregroundStyle(formIsAboveAnotherSheet ? Color(hex: 0x323232) : Color(hex: 0x2E2E2E))
             })
             .shadow(color: .black.opacity(formIsAboveAnotherSheet ? aboveSheetShadowOpacity : sheetShadowOpacity), radius: formIsAboveAnotherSheet ? aboveSheetShadowRadius : sheetShadowRadius)
-            .contentShape(Rectangle())
+            .contentShape(Capsule())
             .onTapGesture {
                 isFocused = true
             }

@@ -119,7 +119,7 @@ struct ContentView: View {
                                 .transition(.blurReplace)
                         }.foregroundStyle(Color.white.opacity(0.95))
                         .frame(height: 60)
-                        .contentShape(Rectangle())
+                        .contentShape(Capsule())
                     }
                     .glassEffectCompat(in: Capsule())
                     .shadow(color: .black.opacity(0.25), radius: 16.4)
@@ -138,7 +138,7 @@ struct ContentView: View {
                             .font(.system(size: 24, weight: .bold, design: .default))
                             .foregroundStyle(Color.white.opacity(0.95))
                             .frame(width: 60, height: 60)
-                            .contentShape(Rectangle())
+                            .contentShape(Circle())
                     }
                     .glassEffectCompat(in: Circle())
                     .shadow(color: .black.opacity(0.25), radius: 16.4)

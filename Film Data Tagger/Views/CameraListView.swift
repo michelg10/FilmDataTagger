@@ -275,11 +275,13 @@ struct CameraListView: View {
             ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                 Button { onCameraSelected?(entry.id) } label: {
                     CameraListRow(entry: entry)
+                        .contentShape(Rectangle())
                 }
                 .overlay(alignment: .top) {
                     CameraDropIndicatorLine(active: dropTargetIndex == index)
                         .offset(y: -0.5)
                 }
+                .contentShape(Rectangle())
                 .contextMenu {
                     Button {
                         editingEntry = entry

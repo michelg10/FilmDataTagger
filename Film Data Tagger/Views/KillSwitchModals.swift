@@ -26,6 +26,7 @@ struct KillModal<HamburgerMenuContents: View>: View {
                 } label: {
                     Image(systemName: "ellipsis")
                         .frame(width: 44, height: 44)
+                        .contentShape(Circle())
                         .glassEffectCompat(in: Circle(), interactive: true)
                 }
                 Spacer(minLength: 0)
@@ -35,6 +36,7 @@ struct KillModal<HamburgerMenuContents: View>: View {
                     } label: {
                         Image(systemName: "xmark")
                             .frame(width: 44, height: 44)
+                            .contentShape(Circle())
                             .glassEffectCompat(in: Circle(), interactive: true)
                     }
                 }
@@ -75,7 +77,7 @@ struct KillModal<HamburgerMenuContents: View>: View {
                     .foregroundStyle(Color.white)
                     .frame(height: 61)
                     .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
+                    .contentShape(Capsule())
             }
             .glassEffectCompat(tint: .accentColor, in: Capsule(), interactive: true, fallbackColor: Color(hex: 0x005dcb))
             .buttonStyle(.plain)
@@ -91,7 +93,7 @@ struct KillModal<HamburgerMenuContents: View>: View {
                         .foregroundStyle(Color.white.opacity(0.5))
                         .padding(.vertical, 20)
                         .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }

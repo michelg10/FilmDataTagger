@@ -76,6 +76,7 @@ struct NewCameraSheet: View {
                         .foregroundStyle(Color.white.opacity(0.4))
                         .padding(.vertical, 10)
                         .padding(.horizontal, 8)
+                        .contentShape(Rectangle())
                         .onTapGesture {
                             showInstantFilmInfo = true
                         }

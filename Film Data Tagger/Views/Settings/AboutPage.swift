@@ -26,7 +26,7 @@ struct AboutPage: View {
                 .frame(width: 130, height: 130)
                 .clipShape(RoundedRectangle(cornerRadius: 32))
                 .shadow(color: .black.opacity(0.88), radius: 28, x: 0, y: 0)
-                .contentShape(Rectangle())
+                .contentShape(RoundedRectangle(cornerRadius: 32))
                 .onTapGesture(count: 3) { onTripleTapIcon?() }
                 .padding(.bottom, 25)
 
@@ -89,6 +89,7 @@ struct AboutPage: View {
                             .font(.system(size: 16, weight: .bold, design: .default))
                             .foregroundStyle(Color.white.opacity(0.95))
                             .frame(width: 44, height: 44)
+                            .contentShape(Circle())
                             .glassEffectCompat(in: Circle())
                     }
                 }.frame(width: UIScreen.currentWidth - 32, height: 44, alignment: .leading)

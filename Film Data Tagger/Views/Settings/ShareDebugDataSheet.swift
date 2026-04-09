@@ -50,6 +50,7 @@ struct ShareDebugDataSheet: View {
                     .font(.system(size: 20, weight: .semibold, design: .default))
                     .foregroundStyle(Color.white.opacity(0.95))
                     .frame(width: 44, height: 44)
+                    .contentShape(Circle())
                     .glassEffectCompat(in: Circle())
             }
             .accessibilityLabel("Close")
@@ -106,7 +107,7 @@ Debug info may include:
                     }
                     .frame(height: 61)
                     .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
+                    .contentShape(Capsule())
                 }
                 .glassEffectCompat(tint: .accentColor, in: Capsule(), interactive: true, fallbackColor: Color(hex: 0x005dcb))
                 .buttonStyle(.plain)
@@ -119,7 +120,7 @@ Debug info may include:
                         .foregroundStyle(Color.white.opacity(0.5))
                         .padding(.vertical, 20)
                         .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }.padding(.horizontal, 26)

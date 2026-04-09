@@ -288,6 +288,8 @@ struct DismissButton: View {
             Image(systemName: "xmark")
                 .font(.system(size: 16, weight: .bold, design: .default))
                 .foregroundStyle(Color.white.opacity(0.95))
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
         }
         .frame(width: 44, height: 44)
         .glassEffectCompat(in: Circle())
@@ -304,6 +306,7 @@ struct BackButton: View {
                 .font(.system(size: 16, weight: .bold, design: .default))
                 .foregroundStyle(Color.white.opacity(0.95))
                 .frame(width: 44, height: 44)
+                .contentShape(Circle())
         }
         .frame(width: 44, height: 44)
         .glassEffectCompat(in: Circle())

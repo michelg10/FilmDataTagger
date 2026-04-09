@@ -435,6 +435,8 @@ struct ExposureListView: View {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .bold, design: .default))
                             .foregroundStyle(Color.white.opacity(0.95))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Circle())
                     }.frame(width: 44, height: 44)
                     .glassEffectCompat(in: Circle())
                     .accessibilityLabel("Back")
@@ -483,6 +485,7 @@ struct ExposureListView: View {
                             .font(.system(size: 16, weight: .bold, design: .default))
                             .foregroundStyle(Color.white.opacity(0.95))
                             .frame(width: 44, height: 44)
+                            .contentShape(Circle())
                             .glassEffectCompat(in: Circle())
                     }
                     .accessibilityLabel("Roll options")
