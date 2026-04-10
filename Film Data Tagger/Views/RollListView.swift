@@ -146,8 +146,6 @@ struct RollListView: View {
     let viewModel: any RollsViewModel
     var onRollSelected: ((RollSnapshot) -> Void)?
 
-    @Environment(\.dismiss) private var dismiss
-
     private var rollData: OpenCameraRolls? { viewModel.openCameraRolls }
     private var cameraSnap: CameraSnapshot? { viewModel.openCameraSnapshot }
     private var activeRoll: RollSnapshot? { rollData?.activeRoll }
@@ -289,7 +287,6 @@ struct RollListView: View {
             let count = rollToDelete?.exposureCount ?? 0
             Text("This will permanently delete \"\(rollToDelete?.filmStock ?? "")\" and its \(count.formatted()) logged exposure\(count == 1 ? "" : "s") from all your devices. Data saved to Photos or exported files won't be affected.")
         }
-        .navigationBarBackButtonHidden()
         .sheet(item: $rollToEdit) { roll in
             RollFormSheet(
                 cameraID: cameraSnap?.id ?? UUID(),
@@ -298,35 +295,18 @@ struct RollListView: View {
                 onEditRoll: { viewModel.editRoll(id: $0, filmStock: $1, capacity: $2) }
             )
         }
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                HStack(spacing: 12) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .bold, design: .default))
-                            .foregroundStyle(Color.white.opacity(0.95))
-                            .frame(width: 44, height: 44)
-                            .contentShape(Circle())
-                    }.frame(width: 44, height: 44)
-                    .glassEffectCompat(in: Circle())
-                    .accessibilityLabel("Back")
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(cameraName)
-                            .font(.system(size: 18, weight: .bold, design: .default))
-                            .fontWidth(.expanded)
-                            .foregroundStyle(Color.white)
-                        let exposureTextAndSeparator = Text(" exposure\(totalExposures == 1 ? "" : "s") •").foregroundStyle(Color.white.opacity(0.5))
-                        let rollCount = cameraSnap?.rollCount ?? 0
-                        let rollTextAndSeparator = Text(" roll\(rollCount == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5))
-                        Text("\(totalExposures.formatted())\(exposureTextAndSeparator) \(rollCount.formatted())\(rollTextAndSeparator)")
-                            .foregroundStyle(Color.white)
-                            .font(.system(size: 15, weight: .medium, design: .default))
-                            .fontWidth(.expanded)
-                    }
-                }.frame(width: UIScreen.currentWidth - 32, height: 44, alignment: .leading)
-            }
+        .appToolbar {
+            rollListTitle
+        }
+    }
+
+    private var rollListTitle: some View {
+        let exposureText = Text(" exposure\(totalExposures == 1 ? "" : "s") •").foregroundStyle(Color.white.opacity(0.5))
+        let rollCount = cameraSnap?.rollCount ?? 0
+        let rollText = Text(" roll\(rollCount == 1 ? "" : "s")").foregroundStyle(Color.white.opacity(0.5))
+        return ToolbarTitle(primary: cameraName) {
+            Text("\(totalExposures.formatted())\(exposureText) \(rollCount.formatted())\(rollText)")
+                .foregroundStyle(Color.white)
         }
     }
 }

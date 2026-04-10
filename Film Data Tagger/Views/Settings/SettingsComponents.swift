@@ -271,7 +271,7 @@ struct SettingsDetailPage<Content: View>: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 HStack(spacing: 0) {
-                    BackButton()
+                    SettingsBackButton()
                     Spacer()
                     Text(title)
                         .font(.system(size: 18, weight: .bold, design: .default))
@@ -298,7 +298,7 @@ struct SettingsFullScreenDetailPage<Content: View>: View {
             .toolbar {
                 ToolbarItem(placement: .principal) {
                     HStack(spacing: 0) {
-                        BackButton()
+                        SettingsBackButton()
                         Spacer()
                         Text(title)
                             .font(.system(size: 18, weight: .bold, design: .default))
@@ -330,7 +330,7 @@ struct DismissButton: View {
     }
 }
 
-struct BackButton: View {
+struct SettingsBackButton: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -390,7 +390,7 @@ struct BackButton: View {
 #Preview("Buttons") {
     VStack(spacing: 0) {
         DismissButton()
-        BackButton()
+        SettingsBackButton()
     }
     .padding(20)
     .background(Color(hex: 0x121212))

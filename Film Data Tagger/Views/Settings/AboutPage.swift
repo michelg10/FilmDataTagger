@@ -59,7 +59,7 @@ struct AboutPage: View {
         }.toolbar {
             ToolbarItem(placement: .principal) {
                 HStack(spacing: 0) {
-                    BackButton()
+                    SettingsBackButton()
                     Spacer()
                     Text("About")
                         .font(.system(size: 18, weight: .bold, design: .default))

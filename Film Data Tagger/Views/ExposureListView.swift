@@ -256,19 +256,11 @@ private struct CameraSwitcherMenu: View {
                 }
             }
         } label: {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(cameraName)
-                    .font(.system(size: 18, weight: .bold, design: .default))
-                    .fontWidth(.expanded)
-                    .foregroundStyle(Color.white)
-                Text(filmStock)
-                    .font(.system(size: 15, weight: .medium, design: .default))
-                    .fontWidth(.expanded)
-                    .foregroundStyle(Color.white.opacity(0.6))
-            }.padding(.vertical, 2)
-            .frame(height: 44, alignment: .leading)
-            .frame(minWidth: min(250, UIScreen.currentWidth - 32 - 44 - 44 - 12 - 12), maxWidth: UIScreen.currentWidth - 32 - 44 - 44 - 12 - 12, alignment: .leading)
-            .contentShape(Rectangle())
+            ToolbarTitle(primary: cameraName, secondary: filmStock)
+                .padding(.vertical, 2)
+                .frame(height: 44, alignment: .leading)
+                .frame(minWidth: min(250, UIScreen.currentWidth - 32 - 44 - 44 - 12 - 12), maxWidth: UIScreen.currentWidth - 32 - 44 - 44 - 12 - 12, alignment: .leading)
+                .contentShape(Rectangle())
         }
         .accessibilityLabel("Switch camera")
         .accessibilityHint("Opens a menu to switch between cameras with active rolls")
@@ -298,7 +290,6 @@ struct ExposureListView: View {
     var onLoadRoll: (() -> Void)?
     var onAddPlaceholder: (() -> Void)?
     var onAddLostFrame: (() -> Void)?
-    @Environment(\.dismiss) private var dismiss
     @State private var draggingPlaceholderID: UUID?
     @State private var dropTargetIndex: Int?
 
@@ -427,78 +418,62 @@ struct ExposureListView: View {
         }
         .background(Color.black)
         .ignoresSafeArea(edges: .bottom)
-        .navigationBarBackButtonHidden()
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                HStack(spacing: 0) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .bold, design: .default))
-                            .foregroundStyle(Color.white.opacity(0.95))
-                            .frame(width: 44, height: 44)
-                            .contentShape(Circle())
-                    }.frame(width: 44, height: 44)
-                    .glassEffectCompat(in: Circle())
-                    .accessibilityLabel("Back")
-                    .padding(.trailing, 12)
-                    if let menuContext {
-                        CameraSwitcherMenu(
-                            cameraName: cameraName,
-                            filmStock: filmStock,
-                            menuContext: menuContext,
-                            onCameraSwitched: onCameraSwitched
-                        )
-                        .padding(.trailing, 12)
-                    }
-                    Spacer(minLength: 0)
-                    Menu {
-                        Button {
-                            // TODO: Details
-                        } label: {
-                            Label("Details", systemImage: "info.circle")
-                        }
-                        if isActiveRoll {
-                            Button {
-                                onUnloadRoll?()
-                            } label: {
-                                Label("Unload roll", systemImage: "checkmark.arrow.trianglehead.counterclockwise")
-                            }
-                        } else {
-                            Button {
-                                onLoadRoll?()
-                            } label: {
-                                Label("Load roll", systemImage: "arrow.clockwise")
-                            }
-                        }
-                        Button {
-                            playHaptic(.addPlaceholder)
-                            onAddPlaceholder?()
-                        } label: {
-                            Label("Add placeholder", systemImage: "questionmark.square.dashed")
-                        }
-                        Button {
-                            playHaptic(.addPlaceholder)
-                            onAddLostFrame?()
-                        } label: {
-                            Label("Add lost frame", systemImage: "xmark.square")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 16, weight: .bold, design: .default))
-                            .foregroundStyle(Color.white.opacity(0.95))
-                            .frame(width: 44, height: 44)
-                            .contentShape(Circle())
-                            .glassEffectCompat(in: Circle())
-                    }
-                    .accessibilityLabel("Roll options")
-                }
-                .frame(width: UIScreen.currentWidth - 32, height: 44)
+        .appToolbar {
+            if let menuContext {
+                CameraSwitcherMenu(
+                    cameraName: cameraName,
+                    filmStock: filmStock,
+                    menuContext: menuContext,
+                    onCameraSwitched: onCameraSwitched
+                )
             }
+        } trailing: {
+            rollOptionsMenu
         }
-        .preferredColorScheme(.dark)
         .id(scrollContextID)
+    }
+
+    private var rollOptionsMenu: some View {
+        Menu {
+            Button {
+                // TODO: Details
+            } label: {
+                Label("Details", systemImage: "info.circle")
+            }
+            if isActiveRoll {
+                Button {
+                    onUnloadRoll?()
+                } label: {
+                    Label("Unload roll", systemImage: "checkmark.arrow.trianglehead.counterclockwise")
+                }
+            } else {
+                Button {
+                    onLoadRoll?()
+                } label: {
+                    Label("Load roll", systemImage: "arrow.clockwise")
+                }
+            }
+            Button {
+                playHaptic(.addPlaceholder)
+                onAddPlaceholder?()
+            } label: {
+                Label("Add placeholder", systemImage: "questionmark.square.dashed")
+            }
+            Button {
+                playHaptic(.addPlaceholder)
+                onAddLostFrame?()
+            } label: {
+                Label("Add lost frame", systemImage: "xmark.square")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 16, weight: .bold, design: .default))
+                .foregroundStyle(Color.white.opacity(0.95))
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+                .glassEffectCompat(in: Circle())
+        }
+        .accessibilityLabel("Roll options")
     }
 }
 
@@ -512,6 +487,7 @@ struct ExposureListView: View {
             filmStock: "Fuji Color 400"
         )
     }
+    .preferredColorScheme(.dark)
     .modelContainer(container)
 }
 
@@ -523,5 +499,6 @@ struct ExposureListView: View {
             filmStock: "Fuji Color 400"
         )
     }
+    .preferredColorScheme(.dark)
     .modelContainer(for: [Camera.self, Roll.self, LogItem.self], inMemory: true)
 }
