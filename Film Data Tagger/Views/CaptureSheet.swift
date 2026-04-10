@@ -352,22 +352,24 @@ private struct CaptureButton: View {
             } label: {
                 Label("Capture and note", systemImage: "text.pad.header")
             }
-            if settings.holdCapturePlaceholders {
-                Button {
-                    playHaptic(.addPlaceholder)
-                    onAddPlaceholder()
-                } label: {
-                    Label("Add placeholder", systemImage: "questionmark.square.dashed")
+            Section {
+                if settings.holdCapturePlaceholders {
+                    Button {
+                        playHaptic(.addPlaceholder)
+                        onAddPlaceholder()
+                    } label: {
+                        Label("Add placeholder", systemImage: "questionmark.square.dashed")
+                    }
                 }
-            }
-            if settings.holdCaptureLostFrames {
-                Button {
-                    playHaptic(.addPlaceholder)
-                    onAddLostFrame()
-                } label: {
-                    Label("Add lost frame", systemImage: "xmark.square")
+                if settings.holdCaptureLostFrames {
+                    Button {
+                        playHaptic(.addPlaceholder)
+                        onAddLostFrame()
+                    } label: {
+                        Label("Add lost frame", systemImage: "xmark.square")
+                    }
                 }
-            }
+            } 
         }
         .padding(.horizontal, 15)
         .padding(.bottom, 26)

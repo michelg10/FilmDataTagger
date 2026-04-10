@@ -6,6 +6,7 @@
 import Foundation
 import UIKit
 import AVFoundation
+import CoreLocation
 import CloudKit
 import StoreKit
 
@@ -47,6 +48,7 @@ enum DebugReport {
                 isBoldTextEnabled: UIAccessibility.isBoldTextEnabled,
                 cameraAuthStatus: AVCaptureDevice.authorizationStatus(for: .video),
                 locationAuthStatus: CLLocationManager().authorizationStatus,
+                locationAccuracyAuth: CLLocationManager().accuracyAuthorization,
                 availableCameras: AVCaptureDevice.DiscoverySession(
                     deviceTypes: [.builtInWideAngleCamera, .builtInUltraWideCamera, .builtInTelephotoCamera],
                     mediaType: .video, position: .unspecified
@@ -112,6 +114,7 @@ enum DebugReport {
         report += "--- Permissions ---\n"
         report += "Camera: \(authStatusString(info.cameraAuthStatus))\n"
         report += "Location: \(locationAuthString(info.locationAuthStatus))\n"
+        report += "Precise location: \(info.locationAccuracyAuth == .fullAccuracy ? "yes" : "no (reduced)")\n"
         report += "iCloud: \(iCloudStatusString(iCloudStatus))\n"
         report += "Available cameras: \(info.availableCameras.joined(separator: ", "))\n"
         report += "\n"
@@ -173,6 +176,7 @@ enum DebugReport {
         let isBoldTextEnabled: Bool
         let cameraAuthStatus: AVAuthorizationStatus
         let locationAuthStatus: CLAuthorizationStatus
+        let locationAccuracyAuth: CLAccuracyAuthorization
         let availableCameras: [String]
     }
 

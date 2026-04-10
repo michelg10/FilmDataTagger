@@ -95,9 +95,10 @@ struct LocationPage: View {
             .font(.system(size: 13, weight: .regular, design: .default))
             .lineHeightCompat(points: 16, fallbackSpacing: 0.5)
             .multilineTextAlignment(.leading)
-            .padding(.top, 12)
             .padding(.horizontal, 20)
+            .contentShape(Rectangle())
             .onTapGesture { openSettings() }
+            .padding(.top, 12)
         case .allowed where accuracyAuth == .reducedAccuracy:
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 5) {
@@ -116,9 +117,10 @@ struct LocationPage: View {
             .foregroundStyle(Color.white.opacity(0.40))
             .lineHeightCompat(points: 16, fallbackSpacing: 0.5)
             .multilineTextAlignment(.leading)
-            .padding(.top, 12)
             .padding(.horizontal, 20)
+            .contentShape(Rectangle())
             .onTapGesture { openSettings() }
+            .padding(.top, 12)
         case .allowed:
             EmptyView()
         }

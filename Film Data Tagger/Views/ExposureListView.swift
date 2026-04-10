@@ -267,7 +267,7 @@ private struct CameraSwitcherMenu: View {
                     .foregroundStyle(Color.white.opacity(0.6))
             }.padding(.vertical, 2)
             .frame(height: 44, alignment: .leading)
-            .frame(minWidth: 250, maxWidth: UIScreen.currentWidth - 32 - 44 - 44 - 12, alignment: .leading)
+            .frame(minWidth: 250, maxWidth: UIScreen.currentWidth - 32 - 44 - 44 - 12 - 12, alignment: .leading)
             .contentShape(Rectangle())
         }
         .accessibilityLabel("Switch camera")
@@ -450,13 +450,14 @@ struct ExposureListView: View {
                             menuContext: menuContext,
                             onCameraSwitched: onCameraSwitched
                         )
+                        .padding(.trailing, 12)
                     }
                     Spacer(minLength: 0)
                     Menu {
                         Button {
-                            // TODO: Notes
+                            // TODO: Details
                         } label: {
-                            Label("Notes", systemImage: "text.pad.header")
+                            Label("Details", systemImage: "info.circle")
                         }
                         if isActiveRoll {
                             Button {
