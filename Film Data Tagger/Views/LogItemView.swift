@@ -12,7 +12,7 @@ struct LogItemView: View {
     let exposureNumber: Int?
     var isPreFrame: Bool = false
     var onFrameNumberTapped: (() -> Void)?
-    var onFrameNumberLongPressed: (() -> Void)?
+    var onFrameNumberDoubleTapped: (() -> Void)?
     let previewImage: Image?
     var isFromShortcut: Bool = false
     var exposureType: ExposureType = .regular
@@ -31,8 +31,8 @@ struct LogItemView: View {
                     .frame(maxHeight: .infinity)
                     .contentShape(Rectangle())
                     .transaction { $0.animation = nil }
+                    .onTapGesture(count: 2) { onFrameNumberDoubleTapped?() }
                     .onTapGesture { onFrameNumberTapped?() }
-                    .onLongPressGesture { onFrameNumberLongPressed?() }
             } else if let exposureNumber = exposureNumber {
                 Text(exposureNumber < 100
                     ? String(format: "%02d", exposureNumber)
@@ -45,11 +45,11 @@ struct LogItemView: View {
                     .opacity(0.85)
                     .transaction { $0.animation = nil }
                     .contentShape(Rectangle())
+                    .onTapGesture(count: 2) {
+                        onFrameNumberDoubleTapped?()
+                    }
                     .onTapGesture {
                         onFrameNumberTapped?()
-                    }
-                    .onLongPressGesture {
-                        onFrameNumberLongPressed?()
                     }
             }
             Group {
