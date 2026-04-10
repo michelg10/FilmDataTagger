@@ -103,7 +103,7 @@ private struct LocationInfoRow: View {
                 icon: Image(systemName: "location.fill")
                     .font(.system(size: 17, weight: .semibold, design: .default)),
                 text: "Tap to set up",
-                subtext: "Allow Sprokbook to use your location",
+                subtext: "Allow Sprokbook to access your location",
                 textSubtextPadding: 3
             )
             .contentShape(Rectangle())

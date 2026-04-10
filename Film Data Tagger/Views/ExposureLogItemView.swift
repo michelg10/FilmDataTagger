@@ -66,7 +66,9 @@ struct ExposureLogItemView: View {
     // MARK: - Computed text (all pre-computed on the snapshot — zero work here)
 
     private var timeText: Text {
-        guard item.hasRealCreatedAt else { return Text("Unknown") }
+        guard item.hasRealCreatedAt else {
+            return Text(item.exposureType == .lostFrame ? "n/a" : "Unknown")
+        }
         if item.hasDifferentTimeZone && showingLocalTime {
             return Text(item.localFormattedTime)
         }
@@ -91,7 +93,7 @@ struct ExposureLogItemView: View {
         } else if let lat = item.latitude, let lon = item.longitude {
             return Text(String(format: "%.5f, %.5f", lat, lon))
         }
-        return Text("Unknown")
+        return Text(item.exposureType == .lostFrame ? "n/a" : "Unknown")
     }
 }
 

@@ -138,6 +138,33 @@ struct SettingsOptionRow<T: Equatable>: View {
     }
 }
 
+struct SettingsHeroRow<Icon: View>: View {
+    @ViewBuilder var icon: Icon
+    let title: String
+    let subtitle: String
+    let isStandaloneSection: Bool
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            icon
+                .frame(width: 64, height: 64)
+                .padding(.bottom, 20)
+            Text(title)
+                .font(.system(size: 22, weight: .bold, design: .default))
+                .fontWidth(.expanded)
+                .padding(.bottom, 8)
+            Text(subtitle)
+                .font(.system(size: 17, weight: .regular, design: .default))
+                .lineHeightCompat(points: 23, fallbackSpacing: 2.7)
+                .foregroundStyle(Color.white.opacity(0.6))
+                .multilineTextAlignment(.leading)
+        }.padding(.top, 20)
+        .padding(.horizontal, 20)
+        .padding(.bottom, isStandaloneSection ? 20 : 15)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 struct SettingsSeparator: View {
     var body: some View {
         Rectangle()
@@ -148,9 +175,9 @@ struct SettingsSeparator: View {
     }
 }
 
-struct SettingsSection<Content: View>: View {
+struct SettingsSection<Content: View, Caption: View>: View {
     var header: String? = nil
-    var caption: String? = nil
+    @ViewBuilder var caption: Caption
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -168,31 +195,46 @@ struct SettingsSection<Content: View>: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: 26))
             .background(RoundedRectangle(cornerRadius: 26).foregroundStyle(Color(hex: 0x202020)))
-            if let caption {
-                let lines = caption.split(separator: "\n")
-                let styledText = { (text: String) in
-                    Text(text)
-                        .font(.system(size: 13, weight: .regular, design: .default))
-                        .foregroundStyle(Color.white.opacity(0.35))
-                        .lineHeightCompat(points: 16, fallbackSpacing: 0.5)
-                        .multilineTextAlignment(.leading)
-                }
+            caption
+        }.padding(.bottom, 36)
+    }
+}
 
-                Group {
-                    if lines.count > 1 {
-                        VStack(alignment: .leading, spacing: 9) {
-                            ForEach(lines, id: \.self) { line in
-                                styledText(String(line))
-                            }
-                        }
-                    } else {
-                        styledText(caption)
+extension SettingsSection where Caption == SettingsCaptionText? {
+    init(header: String? = nil, caption: String? = nil, @ViewBuilder content: () -> Content) {
+        self.header = header
+        self.caption = caption.map { SettingsCaptionText(text: $0) }
+        self.content = content()
+    }
+}
+
+/// Default styled caption text for SettingsSection
+struct SettingsCaptionText: View {
+    let text: String
+
+    var body: some View {
+        let lines = text.split(separator: "\n")
+        Group {
+            if lines.count > 1 {
+                VStack(alignment: .leading, spacing: 9) {
+                    ForEach(lines, id: \.self) { line in
+                        captionLine(String(line))
                     }
                 }
-                .padding(.top, 12)
-                .padding(.horizontal, 20)
+            } else {
+                captionLine(text)
             }
-        }.padding(.bottom, 36)
+        }
+        .padding(.top, 12)
+        .padding(.horizontal, 20)
+    }
+
+    private func captionLine(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13, weight: .regular, design: .default))
+            .foregroundStyle(Color.white.opacity(0.40))
+            .lineHeightCompat(points: 16, fallbackSpacing: 0.5)
+            .multilineTextAlignment(.leading)
     }
 }
 
@@ -202,21 +244,12 @@ struct SettingsHeroSection<Icon: View>: View {
     let subtitle: String
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            icon
-                .frame(width: 64, height: 64)
-                .padding(.bottom, 20)
-            Text(title)
-                .font(.system(size: 22, weight: .bold, design: .default))
-                .fontWidth(.expanded)
-                .padding(.bottom, 8)
-            Text(subtitle)
-                .font(.system(size: 17, weight: .regular, design: .default))
-                .lineHeightCompat(points: 23, fallbackSpacing: 2.7)
-                .foregroundStyle(Color.white.opacity(0.6))
-                .multilineTextAlignment(.leading)
-        }.padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        SettingsHeroRow(
+            icon: { icon },
+            title: title,
+            subtitle: subtitle,
+            isStandaloneSection: true
+        )
         .background(RoundedRectangle(cornerRadius: 26).foregroundStyle(Color(hex: 0x222222)))
         .padding(.bottom, 36)
     }
