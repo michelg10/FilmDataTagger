@@ -267,7 +267,7 @@ private struct CameraSwitcherMenu: View {
                     .foregroundStyle(Color.white.opacity(0.6))
             }.padding(.vertical, 2)
             .frame(height: 44, alignment: .leading)
-            .frame(minWidth: 250, maxWidth: UIScreen.currentWidth - 32 - 44 - 12, alignment: .leading)
+            .frame(minWidth: 250, maxWidth: UIScreen.currentWidth - 32 - 44 - 44 - 12, alignment: .leading)
             .contentShape(Rectangle())
         }
         .accessibilityLabel("Switch camera")
@@ -356,7 +356,7 @@ struct ExposureListView: View {
         .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))
         .padding(.leading, 16 - 12)
         .padding(.trailing, 16)
-        .padding(.top, 116)
+        .padding(.top, 118)
 
         // Overscroll / drop zone for moving placeholders to end of list
         Color.clear
@@ -430,7 +430,7 @@ struct ExposureListView: View {
         .navigationBarBackButtonHidden()
         .toolbar {
             ToolbarItem(placement: .principal) {
-                HStack(spacing: 12) {
+                HStack(spacing: 0) {
                     Button {
                         dismiss()
                     } label: {
@@ -442,6 +442,7 @@ struct ExposureListView: View {
                     }.frame(width: 44, height: 44)
                     .glassEffectCompat(in: Circle())
                     .accessibilityLabel("Back")
+                    .padding(.trailing, 12)
                     if let menuContext {
                         CameraSwitcherMenu(
                             cameraName: cameraName,
