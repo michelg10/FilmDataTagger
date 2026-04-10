@@ -31,11 +31,11 @@ struct ReferencePhotoPage: View {
                     icon: {
                         ZStack {
                             RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(hex: 0xFF6565))
+                                .fill(Color(hex: 0xFF5858))
                                 .overlay {
                                     RoundedRectangle(cornerRadius: 15)
                                         .inset(by: 1)
-                                        .stroke(Color(hex: 0xFFA8A8), lineWidth: 2)
+                                        .stroke(Color(hex: 0xFFA1A1), lineWidth: 2)
                                 }
                             Image(systemName: "photo")
                                 .font(.system(size: 21, weight: .bold, design: .default))
