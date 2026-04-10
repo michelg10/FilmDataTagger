@@ -398,6 +398,7 @@ struct ExposureListView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         exposureScrollContent()
+                            .frame(minHeight: UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.screen.bounds.height ?? 800, alignment: .top) // align to top
                     }
                     .defaultScrollAnchor(.bottom)
                     .onAppear {
