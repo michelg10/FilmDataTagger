@@ -24,8 +24,8 @@ struct ExportPage: View {
                         RoundedRectangle(cornerRadius: 16)
                             .fill(Color.init(hex: 0x303030))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 16)
-                                    .inset(by: 2)
+                                RoundedRectangle(cornerRadius: 15)
+                                    .inset(by: 1)
                                     .stroke(Color.init(hex: 0x787878), lineWidth: 2)
                             }
                         Image(systemName: "square.and.arrow.up")

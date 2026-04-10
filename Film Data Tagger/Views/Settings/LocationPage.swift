@@ -8,7 +8,8 @@ import CoreLocation
 
 struct LocationPage: View {
     @Bindable private var settings = AppSettings.shared
-    @State private var authStatus: CLAuthorizationStatus = CLLocationManager().authorizationStatus
+    @State private var authStatus: CLAuthorizationStatus = .notDetermined
+    @State private var accuracyAuth: CLAccuracyAuthorization = .fullAccuracy
 
     private var locationState: LocationState {
         switch authStatus {
@@ -33,8 +34,8 @@ struct LocationPage: View {
                             RoundedRectangle(cornerRadius: 16)
                                 .fill(Color(hex: 0x566AFF))
                                 .overlay {
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .inset(by: 2)
+                                    RoundedRectangle(cornerRadius: 15)
+                                        .inset(by: 1)
                                         .stroke(Color(hex: 0x93A0FF), lineWidth: 2)
                                 }
                             Image(systemName: "location.fill")
@@ -73,8 +74,9 @@ struct LocationPage: View {
                 }
             }
         }
+        .onAppear { refreshAuthStatus() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            authStatus = CLLocationManager().authorizationStatus
+            refreshAuthStatus()
         }
     }
 
@@ -82,13 +84,12 @@ struct LocationPage: View {
     private var locationCaptionView: some View {
         switch locationState {
         case .notSetUp:
-            SettingsCaptionText(text: "Location access is set up from the Capture controls. Open a roll to get started.")
+            SettingsCaptionText(text: "Location recording is set up from the Capture controls. Open a roll to get started.")
         case .notAllowed:
             (
                 Text("To record your location, ")
                 + Text("allow Sprokbook to access your location in your iPhone's Settings")
                     .foregroundStyle(Color.accentColor)
-                    .fontWeight(.medium)
                 + Text(".")
             ).foregroundStyle(Color.white.opacity(0.4))
             .font(.system(size: 13, weight: .regular, design: .default))
@@ -97,9 +98,36 @@ struct LocationPage: View {
             .padding(.top, 12)
             .padding(.horizontal, 20)
             .onTapGesture { openSettings() }
+        case .allowed where accuracyAuth == .reducedAccuracy:
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 5) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                    Text("Precise location disabled")
+                }.fontWeight(.bold)
+                Text("Sprokbook uses precise location to tag your exposures with street-level accuracy. Your location data stays private on your iCloud account.")
+                (
+                    Text("Enable Precise Location in your iPhone's Settings")
+                        .foregroundStyle(Color.accentColor)
+                        .fontWeight(.medium)
+                    + Text(".")
+                )
+            }
+            .font(.system(size: 13, weight: .regular, design: .default))
+            .foregroundStyle(Color.white.opacity(0.40))
+            .lineHeightCompat(points: 16, fallbackSpacing: 0.5)
+            .multilineTextAlignment(.leading)
+            .padding(.top, 12)
+            .padding(.horizontal, 20)
+            .onTapGesture { openSettings() }
         case .allowed:
             EmptyView()
         }
+    }
+
+    private func refreshAuthStatus() {
+        let manager = CLLocationManager()
+        authStatus = manager.authorizationStatus
+        accuracyAuth = manager.accuracyAuthorization
     }
 
     private func openSettings() {

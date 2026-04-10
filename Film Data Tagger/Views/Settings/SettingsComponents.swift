@@ -152,7 +152,7 @@ struct SettingsHeroRow<Icon: View>: View {
             Text(title)
                 .font(.system(size: 22, weight: .bold, design: .default))
                 .fontWidth(.expanded)
-                .padding(.bottom, 8)
+                .padding(.bottom, 10)
             Text(subtitle)
                 .font(.system(size: 17, weight: .regular, design: .default))
                 .lineHeightCompat(points: 23, fallbackSpacing: 2.7)
