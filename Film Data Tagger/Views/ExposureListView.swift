@@ -267,7 +267,7 @@ private struct CameraSwitcherMenu: View {
                     .foregroundStyle(Color.white.opacity(0.6))
             }.padding(.vertical, 2)
             .frame(height: 44, alignment: .leading)
-            .frame(minWidth: 250, maxWidth: UIScreen.currentWidth - 32 - 44 - 44 - 12 - 12, alignment: .leading)
+            .frame(minWidth: min(250, UIScreen.currentWidth - 32 - 44 - 44 - 12 - 12), maxWidth: UIScreen.currentWidth - 32 - 44 - 44 - 12 - 12, alignment: .leading)
             .contentShape(Rectangle())
         }
         .accessibilityLabel("Switch camera")
