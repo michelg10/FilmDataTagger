@@ -59,8 +59,8 @@ actor DataStore: ModelActor {
 
         // Build snapshots and seed the diff cache (minimal — own fields only)
         let cameraSnapshots = cameras.map { $0.snapshot }
-        let rollSnapshots = allRolls.map { $0.snapshot }
-        let fmts = LogItem.SnapshotDateFormatters()
+        let fmts = SnapshotDateFormatters()
+        let rollSnapshots = allRolls.map { $0.snapshot(formatters: fmts) }
         let itemSnapshots = allItems.map { $0.snapshot(formatters: fmts) }
         let fetchMs = (CFAbsoluteTimeGetCurrent() - fetchStart) * 1000
         lastCameras = cameraSnapshots
@@ -294,7 +294,7 @@ actor DataStore: ModelActor {
     /// Persist a new roll. The VM has already added the snapshot optimistically.
     ///
     /// Not high priority: do not await
-    func createRoll(id: UUID, cameraID: UUID, filmStock: String, capacity: Int, createdAt: Date) {
+    func createRoll(id: UUID, cameraID: UUID, filmStock: String, capacity: Int, createdAt: Date, timeZoneIdentifier: String?, cityName: String?) {
         guard let camera = fetchCamera(cameraID) else {
             debugLog("createRoll: camera \(cameraID) not found — triggering reload to reconcile")
             remoteDataChanged.send()
@@ -306,6 +306,8 @@ actor DataStore: ModelActor {
         }
         let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity, createdAt: createdAt)
         roll.id = id
+        roll.timeZoneIdentifier = timeZoneIdentifier
+        roll.cityName = cityName
         modelContext.insert(roll)
         save()
     }
@@ -321,6 +323,16 @@ actor DataStore: ModelActor {
         }
         roll.filmStock = filmStock
         roll.capacity = capacity
+        save()
+    }
+
+    /// Backfill the city name on a roll (e.g., location wasn't available at creation time).
+    func updateRollCityName(rollID: UUID, cityName: String) {
+        guard let roll = fetchRoll(rollID) else {
+            debugLog("updateRollCityName: roll \(rollID) not found")
+            return
+        }
+        roll.cityName = cityName
         save()
     }
 
@@ -552,8 +564,8 @@ actor DataStore: ModelActor {
         let freshItems: [LogItemSnapshot]
         do {
             freshCameras = try modelContext.fetch(FetchDescriptor<Camera>(sortBy: [SortDescriptor(\.listOrder)])).map { $0.snapshot }
-            freshRolls = try modelContext.fetch(FetchDescriptor<Roll>()).map { $0.snapshot }
-            let remoteFmts = LogItem.SnapshotDateFormatters()
+            let remoteFmts = SnapshotDateFormatters()
+            freshRolls = try modelContext.fetch(FetchDescriptor<Roll>()).map { $0.snapshot(formatters: remoteFmts) }
             freshItems = try modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)])).map { $0.snapshot(formatters: remoteFmts) }
         } catch {
             errorLog("handleRemoteChange: fetch failed, skipping: \(error)")

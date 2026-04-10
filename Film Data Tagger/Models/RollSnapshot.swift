@@ -15,7 +15,21 @@ struct RollSnapshot: Identifiable, Hashable, Sendable, Codable {
     var extraExposures: Int
     var isActive: Bool
     var createdAt: Date
+    var timeZoneIdentifier: String?
+    var cityName: String?
+    var notes: String?
     var lastExposureDate: Date?
     var exposureCount: Int
     var totalCapacity: Int
+    // Time display — pre-computed like LogItemSnapshot.
+    /// Loaded-timezone formatted time and date (immutable).
+    var formattedTime: String = ""
+    var formattedDate: String = ""
+    /// Device-timezone formatted time and date (recomputed on TZ change).
+    var localFormattedTime: String = ""
+    var localFormattedDate: String = ""
+    /// Whether the loaded TZ differs from the device TZ.
+    var hasDifferentTimeZone: Bool = false
+    /// Human-readable loaded TZ label (e.g., "Tokyo").
+    var capturedTZLabel: String? = nil
 }

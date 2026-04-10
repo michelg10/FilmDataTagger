@@ -76,8 +76,12 @@ extension FilmLogViewModel: RollsViewModel {
         }
         let id = UUID()
         let createdAt = Date()
+        let timeZoneIdentifier = TimeZone.current.identifier
+        let cityName = locationService.geocodingState.persistableCityName
         // Deactivate previous active roll
         camera.activeRoll?.snapshot.isActive = false
+        let timeFmt = createdAt.formatted(.dateTime.hour().minute())
+        let dateFmt = createdAt.formatted(.dateTime.month().day().year())
         let snapshot = RollSnapshot(
             id: id,
             cameraID: cameraID,
@@ -86,9 +90,18 @@ extension FilmLogViewModel: RollsViewModel {
             extraExposures: 0,
             isActive: true,
             createdAt: createdAt,
+            timeZoneIdentifier: timeZoneIdentifier,
+            cityName: cityName,
+            notes: nil,
             lastExposureDate: nil,
             exposureCount: 0,
-            totalCapacity: capacity
+            totalCapacity: capacity,
+            formattedTime: timeFmt,
+            formattedDate: dateFmt,
+            localFormattedTime: timeFmt,
+            localFormattedDate: dateFmt,
+            hasDifferentTimeZone: false,
+            capturedTZLabel: nil
         )
         let newRoll = RollState(snapshot: snapshot)
         camera.rolls.insert(newRoll, at: 0)
@@ -104,7 +117,7 @@ extension FilmLogViewModel: RollsViewModel {
         Task.detached(priority: .medium) { [weak self] in
             guard let self else { return }
             let store = await self.store
-            await store.createRoll(id: id, cameraID: cameraID, filmStock: filmStock, capacity: capacity, createdAt: createdAt)
+            await store.createRoll(id: id, cameraID: cameraID, filmStock: filmStock, capacity: capacity, createdAt: createdAt, timeZoneIdentifier: timeZoneIdentifier, cityName: cityName)
         }
         return id
     }

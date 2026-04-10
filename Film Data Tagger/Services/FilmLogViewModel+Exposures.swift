@@ -137,6 +137,24 @@ extension FilmLogViewModel: ExposuresViewModel {
             capturedIDs.append(id)
             capturedDates.append(createdAt)
         }
+        
+        // Backfill roll city name if it was missing at creation (e.g., first install —
+        // location permission hadn't been granted yet when the roll was created).
+        if let targetRoll, targetRoll.snapshot.cityName == nil,
+           let cityName, !cityName.isEmpty,
+           targetRoll.snapshot.createdAt.timeIntervalSinceNow > -900 {
+            targetRoll.snapshot.cityName = cityName
+            if let camera = targetCamera, camera.activeRoll?.id == targetRoll.id {
+                camera.snapshot.activeRoll = targetRoll.snapshot
+            }
+            let rollID = targetRoll.id
+            Task.detached(priority: .utility) { [weak self] in
+                guard let self else { return }
+                let store = await self.store
+                await store.updateRollCityName(rollID: rollID, cityName: cityName)
+            }
+        }
+
         publishSnapshots()
         persistOpenState()
 

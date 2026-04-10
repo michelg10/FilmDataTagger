@@ -203,39 +203,9 @@ final class LogItem {
 
     // MARK: - Snapshot
 
-    /// Reusable formatter cache for bulk snapshot creation. Avoids constructing
-    /// a new `Date.FormatStyle` for every item in `loadAll()`.
-    final class SnapshotDateFormatters {
-        let localTime = Date.FormatStyle.dateTime.hour().minute()
-        let localDate = Date.FormatStyle.dateTime.month().day().year()
-        private var capturedCache: [String: (time: Date.FormatStyle, date: Date.FormatStyle)] = [:]
-
-        func captured(for tz: TimeZone) -> (time: Date.FormatStyle, date: Date.FormatStyle) {
-            let key = tz.identifier
-            if let cached = capturedCache[key] { return cached }
-            var timeFmt = Date.FormatStyle.dateTime.hour().minute()
-            timeFmt.timeZone = tz
-            var dateFmt = Date.FormatStyle.dateTime.month().day().year()
-            dateFmt.timeZone = tz
-            let pair = (timeFmt, dateFmt)
-            capturedCache[key] = pair
-            return pair
-        }
-    }
-
     func snapshot(formatters: SnapshotDateFormatters) -> LogItemSnapshot {
-        // Capture TZ formatting — reuses cached formatters per timezone
-        let capturedTZ = timeZoneIdentifier.flatMap { TimeZone(identifier: $0) } ?? .current
+        let (capturedTZ, hasDifferentTZ, capturedTZLabel) = formatters.timeZoneInfo(for: createdAt, tzIdentifier: timeZoneIdentifier, cityName: cityName)
         let (capTimeFmt, capDateFmt) = formatters.captured(for: capturedTZ)
-
-        // Device TZ formatting (recomputed by DataStore on TZ change)
-        let hasDifferentTZ = capturedTZ.secondsFromGMT(for: createdAt)
-            != TimeZone.current.secondsFromGMT(for: createdAt)
-        let capturedTZLabel: String? = if hasDifferentTZ {
-            cityName ?? timeZoneIdentifier.map { cityName(from: $0) }
-        } else {
-            nil
-        }
 
         return LogItemSnapshot(
             id: id,
@@ -265,12 +235,5 @@ final class LogItem {
     /// reuse doesn't matter.
     var snapshot: LogItemSnapshot {
         snapshot(formatters: SnapshotDateFormatters())
-    }
-
-    /// Extracts a city name from a time zone identifier (e.g., "America/Los_Angeles" → "Los Angeles")
-    private func cityName(from timeZoneIdentifier: String) -> String {
-        let components = timeZoneIdentifier.split(separator: "/")
-        let last = components.last.map(String.init) ?? timeZoneIdentifier
-        return last.replacingOccurrences(of: "_", with: " ")
     }
 }

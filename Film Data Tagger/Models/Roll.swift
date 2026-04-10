@@ -31,6 +31,15 @@ final class Roll {
 
     var createdAt: Date = Date.distantPast
 
+    /// The time zone identifier at the time the roll was loaded (e.g., "America/Los_Angeles")
+    var timeZoneIdentifier: String?
+
+    /// Geocoded city/locality name at the time the roll was loaded (e.g., "Los Angeles")
+    var cityName: String?
+
+    /// Optional notes for this roll
+    var notes: String?
+
     /// The log items (frames) in this roll
     @Relationship(deleteRule: .cascade, inverse: \LogItem.roll)
     var logItems: [LogItem]?
@@ -41,6 +50,7 @@ final class Roll {
         self.camera = camera
         self.capacity = capacity
         self.createdAt = createdAt
+        self.timeZoneIdentifier = TimeZone.current.identifier
     }
 
     /// Total capacity including extra pre-first-frame exposures
@@ -48,8 +58,11 @@ final class Roll {
 
     // MARK: - Snapshot (Roll's own fields only — derived data computed by loadAll)
 
-    var snapshot: RollSnapshot {
-        RollSnapshot(
+    func snapshot(formatters: SnapshotDateFormatters) -> RollSnapshot {
+        let (capturedTZ, hasDifferentTZ, capturedTZLabel) = formatters.timeZoneInfo(for: createdAt, tzIdentifier: timeZoneIdentifier, cityName: cityName)
+        let (capTimeFmt, capDateFmt) = formatters.captured(for: capturedTZ)
+
+        return RollSnapshot(
             id: id,
             cameraID: camera?.id,
             filmStock: filmStock,
@@ -57,9 +70,23 @@ final class Roll {
             extraExposures: extraExposures,
             isActive: isActive,
             createdAt: createdAt,
+            timeZoneIdentifier: timeZoneIdentifier,
+            cityName: cityName,
+            notes: notes,
             lastExposureDate: nil,
             exposureCount: 0,
-            totalCapacity: totalCapacity
+            totalCapacity: totalCapacity,
+            formattedTime: createdAt.formatted(capTimeFmt),
+            formattedDate: createdAt.formatted(capDateFmt),
+            localFormattedTime: createdAt.formatted(formatters.localTime),
+            localFormattedDate: createdAt.formatted(formatters.localDate),
+            hasDifferentTimeZone: hasDifferentTZ,
+            capturedTZLabel: capturedTZLabel
         )
+    }
+
+    /// Convenience for single-roll snapshot (e.g. previews) where formatter reuse doesn't matter.
+    var snapshot: RollSnapshot {
+        snapshot(formatters: SnapshotDateFormatters())
     }
 }
