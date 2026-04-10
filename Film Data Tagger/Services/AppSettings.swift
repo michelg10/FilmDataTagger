@@ -12,9 +12,9 @@ import AVFoundation
 // MARK: - Settings Enums
 
 enum ReferencePhotoStartup: String, CaseIterable {
-    case preserveLast
     case on
     case off
+    case preserveLast
 
     var label: String {
         switch self {

@@ -56,9 +56,9 @@ struct ReferencePhotoPage: View {
                 }
             }
             if cameraState == .allowed {
-                SettingsSection(header: "Start with reference photo") {
+                SettingsSection(header: "Prefer reference photo") {
                     ForEach(ReferencePhotoStartup.allCases, id: \.self) { option in
-                        if option != .preserveLast { SettingsSeparator() }
+                        if option != .on { SettingsSeparator() }
                         SettingsOptionRow(text: option.label, value: option, selection: $settings.referencePhotoStartup)
                     }
                 }
