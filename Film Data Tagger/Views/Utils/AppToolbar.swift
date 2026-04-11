@@ -55,7 +55,7 @@ extension View {
 }
 
 /// Back button that wraps ToolbarIconButton with dismiss.
-private struct ToolbarBackButton: View {
+struct ToolbarBackButton: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
