@@ -69,37 +69,39 @@ private struct RollDetailPickers: View, Equatable {
     }
 
     var body: some View {
-        DatePicker("Roll load date", selection: $draftDate, displayedComponents: .date)
-            .environment(\.timeZone, timeZone)
-            .zIndex(4)
-            .datePickerStyle(.graphical)
-            .padding(.top, 0)
-            .padding(.bottom, 6)
-            .padding(.leading, 8)
-            .padding(.trailing, 8)
-            .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
-            .offset(y: 44 + 12)
-            .offset(y: isEditingDate ? 0 : datePickerTransitionYOffset)
-            .opacity(isEditingDate ? 1 : 0)
-            .allowsHitTesting(isEditingDate)
-            .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingDate)
-        DatePicker("Roll load time", selection: $draftDate, displayedComponents: .hourAndMinute)
-            .environment(\.timeZone, timeZone)
-            .zIndex(4)
-            .datePickerStyle(.wheel)
-            .labelsHidden()
-            .padding(.top, 6)
-            .padding(.bottom, 6)
-            .padding(.leading, 16)
-            .padding(.trailing, 16)
-            .frame(maxWidth: .infinity)
-            .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
-            .padding(.horizontal, 6)
-            .offset(y: 44 + 12)
-            .offset(y: isEditingTime ? 0 : datePickerTransitionYOffset)
-            .opacity(isEditingTime ? 1 : 0)
-            .allowsHitTesting(isEditingTime)
-            .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingTime)
+        ZStack(alignment: .top) {
+            DatePicker("Roll load date", selection: $draftDate, displayedComponents: .date)
+                .environment(\.timeZone, timeZone)
+                .zIndex(4)
+                .datePickerStyle(.graphical)
+                .padding(.top, 0)
+                .padding(.bottom, 6)
+                .padding(.leading, 8)
+                .padding(.trailing, 8)
+                .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
+                .offset(y: 44 + 12)
+                .offset(y: isEditingDate ? 0 : datePickerTransitionYOffset)
+                .opacity(isEditingDate ? 1 : 0)
+                .allowsHitTesting(isEditingDate)
+                .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingDate)
+            DatePicker("Roll load time", selection: $draftDate, displayedComponents: .hourAndMinute)
+                .environment(\.timeZone, timeZone)
+                .zIndex(4)
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .padding(.top, 6)
+                .padding(.bottom, 6)
+                .padding(.leading, 16)
+                .padding(.trailing, 16)
+                .frame(maxWidth: .infinity)
+                .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
+                .padding(.horizontal, 6)
+                .offset(y: 44 + 12)
+                .offset(y: isEditingTime ? 0 : datePickerTransitionYOffset)
+                .opacity(isEditingTime ? 1 : 0)
+                .allowsHitTesting(isEditingTime)
+                .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingTime)
+        }
     }
 }
 
@@ -120,7 +122,7 @@ private struct RollDetailLoadedSection: View {
     @State private var isEditingTime: Bool = false
     @State private var showingLocalTime: Bool = false
     @State private var pickersConstructed: Bool = false
-    @State private var pickerRebuildTask: Task<Void, Never>?
+    @State private var pickerRebuildTimer: Timer?
     /// Frozen timezone for the pickers — only updated when pickers are reconstructed,
     /// not when displayTimeZone changes, to avoid picker re-layout during teardown.
     @State private var pickerTimeZone: TimeZone = .current
@@ -307,11 +309,7 @@ private struct RollDetailLoadedSection: View {
         }.zIndex(1)
         .onChange(of: isEditing) { _, editing in
             if editing && !pickersConstructed {
-                Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(pickerUpdateDelay))
-                    pickerTimeZone = displayTimeZone
-                    pickersConstructed = true
-                }
+                schedulePickerRebuild()
             }
             if !editing {
                 isEditingDate = false
@@ -320,19 +318,26 @@ private struct RollDetailLoadedSection: View {
         }
         .onChange(of: displayTimeZone) {
             guard pickersConstructed else { return }
-            pickerRebuildTask?.cancel()
+            pickerRebuildTimer?.invalidate()
             pickersConstructed = false
-            pickerRebuildTask = Task { @MainActor in
-                try? await Task.sleep(for: .seconds(pickerUpdateDelay))
-                guard !Task.isCancelled else { return }
-                pickerTimeZone = displayTimeZone
-                pickersConstructed = true
-            }
+            schedulePickerRebuild()
         }
     }
 
     private var draftTimeZone: TimeZone {
         TimeZone(identifier: draftTimeZoneIdentifier) ?? .current
+    }
+
+    /// Schedule picker reconstruction after a delay, using RunLoop.default mode
+    /// so it won't fire during scroll tracking.
+    private func schedulePickerRebuild() {
+        pickerRebuildTimer?.invalidate()
+        let timer = Timer(timeInterval: pickerUpdateDelay, repeats: false) { [self] _ in
+            pickerTimeZone = displayTimeZone
+            pickersConstructed = true
+        }
+        RunLoop.main.add(timer, forMode: .default)
+        pickerRebuildTimer = timer
     }
 
     private var hasDifferentTimeZone: Bool {
