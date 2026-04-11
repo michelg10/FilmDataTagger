@@ -58,11 +58,8 @@ final class Roll {
 
     // MARK: - Snapshot (Roll's own fields only — derived data computed by loadAll)
 
-    func snapshot(formatters: SnapshotDateFormatters) -> RollSnapshot {
-        let (capturedTZ, hasDifferentTZ, capturedTZLabel) = formatters.timeZoneInfo(for: createdAt, tzIdentifier: timeZoneIdentifier, cityName: cityName)
-        let (capTimeFmt, capDateFmt) = formatters.captured(for: capturedTZ)
-
-        return RollSnapshot(
+    var snapshot: RollSnapshot {
+        RollSnapshot(
             id: id,
             cameraID: camera?.id,
             filmStock: filmStock,
@@ -75,18 +72,7 @@ final class Roll {
             notes: notes,
             lastExposureDate: nil,
             exposureCount: 0,
-            totalCapacity: totalCapacity,
-            formattedTime: createdAt.formatted(capTimeFmt),
-            formattedDate: createdAt.formatted(capDateFmt),
-            localFormattedTime: createdAt.formatted(formatters.localTime),
-            localFormattedDate: createdAt.formatted(formatters.localDate),
-            hasDifferentTimeZone: hasDifferentTZ,
-            capturedTZLabel: capturedTZLabel
+            totalCapacity: totalCapacity
         )
-    }
-
-    /// Convenience for single-roll snapshot (e.g. previews) where formatter reuse doesn't matter.
-    var snapshot: RollSnapshot {
-        snapshot(formatters: SnapshotDateFormatters())
     }
 }

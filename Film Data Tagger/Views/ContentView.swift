@@ -15,6 +15,11 @@ extension UUID: @retroactive Identifiable {
 /// Navigation marker for pushing to the exposure list screen.
 private struct ExposureMarker: Hashable {}
 
+/// Navigation marker for pushing to the roll detail screen.
+private struct RollDetailMarker: Hashable {
+    let rollID: UUID
+}
+
 let bottomGradientOpacity: Double = 0.4
 
 // MARK: - Content View
@@ -92,6 +97,9 @@ struct ContentView: View {
                         onRollSelected: { _ in
                             guard !isOnExposureList else { return }
                             path.append(ExposureMarker())
+                        },
+                        onShowRollDetail: { rollID in
+                            path.append(RollDetailMarker(rollID: rollID))
                         }
                     )
                 }
@@ -108,8 +116,25 @@ struct ContentView: View {
                         selectedCameraID = cameraID
                     },
                     onCreateRoll: { viewModel.createRoll(cameraID: $0, filmStock: $1, capacity: $2) },
-                    onEditRoll: { viewModel.editRoll(id: $0, filmStock: $1, capacity: $2) }
+                    onEditRoll: { viewModel.editRoll(id: $0, filmStock: $1, capacity: $2) },
+                    onShowRollDetail: {
+                        if let id = viewModel.openRollSnapshot?.id {
+                            path.append(RollDetailMarker(rollID: id))
+                        }
+                    }
                 )
+            }
+            .navigationDestination(for: RollDetailMarker.self) { marker in
+                if let rollState = viewModel.roll(marker.rollID) {
+                    RollDetailView(
+                        roll: rollState.snapshot,
+                        cameraName: viewModel.openCameraSnapshot?.name ?? "",
+                        exposures: rollState.items,
+                        currentCityName: viewModel.locationService.geocodingState.persistableCityName,
+                        onUpdateNotes: { viewModel.updateRollNotes(id: $0, notes: $1) },
+                        onUpdateCreatedAt: { viewModel.updateRollCreatedAt(id: $0, createdAt: $1, timeZoneIdentifier: $2, cityName: $3) }
+                    )
+                }
             }
         }
         .overlay(alignment: .bottom) {

@@ -290,6 +290,7 @@ struct ExposureListView: View {
     var onLoadRoll: (() -> Void)?
     var onAddPlaceholder: (() -> Void)?
     var onAddLostFrame: (() -> Void)?
+    var onShowRollDetail: (() -> Void)?
     @State private var draggingPlaceholderID: UUID?
     @State private var dropTargetIndex: Int?
 
@@ -436,7 +437,7 @@ struct ExposureListView: View {
     private var rollOptionsMenu: some View {
         Menu {
             Button {
-                // TODO: Details
+                onShowRollDetail?()
             } label: {
                 Label("Details", systemImage: "info.circle")
             }

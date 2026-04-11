@@ -59,8 +59,8 @@ actor DataStore: ModelActor {
 
         // Build snapshots and seed the diff cache (minimal — own fields only)
         let cameraSnapshots = cameras.map { $0.snapshot }
+        let rollSnapshots = allRolls.map { $0.snapshot }
         let fmts = SnapshotDateFormatters()
-        let rollSnapshots = allRolls.map { $0.snapshot(formatters: fmts) }
         let itemSnapshots = allItems.map { $0.snapshot(formatters: fmts) }
         let fetchMs = (CFAbsoluteTimeGetCurrent() - fetchStart) * 1000
         lastCameras = cameraSnapshots
@@ -336,6 +336,28 @@ actor DataStore: ModelActor {
         save()
     }
 
+    /// Persist a roll notes edit.
+    func updateRollNotes(rollID: UUID, notes: String?) {
+        guard let roll = fetchRoll(rollID) else {
+            debugLog("updateRollNotes: roll \(rollID) not found")
+            return
+        }
+        roll.notes = notes
+        save()
+    }
+
+    /// Persist a roll createdAt / time zone edit.
+    func updateRollCreatedAt(rollID: UUID, createdAt: Date, timeZoneIdentifier: String, cityName: String?) {
+        guard let roll = fetchRoll(rollID) else {
+            debugLog("updateRollCreatedAt: roll \(rollID) not found")
+            return
+        }
+        roll.createdAt = createdAt
+        roll.timeZoneIdentifier = timeZoneIdentifier
+        roll.cityName = cityName
+        save()
+    }
+
     /// Activate a roll. Deactivates any other active roll on the same camera. The VM has already updated its local state optimistically.
     ///
     /// Not high priority: do not await
@@ -564,8 +586,8 @@ actor DataStore: ModelActor {
         let freshItems: [LogItemSnapshot]
         do {
             freshCameras = try modelContext.fetch(FetchDescriptor<Camera>(sortBy: [SortDescriptor(\.listOrder)])).map { $0.snapshot }
+            freshRolls = try modelContext.fetch(FetchDescriptor<Roll>()).map { $0.snapshot }
             let remoteFmts = SnapshotDateFormatters()
-            freshRolls = try modelContext.fetch(FetchDescriptor<Roll>()).map { $0.snapshot(formatters: remoteFmts) }
             freshItems = try modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)])).map { $0.snapshot(formatters: remoteFmts) }
         } catch {
             errorLog("handleRemoteChange: fetch failed, skipping: \(error)")

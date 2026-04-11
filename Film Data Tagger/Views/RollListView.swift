@@ -145,6 +145,7 @@ struct RollListRow: View {
 struct RollListView: View {
     let viewModel: any RollsViewModel
     var onRollSelected: ((RollSnapshot) -> Void)?
+    var onShowRollDetail: ((UUID) -> Void)?
 
     private var rollData: OpenCameraRolls? { viewModel.openCameraRolls }
     private var cameraSnap: CameraSnapshot? { viewModel.openCameraSnapshot }
@@ -181,6 +182,11 @@ struct RollListView: View {
                                 }
                                 .buttonStyle(.plain)
                                 .contextMenu {
+                                    Button {
+                                        onShowRollDetail?(activeRoll.id)
+                                    } label: {
+                                        Label("Details", systemImage: "info.circle")
+                                    }
                                     Button {
                                         rollToEdit = activeRoll
                                     } label: {
@@ -222,6 +228,11 @@ struct RollListView: View {
                                 .buttonStyle(.plain)
                                 .transition(.asymmetric(insertion: .opacity, removal: isLast ? .opacity : .identity))
                                 .contextMenu {
+                                    Button {
+                                        onShowRollDetail?(roll.id)
+                                    } label: {
+                                        Label("Details", systemImage: "info.circle")
+                                    }
                                     Button {
                                         rollToEdit = roll
                                     } label: {

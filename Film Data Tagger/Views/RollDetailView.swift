@@ -535,13 +535,7 @@ struct RollDetailView: View {
         notes: "Push two stops. The advance felt a bit funky, check for potential problems in development.\nMarked with some smeared marker.",
         lastExposureDate: Date().addingTimeInterval(-300),
         exposureCount: items.count,
-        totalCapacity: 36,
-        formattedTime: "3:45 PM",
-        formattedDate: "Apr 10, 2026",
-        localFormattedTime: "3:45 PM",
-        localFormattedDate: "Apr 10, 2026",
-        hasDifferentTimeZone: false,
-        capturedTZLabel: nil
+        totalCapacity: 36
     )
     NavigationStack {
         RollDetailView(
@@ -569,13 +563,7 @@ struct RollDetailView: View {
         notes: nil,
         lastExposureDate: Date().addingTimeInterval(-86400 * 2),
         exposureCount: 18,
-        totalCapacity: 24,
-        formattedTime: "11:30 AM",
-        formattedDate: "Apr 7, 2026",
-        localFormattedTime: "7:30 PM",
-        localFormattedDate: "Apr 6, 2026",
-        hasDifferentTimeZone: true,
-        capturedTZLabel: "Tokyo"
+        totalCapacity: 24
     )
     NavigationStack {
         RollDetailView(

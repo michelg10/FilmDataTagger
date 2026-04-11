@@ -128,6 +128,7 @@ struct ExposureScreen: View {
     var onCameraSwitched: ((UUID) -> Void)? = nil
     var onCreateRoll: ((UUID, String, Int) -> UUID?)? = nil
     var onEditRoll: ((UUID, String, Int) -> Void)? = nil
+    var onShowRollDetail: (() -> Void)? = nil
 
     @State private var newRollCameraID: UUID?
     @State private var scrollState = ExposureScrollState()
@@ -181,7 +182,8 @@ struct ExposureScreen: View {
                     }
                 },
                 onAddPlaceholder: { viewModel.logPlaceholderLike(.placeholder) },
-                onAddLostFrame: { viewModel.logPlaceholderLike(.lostFrame) }
+                onAddLostFrame: { viewModel.logPlaceholderLike(.lostFrame) },
+                onShowRollDetail: { onShowRollDetail?() }
             )
             // Inactive roll overlay
             if !(viewModel.openRollSnapshot?.isActive ?? false) {

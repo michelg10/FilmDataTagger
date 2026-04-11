@@ -80,8 +80,6 @@ extension FilmLogViewModel: RollsViewModel {
         let cityName = locationService.geocodingState.persistableCityName
         // Deactivate previous active roll
         camera.activeRoll?.snapshot.isActive = false
-        let timeFmt = createdAt.formatted(.dateTime.hour().minute())
-        let dateFmt = createdAt.formatted(.dateTime.month().day().year())
         let snapshot = RollSnapshot(
             id: id,
             cameraID: cameraID,
@@ -95,13 +93,7 @@ extension FilmLogViewModel: RollsViewModel {
             notes: nil,
             lastExposureDate: nil,
             exposureCount: 0,
-            totalCapacity: capacity,
-            formattedTime: timeFmt,
-            formattedDate: dateFmt,
-            localFormattedTime: timeFmt,
-            localFormattedDate: dateFmt,
-            hasDifferentTimeZone: false,
-            capturedTZLabel: nil
+            totalCapacity: capacity
         )
         let newRoll = RollState(snapshot: snapshot)
         camera.rolls.insert(newRoll, at: 0)
@@ -203,6 +195,49 @@ extension FilmLogViewModel: RollsViewModel {
             guard let self else { return }
             let store = await self.store
             await store.deleteRoll(id: id)
+        }
+    }
+
+    // MARK: - Roll Detail Edits
+
+    func updateRollNotes(id: UUID, notes: String?) {
+        guard let roll = roll(id) else {
+            debugLog("updateRollNotes: roll \(id) not found")
+            return
+        }
+        roll.snapshot.notes = notes
+        if let camera = _openCamera, camera.activeRoll?.id == id {
+            camera.snapshot.activeRoll = roll.snapshot
+        }
+        publishSnapshots()
+        persistOpenState()
+        let rollID = id
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
+            await store.updateRollNotes(rollID: rollID, notes: notes)
+        }
+    }
+
+    func updateRollCreatedAt(id: UUID, createdAt: Date, timeZoneIdentifier: String, cityName: String?) {
+        guard let roll = roll(id) else {
+            debugLog("updateRollCreatedAt: roll \(id) not found")
+            return
+        }
+        roll.snapshot.createdAt = createdAt
+        roll.snapshot.timeZoneIdentifier = timeZoneIdentifier
+        roll.snapshot.cityName = cityName
+        // Update camera snapshot if this is the active roll
+        if let camera = _openCamera, camera.activeRoll?.id == id {
+            camera.snapshot.activeRoll = roll.snapshot
+        }
+        publishSnapshots()
+        persistOpenState()
+        let rollID = id
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
+            await store.updateRollCreatedAt(rollID: rollID, createdAt: createdAt, timeZoneIdentifier: timeZoneIdentifier, cityName: cityName)
         }
     }
 }
