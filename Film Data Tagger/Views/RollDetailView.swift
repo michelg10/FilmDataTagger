@@ -6,6 +6,12 @@
 import SwiftUI
 import Combine
 
+private let layoutChangeAnimationDuration: Double = 0.25
+private let datePickerSelectAnimationDuration: Double = 0.2
+private let datePickerTransitionYOffset: CGFloat = -16
+private let timeZoneToggleTransitionYOffset: CGFloat = -11
+private let editWarningsTransitionYOffset: CGFloat = -140
+
 private struct RollDetailHeader: View {
     let icon: String
     let title: String
@@ -39,31 +45,53 @@ private struct RollDetailSeparator: View {
 private struct RollDetailLoadedSection: View {
     let roll: RollSnapshot
     let exposures: [LogItemSnapshot]
-    @Binding var isEditing: Bool
-    var onUpdateCreatedAt: ((UUID, Date, String, String?) -> Void)?
+    let isEditing: Bool
+    var currentCityName: String?
+    @Binding var draftDate: Date
+    @Binding var draftTimeZoneIdentifier: String
+    @Binding var draftCityName: String?
 
     let editContainerColor: Color = Color(hex: 0x262626)
 
     @State private var isEditingDate: Bool = false
     @State private var isEditingTime: Bool = false
+    @State private var showingLocalTime: Bool = false
 
     private var shouldShowCompact: Bool {
         UIScreen.currentWidth < 390
     }
 
+    private var displayTimeZone: TimeZone {
+        showingLocalTime ? .current : draftTimeZone
+    }
+
+    private var displayDate: String {
+        let date = isEditing ? draftDate : roll.createdAt
+        var fmt = Date.FormatStyle.dateTime.month(shouldShowCompact ? .abbreviated : .wide).day().year()
+        fmt.timeZone = displayTimeZone
+        return date.formatted(fmt)
+    }
+
+    private var displayTime: String {
+        let date = isEditing ? draftDate : roll.createdAt
+        var fmt = Date.FormatStyle.dateTime.hour().minute()
+        fmt.timeZone = displayTimeZone
+        return date.formatted(fmt)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: isEditing ? 16 : 11) {
             RollDetailHeader(icon: "arrow.clockwise", title: "Loaded")
-
+            
             HStack(alignment: .firstTextBaseline, spacing: isEditing ? 12 : 5) {
-                Text(shouldShowCompact ? "Sept 24, 2026" : "September 24, 2026")
+                Text(displayDate)
                     .frame(
                         width: isEditing ? min(UIScreen.currentWidth - 20 - 125 - 12, 267) : nil,
                         height: CGFloat(isEditing ? 44 : 20)
                     )
                     .background(Capsule().foregroundStyle(editContainerColor).opacity(isEditing ? 1 : 0))
                     .foregroundStyle(isEditingDate ? Color.accentColor : Color.white)
-                    .animation(.easeInOut(duration: 0.25), value: isEditingDate) // TODO: tune
+                    .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingDate)
                     .accessibilityLabel("Edit roll load date")
                     .contentShape(Capsule())
                     .onTapGesture {
@@ -73,11 +101,11 @@ private struct RollDetailLoadedSection: View {
                         }
                     }
 
-                Text("3:35 PM")
+                Text(displayTime)
                     .frame(width: isEditing ? 125 : nil, height: isEditing ? 44 : 20)
                     .background(Capsule().foregroundStyle(editContainerColor).opacity(isEditing ? 1 : 0))
                     .foregroundStyle(isEditingTime ? Color.accentColor : Color.white.opacity(isEditing ? 1.0 : 0.7))
-                    .animation(.easeInOut(duration: 0.25), value: isEditingDate) // TODO: tune
+                    .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingDate)
                     .accessibilityLabel("Edit roll load time")
                     .contentShape(Capsule())
                     .onTapGesture {
@@ -91,98 +119,118 @@ private struct RollDetailLoadedSection: View {
             .padding(.horizontal, isEditing ? 10 : 16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .zIndex(2)
-            .overlay(alignment: .top) {
+            .background(alignment: .top) {
                 ZStack(alignment: .top) {
-                    DatePicker("Roll load date", selection: .constant(.now), displayedComponents: .date)
+                    DatePicker("Roll load date", selection: $draftDate, displayedComponents: .date)
+                        .environment(\.timeZone, displayTimeZone)
                         .zIndex(3)
                         .datePickerStyle(.graphical)
-                        .padding(.horizontal, 8) // TODO: tune padding
+                        .padding(.top, 0)
                         .padding(.bottom, 6)
+                        .padding(.leading, 8)
+                        .padding(.trailing, 8)
                         .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
-                        .padding(.horizontal, 6)
                         .offset(y: 44 + 12)
-                        .offset(y: isEditingDate ? 0 : -20) // TODO: tune
+                        .offset(y: isEditingDate ? 0 : datePickerTransitionYOffset)
                         .opacity(isEditingDate ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.25), value: isEditingDate) // TODO: tune
-                    DatePicker("Roll load time", selection: .constant(.now), displayedComponents: .hourAndMinute)
+                        .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingDate)
+                    DatePicker("Roll load time", selection: $draftDate, displayedComponents: .hourAndMinute)
+                        .environment(\.timeZone, displayTimeZone)
                         .zIndex(3)
                         .datePickerStyle(.wheel)
                         .labelsHidden()
-                        .padding(.horizontal, 8) // TODO: tune padding
+                        .padding(.top, 6)
                         .padding(.bottom, 6)
+                        .padding(.leading, 16)
+                        .padding(.trailing, 16)
                         .frame(maxWidth: .infinity)
                         .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
                         .padding(.horizontal, 6)
                         .offset(y: 44 + 12)
-                        .offset(y: isEditingTime ? 0 : -20)
+                        .offset(y: isEditingTime ? 0 : datePickerTransitionYOffset)
                         .opacity(isEditingTime ? 1 : 0)
-                        .animation(.easeInOut(duration: 0.25), value: isEditingTime) // TODO: tune
+                        .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingTime)
                 }
             }
 
-            // this section should only be visible if the roll was started on another timezone
-            HStack(spacing: 0) {
-                HStack(alignment: .firstTextBaseline, spacing: isEditing ? 13 : 6) {
-                    Image(systemName: "globe.badge.clock")
-                        .foregroundStyle(Color.white.opacity(0.7))
-                    Text("London")
-                        .foregroundStyle(Color.white.opacity(isEditing ? 0.95 : 0.7))
-                }.frame(maxHeight: .infinity)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    // switch time zone between local and the previous timezone.
-                }.padding(.trailing, 16)
+            if hasDifferentTimeZone {
+                HStack(spacing: 0) {
+                    HStack(alignment: .firstTextBaseline, spacing: isEditing ? 13 : 6) {
+                        Image(systemName: "globe.badge.clock")
+                            .foregroundStyle(Color.white.opacity(0.7))
+                        Text(showingLocalTime ? "Local" : draftTimeZoneLabel)
+                            .foregroundStyle(Color.white.opacity(isEditing ? 0.95 : 0.7))
+                    }.drawingGroup() // make SwiftUI animate this view as a group
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        showingLocalTime.toggle()
+                    }.padding(.trailing, 16)
 
-                Button(action: {
-                    // set time zone to local
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .bold, design: .default))
-                        .foregroundStyle(Color.white.opacity(0.95))
-                        .frame(width: 40, height: 40)
-                        .contentShape(Circle())
-                }.buttonStyle(.plain)
-                .frame(width: 40, height: 40)
-                .glassEffectCompat(in: Circle(), interactive: true)
-                .padding(.trailing, 2)
-                .opacity(isEditing ? 1.0 : 0)
-            }.padding(.leading, isEditing ? 12 : 0)
-            .font(.system(size: 17, weight: .medium, design: .default))
-            .fontWidth(.expanded)
-            .frame(height: isEditing ? 44 : nil)
-            .background(Capsule().foregroundStyle(editContainerColor).opacity(isEditing ? 1.0 : 0))
-            .padding(.horizontal, isEditing ? 10 : 16)
+                    Button(action: {
+                        guard isEditing else {
+                            return
+                        }
+                        withAnimation(.easeInOut(duration: layoutChangeAnimationDuration)) {
+                            draftTimeZoneIdentifier = TimeZone.current.identifier
+                            draftCityName = currentCityName
+                        }
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold, design: .default))
+                            .foregroundStyle(Color.white.opacity(0.95))
+                            .frame(width: 40, height: 40)
+                            .contentShape(Circle())
+                    }.buttonStyle(.plain)
+                    .frame(width: isEditing ? 40 : 20, height: isEditing ? 40 : 20)
+                    .glassEffectCompat(in: Circle(), interactive: true)
+                    .padding(.trailing, 2)
+                    .opacity(isEditing ? 1.0 : 0)
+                }.padding(.leading, isEditing ? 12 : 0)
+                .font(.system(size: 17, weight: .medium, design: .default))
+                .fontWidth(.expanded)
+                .frame(height: isEditing ? 44 : nil)
+                .background(Capsule().foregroundStyle(editContainerColor).opacity(isEditing ? 1.0 : 0))
+                .padding(.horizontal, isEditing ? 10 : 16)
+                .animation(.easeInOut(duration: layoutChangeAnimationDuration), value: showingLocalTime && isEditing)
+                .transition(.opacity.combined(with: .offset(y: timeZoneToggleTransitionYOffset)))
+                .zIndex(1)
+            }
 
             if isEditing {
-                Group {
-                    // show the first exposure's time zone display if it's different from the roll's time zone
-                    // should display "Use time zone" instead of "Switch" if the current time zone is the same as the local one.
-                    if true {
-                        HStack(alignment: .firstTextBaseline, spacing: 7) {
-                            Image(systemName: "clock.badge.questionmark")
-                            (
-                                Text("Your roll started in Hong Kong • ") +
-                                Text("Switch").foregroundStyle(Color.accentColor)
-                            ).lineHeightCompat(points: 20, fallbackSpacing: 2.1)
-                        }.contentShape(Rectangle())
-                        .onTapGesture {
-                            print("switch time zone")
-                            // TODO: switch
+                if let firstExposureTZ = firstExposureTimeZone, let label = firstExposureTZLabel {
+                    let actionText = hasDifferentTimeZone ? "Switch" : "Use time zone"
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        Image(systemName: "clock.badge.questionmark")
+                        (
+                            Text("Your roll started in \(label) · ") +
+                            Text(actionText).foregroundStyle(Color.accentColor)
+                        ).lineHeightCompat(points: 20, fallbackSpacing: 2.1)
+                    }.compositingGroup()
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: layoutChangeAnimationDuration)) {
+                            draftTimeZoneIdentifier = firstExposureTZ.identifier
+                            draftCityName = firstExposure?.cityName
                         }
                     }
-                    if true {
-                        HStack(alignment: .firstTextBaseline, spacing: 7) {
-                            Image(systemName: "info.circle.fill")
-                            // use time (e.g. after your first exposure on 2:45 PM) if is on same day, be aware that time zones between the two should be consistent.
-                            Text("This is after your first exposure on April 1st")
-                                .lineHeightCompat(points: 20, fallbackSpacing: 2.1)
-                        }
-                    }
-                }.transition(.offset(y: -25).combined(with: .opacity)) // TODO: tune this value
-                .foregroundStyle(Color.white.opacity(0.5))
-                .font(.system(size: 15, weight: .semibold, design: .default))
-                .fontWidth(.expanded)
-                .padding(.horizontal, 16)
+                    .transition(.offset(y: editWarningsTransitionYOffset).combined(with: .opacity))
+                    .foregroundStyle(Color.white.opacity(0.5))
+                    .font(.system(size: 15, weight: .semibold, design: .default))
+                    .fontWidth(.expanded)
+                    .padding(.horizontal, 16)
+                }
+                if isDraftAfterFirstExposure {
+                    HStack(alignment: .firstTextBaseline, spacing: 7) {
+                        Image(systemName: "info.circle.fill")
+                        Text("This is after your first exposure on \(firstExposureReferenceText ?? "")")
+                            .lineHeightCompat(points: 20, fallbackSpacing: 2.1)
+                    }.drawingGroup() // make SwiftUI animate this view as a group
+                    .transition(.offset(y: editWarningsTransitionYOffset).combined(with: .opacity))
+                    .foregroundStyle(Color.white.opacity(0.5))
+                    .font(.system(size: 15, weight: .semibold, design: .default))
+                    .fontWidth(.expanded)
+                    .padding(.horizontal, 16)
+                }
             }
         }.zIndex(1)
         .onChange(of: isEditing) { _, editing in
@@ -190,6 +238,69 @@ private struct RollDetailLoadedSection: View {
                 isEditingDate = false
                 isEditingTime = false
             }
+        }
+    }
+
+    private var draftTimeZone: TimeZone {
+        TimeZone(identifier: draftTimeZoneIdentifier) ?? .current
+    }
+
+    private var hasDifferentTimeZone: Bool {
+        draftTimeZone.secondsFromGMT(for: draftDate) != TimeZone.current.secondsFromGMT(for: draftDate)
+    }
+
+    /// Human-readable label for the draft time zone (e.g. "Tokyo", "Los Angeles")
+    private var draftTimeZoneLabel: String {
+        draftCityName ?? {
+            let components = draftTimeZoneIdentifier.split(separator: "/")
+            let last = components.last.map(String.init) ?? draftTimeZoneIdentifier
+            return last.replacingOccurrences(of: "_", with: " ")
+        }()
+    }
+
+    // MARK: - First exposure hint logic
+
+    private var firstExposure: LogItemSnapshot? {
+        exposures.first(where: { $0.hasRealCreatedAt })
+    }
+
+    /// The first exposure's time zone, if it differs from the current draft TZ.
+    private var firstExposureTimeZone: TimeZone? {
+        guard let tzId = firstExposure?.timeZoneIdentifier,
+              let tz = TimeZone(identifier: tzId),
+              tz.secondsFromGMT(for: draftDate) != draftTimeZone.secondsFromGMT(for: draftDate)
+        else { return nil }
+        return tz
+    }
+
+    /// City label for the first exposure's time zone.
+    private var firstExposureTZLabel: String? {
+        guard let tzId = firstExposure?.timeZoneIdentifier else { return nil }
+        if let city = firstExposure?.cityName { return city }
+        let components = tzId.split(separator: "/")
+        let last = components.last.map(String.init) ?? tzId
+        return last.replacingOccurrences(of: "_", with: " ")
+    }
+
+    /// Whether draftDate is after the first exposure.
+    private var isDraftAfterFirstExposure: Bool {
+        guard let first = firstExposure else { return false }
+        return draftDate > first.createdAt
+    }
+
+    /// Formatted first exposure reference — time if same day, date otherwise.
+    private var firstExposureReferenceText: String? {
+        guard let first = firstExposure else { return nil }
+        var cal = Calendar.current
+        cal.timeZone = displayTimeZone
+        if cal.isDate(draftDate, inSameDayAs: first.createdAt) {
+            var fmt = Date.FormatStyle.dateTime.hour().minute()
+            fmt.timeZone = displayTimeZone
+            return first.createdAt.formatted(fmt)
+        } else {
+            var fmt = Date.FormatStyle.dateTime.month(.wide).day()
+            fmt.timeZone = displayTimeZone
+            return first.createdAt.formatted(fmt)
         }
     }
 }
@@ -249,16 +360,20 @@ struct RollDetailView: View {
     let roll: RollSnapshot
     let cameraName: String
     let exposures: [LogItemSnapshot]
+    var currentCityName: String?
     var onUpdateNotes: ((UUID, String?) -> Void)?
     var onUpdateCreatedAt: ((UUID, Date, String, String?) -> Void)?
 
     @State private var isEditing: Bool = false
     @State private var draftNotes: String = ""
+    @State private var draftDate: Date = .distantPast
+    @State private var draftTimeZoneIdentifier: String = TimeZone.current.identifier
+    @State private var draftCityName: String?
     @State private var hasInitialized = false
     @State private var debounceTask: Task<Void, Never>?
     @State private var dirtyDate: Date?
-    @State private var scrollProxy: ScrollViewProxy?
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -267,28 +382,26 @@ struct RollDetailView: View {
                     RollDetailLoadedSection(
                         roll: roll,
                         exposures: exposures,
-                        isEditing: $isEditing,
-                        onUpdateCreatedAt: onUpdateCreatedAt
+                        isEditing: isEditing,
+                        currentCityName: currentCityName,
+                        draftDate: $draftDate,
+                        draftTimeZoneIdentifier: $draftTimeZoneIdentifier,
+                        draftCityName: $draftCityName
                     )
                     RollDetailSeparator()
                     RollDetailNotesSection(
                         draftNotes: $draftNotes,
                         isEditing: isEditing,
-                        scrollProxy: scrollProxy
+                        scrollProxy: proxy
                     )
                     Color.clear
                         .frame(height: 1)
                         .id("scrollBottom")
                 }.offset(y: -32)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .animation(.easeInOut(duration: 0.25), value: isEditing) // TODO: tune this value
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                }
+                .animation(.easeInOut(duration: layoutChangeAnimationDuration), value: isEditing)
             }
             .scrollDismissesKeyboard(.immediately)
-            .onAppear { scrollProxy = proxy }
         }
         .appToolbar {
             leadingButton
@@ -300,6 +413,9 @@ struct RollDetailView: View {
         .onAppear {
             if !hasInitialized {
                 draftNotes = roll.notes ?? ""
+                draftDate = roll.createdAt
+                draftTimeZoneIdentifier = roll.timeZoneIdentifier ?? TimeZone.current.identifier
+                draftCityName = roll.cityName
                 hasInitialized = true
             }
         }
@@ -330,10 +446,13 @@ struct RollDetailView: View {
     private var leadingButton: some View {
         Button(action: {
             if isEditing {
-                // do not save
+                // Discard — reset drafts to roll values
+                draftDate = roll.createdAt
+                draftTimeZoneIdentifier = roll.timeZoneIdentifier ?? TimeZone.current.identifier
+                draftCityName = roll.cityName
                 isEditing = false
             } else {
-                // TODO: back
+                dismiss()
             }
         }) {
             ZStack {
@@ -359,6 +478,8 @@ struct RollDetailView: View {
     private var trailingButton: some View {
         Button(action: {
             if isEditing {
+                // Save — fire callback with draft values
+                onUpdateCreatedAt?(roll.id, draftDate, draftTimeZoneIdentifier, draftCityName)
                 isEditing = false
             } else {
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
