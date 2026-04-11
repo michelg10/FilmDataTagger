@@ -64,7 +64,7 @@ struct KillModal<HamburgerMenuContents: View>: View {
                 .foregroundStyle(Color.white.opacity(0.5))
                 .font(.system(size: 17, weight: .regular, design: .default))
                 .multilineTextAlignment(.leading)
-                .lineHeightCompat(points: 25)
+                .lineHeightCompat(points: 25, fallbackSpacing: 4.7)
                 .padding(.horizontal, 26)
             Spacer()
             Button {

@@ -80,7 +80,7 @@ Debug info may include:
                 }.foregroundStyle(Color.white.opacity(0.7))
                 .multilineTextAlignment(.leading)
                 .lineLimit(100)
-                .lineHeightCompat(points: 25)
+                .lineHeightCompat(points: 25, fallbackSpacing: 4.7)
                 .fixedSize(horizontal: false, vertical: true)
                 
                 Spacer(minLength: 0)

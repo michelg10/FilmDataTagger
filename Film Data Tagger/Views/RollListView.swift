@@ -108,7 +108,7 @@ struct RollListRow: View {
                     .fontWidth(.expanded)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .lineHeightCompat(points: 24)
+                    .lineHeightCompat(points: 24, fallbackSpacing: 0.1)
                     .foregroundStyle(Color.white)
                 Spacer(minLength: 15)
                 let exposureCountText = Text(exposureCountDisplay).foregroundStyle(Color.white.opacity(0.9))

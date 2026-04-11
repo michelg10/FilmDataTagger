@@ -57,12 +57,12 @@ private struct FullInfoRow<Icon: View>: View {
                     .lineLimit(2)
                     .font(.system(size: 17, weight: .semibold, design: .default))
                     .opacity(0.95)
-                    .lineHeightCompat(points: textLineHeight)
+                    .lineHeightCompat(points: textLineHeight, fallbackSpacing: 0)
                 Text(subtext)
                     .lineLimit(2)
                     .font(.system(size: 14, weight: .regular, design: .default))
                     .opacity(0.65)
-                    .lineHeightCompat(points: subtextLineHeight)
+                    .lineHeightCompat(points: subtextLineHeight, fallbackSpacing: 0.3)
             }
         }
     }
@@ -142,7 +142,7 @@ private struct PreviewPlaceholder: View {
                 Image(systemName: icon)
                 Text(text)
                     .multilineTextAlignment(.center)
-                    .lineHeightCompat(points: 18)
+                    .lineHeightCompat(points: 18, fallbackSpacing: 1.3)
             }
             .font(.system(size: 14, weight: .semibold, design: .rounded))
             .foregroundStyle(Color.white)
