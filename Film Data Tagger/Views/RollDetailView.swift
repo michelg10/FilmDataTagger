@@ -4,8 +4,21 @@
 //
 
 import SwiftUI
-import Combine
 
+// a lot of the complexity in this file is due to how expensive
+// the date picker is to build AND to update (fuck you SwiftUI.
+// actually for once it's probably UIKit's fault since i'm pretty
+// sure that it actually uses UIKit behind the scenes)
+//
+// Anyway, point being, we try to perform date picker updates
+// when the UI is not actively drawing an animation, so that
+// the hitch is not visible. We can't throw this task
+// off-main either, since it's UI. so this is the best we can
+// do.
+//
+// Use timers to fire when we hope the user's not looking.
+
+private let pickerUpdateDelay: Double = 0.25 // should be longer than every animation to not hitch animations
 private let layoutChangeAnimationDuration: Double = 0.25
 private let datePickerSelectAnimationDuration: Double = 0.2
 private let datePickerTransitionYOffset: CGFloat = -16
@@ -40,6 +53,56 @@ private struct RollDetailSeparator: View {
     }
 }
 
+// MARK: - Pickers
+
+private struct RollDetailPickers: View, Equatable {
+    @Binding var draftDate: Date
+    let timeZone: TimeZone
+    let isEditingDate: Bool
+    let isEditingTime: Bool
+
+    static func == (lhs: RollDetailPickers, rhs: RollDetailPickers) -> Bool {
+        lhs.draftDate == rhs.draftDate &&
+        lhs.timeZone == rhs.timeZone &&
+        lhs.isEditingDate == rhs.isEditingDate &&
+        lhs.isEditingTime == rhs.isEditingTime
+    }
+
+    var body: some View {
+        DatePicker("Roll load date", selection: $draftDate, displayedComponents: .date)
+            .environment(\.timeZone, timeZone)
+            .zIndex(4)
+            .datePickerStyle(.graphical)
+            .padding(.top, 0)
+            .padding(.bottom, 6)
+            .padding(.leading, 8)
+            .padding(.trailing, 8)
+            .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
+            .offset(y: 44 + 12)
+            .offset(y: isEditingDate ? 0 : datePickerTransitionYOffset)
+            .opacity(isEditingDate ? 1 : 0)
+            .allowsHitTesting(isEditingDate)
+            .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingDate)
+        DatePicker("Roll load time", selection: $draftDate, displayedComponents: .hourAndMinute)
+            .environment(\.timeZone, timeZone)
+            .zIndex(4)
+            .datePickerStyle(.wheel)
+            .labelsHidden()
+            .padding(.top, 6)
+            .padding(.bottom, 6)
+            .padding(.leading, 16)
+            .padding(.trailing, 16)
+            .frame(maxWidth: .infinity)
+            .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
+            .padding(.horizontal, 6)
+            .offset(y: 44 + 12)
+            .offset(y: isEditingTime ? 0 : datePickerTransitionYOffset)
+            .opacity(isEditingTime ? 1 : 0)
+            .allowsHitTesting(isEditingTime)
+            .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingTime)
+    }
+}
+
 // MARK: - Loaded Section
 
 private struct RollDetailLoadedSection: View {
@@ -56,6 +119,11 @@ private struct RollDetailLoadedSection: View {
     @State private var isEditingDate: Bool = false
     @State private var isEditingTime: Bool = false
     @State private var showingLocalTime: Bool = false
+    @State private var pickersConstructed: Bool = false
+    @State private var pickerRebuildTask: Task<Void, Never>?
+    /// Frozen timezone for the pickers — only updated when pickers are reconstructed,
+    /// not when displayTimeZone changes, to avoid picker re-layout during teardown.
+    @State private var pickerTimeZone: TimeZone = .current
 
     private var shouldShowCompact: Bool {
         UIScreen.currentWidth < 390
@@ -121,35 +189,39 @@ private struct RollDetailLoadedSection: View {
             .zIndex(2)
             .background(alignment: .top) {
                 ZStack(alignment: .top) {
-                    DatePicker("Roll load date", selection: $draftDate, displayedComponents: .date)
-                        .environment(\.timeZone, displayTimeZone)
-                        .zIndex(3)
-                        .datePickerStyle(.graphical)
-                        .padding(.top, 0)
-                        .padding(.bottom, 6)
-                        .padding(.leading, 8)
-                        .padding(.trailing, 8)
-                        .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
-                        .offset(y: 44 + 12)
-                        .offset(y: isEditingDate ? 0 : datePickerTransitionYOffset)
-                        .opacity(isEditingDate ? 1 : 0)
-                        .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingDate)
-                    DatePicker("Roll load time", selection: $draftDate, displayedComponents: .hourAndMinute)
-                        .environment(\.timeZone, displayTimeZone)
-                        .zIndex(3)
-                        .datePickerStyle(.wheel)
-                        .labelsHidden()
-                        .padding(.top, 6)
-                        .padding(.bottom, 6)
-                        .padding(.leading, 16)
-                        .padding(.trailing, 16)
-                        .frame(maxWidth: .infinity)
-                        .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
-                        .padding(.horizontal, 6)
-                        .offset(y: 44 + 12)
-                        .offset(y: isEditingTime ? 0 : datePickerTransitionYOffset)
-                        .opacity(isEditingTime ? 1 : 0)
-                        .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingTime)
+                    Group {
+                        ProgressView()
+                            .frame(height: 228)
+                            .frame(maxWidth: .infinity)
+                            .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
+                            .opacity((isEditingTime && !pickersConstructed) ? 1 : 0)
+                            .offset(y: isEditingTime ? 0 : datePickerTransitionYOffset)
+                            .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingTime)
+                            .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: pickersConstructed)
+                        
+                        ProgressView()
+                            .frame(height: 381)
+                            .frame(maxWidth: .infinity)
+                            .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
+                            .opacity((isEditingDate && !pickersConstructed) ? 1 : 0)
+                            .offset(y: isEditingDate ? 0 : datePickerTransitionYOffset)
+                            .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingDate)
+                            .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: pickersConstructed)
+                    }
+                    .zIndex(3)
+                    .tint(.white)
+                    .offset(y: 44 + 12)
+                    .padding(.horizontal, 6)
+                    .allowsHitTesting((isEditingDate || isEditingTime) && !pickersConstructed)
+                    if pickersConstructed {
+                        RollDetailPickers(
+                            draftDate: $draftDate,
+                            timeZone: pickerTimeZone,
+                            isEditingDate: isEditingDate,
+                            isEditingTime: isEditingTime
+                        )
+                        .equatable()
+                    }
                 }
             }
 
@@ -215,7 +287,7 @@ private struct RollDetailLoadedSection: View {
                     }
                     .transition(.offset(y: editWarningsTransitionYOffset).combined(with: .opacity))
                     .foregroundStyle(Color.white.opacity(0.5))
-                    .font(.system(size: 15, weight: .semibold, design: .default))
+                    .font(.system(size: 15, weight: .medium, design: .default))
                     .fontWidth(.expanded)
                     .padding(.horizontal, 16)
                 }
@@ -227,16 +299,34 @@ private struct RollDetailLoadedSection: View {
                     }.drawingGroup() // make SwiftUI animate this view as a group
                     .transition(.offset(y: editWarningsTransitionYOffset).combined(with: .opacity))
                     .foregroundStyle(Color.white.opacity(0.5))
-                    .font(.system(size: 15, weight: .semibold, design: .default))
+                    .font(.system(size: 15, weight: .medium, design: .default))
                     .fontWidth(.expanded)
                     .padding(.horizontal, 16)
                 }
             }
         }.zIndex(1)
         .onChange(of: isEditing) { _, editing in
+            if editing && !pickersConstructed {
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(pickerUpdateDelay))
+                    pickerTimeZone = displayTimeZone
+                    pickersConstructed = true
+                }
+            }
             if !editing {
                 isEditingDate = false
                 isEditingTime = false
+            }
+        }
+        .onChange(of: displayTimeZone) {
+            guard pickersConstructed else { return }
+            pickerRebuildTask?.cancel()
+            pickersConstructed = false
+            pickerRebuildTask = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(pickerUpdateDelay))
+                guard !Task.isCancelled else { return }
+                pickerTimeZone = displayTimeZone
+                pickersConstructed = true
             }
         }
     }
@@ -397,7 +487,7 @@ struct RollDetailView: View {
                     Color.clear
                         .frame(height: 1)
                         .id("scrollBottom")
-                }.offset(y: -32)
+                }.padding(.top, 20)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .animation(.easeInOut(duration: layoutChangeAnimationDuration), value: isEditing)
             }
@@ -442,6 +532,9 @@ struct RollDetailView: View {
     }
 
     // MARK: - Toolbar buttons
+    
+    // we manually emulate .blurReplace() here because
+    // it doesn't work on our toolbar for some reason.
 
     private var leadingButton: some View {
         Button(action: {
@@ -456,15 +549,14 @@ struct RollDetailView: View {
             }
         }) {
             ZStack {
-                if isEditing {
-                    Image(systemName: "xmark")
-                        .transition(.blurReplace)
-                } else {
-                    Image(systemName: "chevron.left")
-                        .transition(.blurReplace)
-                }
+                Image(systemName: "xmark")
+                    .blur(radius: isEditing ? 0 : 4)
+                    .opacity(isEditing ? 1 : 0)
+                Image(systemName: "chevron.left")
+                    .blur(radius: isEditing ? 4 : 0)
+                    .opacity(isEditing ? 0 : 1)
             }
-            .animation(.easeInOut(duration: 0.2), value: isEditing)
+            .animation(.easeInOut(duration: layoutChangeAnimationDuration), value: isEditing)
             .font(.system(size: 16, weight: .bold, design: .default))
             .foregroundStyle(Color.white.opacity(0.95))
             .frame(width: 44, height: 44)
@@ -486,19 +578,19 @@ struct RollDetailView: View {
                 isEditing = true
             }
         }) {
-            Group {
-                if isEditing {
-                    Image(systemName: "checkmark")
-                } else {
-                    Image(systemName: "pencil")
-                }
-            }.transition(.blurReplace)
-            .animation(.easeInOut(duration: 0.2), value: isEditing)
+            ZStack {
+                Image(systemName: "checkmark")
+                    .blur(radius: isEditing ? 0 : 4)
+                    .opacity(isEditing ? 1 : 0)
+                Image(systemName: "pencil")
+                    .blur(radius: isEditing ? 4 : 0)
+                    .opacity(isEditing ? 0 : 1)
+            }
             .font(.system(size: 16, weight: .bold, design: .default))
             .foregroundStyle(Color.white.opacity(isEditing ? 0.85 : 0.95))
             .frame(width: 44, height: 44)
             .background(Circle().foregroundStyle(Color.accentColor.opacity(isEditing ? 1.0 : 0)))
-            .animation(.easeInOut(duration: 0.2), value: isEditing)
+            .animation(.easeInOut(duration: layoutChangeAnimationDuration), value: isEditing)
             .contentShape(Circle())
         }.buttonStyle(.plain)
         .frame(width: 44, height: 44)

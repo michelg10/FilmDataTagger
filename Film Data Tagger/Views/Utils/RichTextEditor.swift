@@ -47,6 +47,7 @@ struct RichTextEditor: UIViewRepresentable {
         textView.isEditable = isEditable
         textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         textView.attributedText = makeAttributedString(from: text)
+        textView.typingAttributes = makeAttributes()
         return textView
     }
 
@@ -62,21 +63,21 @@ struct RichTextEditor: UIViewRepresentable {
         }
     }
 
-    private func makeAttributedString(from text: String) -> NSAttributedString {
+    private func makeAttributes() -> [NSAttributedString.Key: Any] {
         let style = NSMutableParagraphStyle()
         style.minimumLineHeight = lineHeight
         style.maximumLineHeight = lineHeight
         style.paragraphSpacing = paragraphSpacing
+        return [
+            .font: font,
+            .foregroundColor: textColor,
+            .paragraphStyle: style,
+            .baselineOffset: (lineHeight - font.lineHeight) / 4
+        ]
+    }
 
-        return NSAttributedString(
-            string: text,
-            attributes: [
-                .font: font,
-                .foregroundColor: textColor,
-                .paragraphStyle: style,
-                .baselineOffset: (lineHeight - font.lineHeight) / 4
-            ]
-        )
+    private func makeAttributedString(from text: String) -> NSAttributedString {
+        NSAttributedString(string: text, attributes: makeAttributes())
     }
 
     class Coordinator: NSObject, UITextViewDelegate {
