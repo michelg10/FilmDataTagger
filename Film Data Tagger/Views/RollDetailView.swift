@@ -460,7 +460,7 @@ struct RollDetailView: View {
     let cameraName: String
     let exposures: [LogItemSnapshot]
     var currentCityName: String?
-    var onUpdateNotes: ((UUID, String?) -> Void)?
+    var onUpdateNotes: ((UUID, String?, Bool) -> Void)?
     var onUpdateCreatedAt: ((UUID, Date, String, String?) -> Void)?
 
     @State private var isEditing: Bool = false
@@ -494,7 +494,7 @@ struct RollDetailView: View {
                         isEditing: isEditing,
                         scrollProxy: proxy,
                         onFocus: { isNotesFocused = true },
-                        onBlur: { isNotesFocused = false }
+                        onBlur: { isNotesFocused = false; flushNotes() }
                     )
                     Color.clear
                         .frame(height: 1)
@@ -523,6 +523,10 @@ struct RollDetailView: View {
         }
         .onDisappear { flushNotes() }
         .onChange(of: draftNotes) {
+            // Update in-memory snapshot immediately so other views (e.g. RollListView) see the draft
+            let trimmed = draftNotes.trimmingCharacters(in: .whitespacesAndNewlines)
+            onUpdateNotes?(roll.id, trimmed.isEmpty ? nil : trimmed, false)
+            // Debounced persist to store
             if dirtyDate == nil { dirtyDate = Date() }
             debounceTask?.cancel()
             let mustFlush = dirtyDate.map { Date().timeIntervalSince($0) >= 5 } ?? false
@@ -635,12 +639,11 @@ struct RollDetailView: View {
     private func flushNotes() {
         debounceTask?.cancel()
         debounceTask = nil
+        guard dirtyDate != nil else { return }
         dirtyDate = nil
         let trimmed = draftNotes.trimmingCharacters(in: .whitespacesAndNewlines)
         let notes: String? = trimmed.isEmpty ? nil : trimmed
-        if notes != roll.notes {
-            onUpdateNotes?(roll.id, notes)
-        }
+        onUpdateNotes?(roll.id, notes, true)
     }
 }
 
@@ -667,7 +670,7 @@ struct RollDetailView: View {
             roll: roll,
             cameraName: "Leica M6",
             exposures: items,
-            onUpdateNotes: { id, notes in print("Notes updated: \(notes ?? "nil")") },
+            onUpdateNotes: { id, notes, persist in print("Notes updated: \(notes ?? "nil") persist: \(persist)") },
             onUpdateCreatedAt: { id, date, tz, city in print("Date updated: \(date)") }
         )
     }
@@ -695,7 +698,7 @@ struct RollDetailView: View {
             roll: roll,
             cameraName: "Canon AE-1",
             exposures: [],
-            onUpdateNotes: { _, _ in },
+            onUpdateNotes: { _, _, _ in },
             onUpdateCreatedAt: { _, _, _, _ in }
         )
     }

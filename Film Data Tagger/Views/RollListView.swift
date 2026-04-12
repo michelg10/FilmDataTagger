@@ -138,6 +138,13 @@ struct RollListRow: View {
                 }
             }.font(.system(size: 15, weight: .medium, design: .default))
             .fontWidth(.expanded)
+            
+            if let notes = roll.notes, !notes.isEmpty {
+                (Text(Image(systemName: "text.pad.header")).foregroundStyle(Color.white.opacity(0.7)) + Text(" \(notes)").foregroundStyle(Color.white.opacity(0.5)))
+                    .font(.system(size: 15, weight: .medium))
+                    .lineLimit(2)
+                    .lineHeightCompat(points: 23, fallbackSpacing: 5.1)
+            }
         }
     }
 }
@@ -326,12 +333,41 @@ struct RollListView: View {
     @Previewable @State var container = PreviewSampleData.makeContainer()
 
     let viewModel: FilmLogViewModel = {
-        let context = container.mainContext
-        let camera = try! context.fetch(FetchDescriptor<Camera>()).first!
-        let pastRoll = Roll(filmStock: "Fuji Superia 400", camera: camera)
-        pastRoll.isActive = false
-        context.insert(pastRoll)
-        return FilmLogViewModel(previewStore: PreviewSampleData.makeStore(container: container))
+        let vm = FilmLogViewModel(previewStore: PreviewSampleData.makeStore(container: container))
+        let cameraID = UUID()
+
+        let activeSnap = RollSnapshot(
+            id: UUID(), cameraID: cameraID,
+            filmStock: "Kodak Portra 400", capacity: 36, extraExposures: 0,
+            isActive: true, createdAt: Date().addingTimeInterval(-3600),
+            timeZoneIdentifier: TimeZone.current.identifier, cityName: "Los Angeles",
+            notes: nil, lastExposureDate: Date().addingTimeInterval(-300),
+            exposureCount: 14, totalCapacity: 36
+        )
+        let pastSnap1 = RollSnapshot(
+            id: UUID(), cameraID: cameraID,
+            filmStock: "Fuji Superia 400", capacity: 36, extraExposures: 2,
+            isActive: false, createdAt: Date().addingTimeInterval(-86400 * 3),
+            timeZoneIdentifier: "America/New_York", cityName: "New York",
+            notes: nil, lastExposureDate: Date().addingTimeInterval(-86400 * 2),
+            exposureCount: 38, totalCapacity: 38
+        )
+        let pastSnap2 = RollSnapshot(
+            id: UUID(), cameraID: cameraID,
+            filmStock: "Ilford HP5 Plus", capacity: 24, extraExposures: 0,
+            isActive: false, createdAt: Date().addingTimeInterval(-86400 * 14),
+            timeZoneIdentifier: "Asia/Tokyo", cityName: "Tokyo",
+            notes: "Rainy day street shots", lastExposureDate: Date().addingTimeInterval(-86400 * 12),
+            exposureCount: 24, totalCapacity: 24
+        )
+
+        let rolls = [activeSnap, pastSnap1, pastSnap2].map { RollState(snapshot: $0) }
+        let cameraSnap = CameraSnapshot(
+            id: cameraID, name: "Leica M6", createdAt: Date().addingTimeInterval(-86400 * 30),
+            listOrder: 0, rollCount: rolls.count, totalExposureCount: 76
+        )
+        vm.previewSetCamera(CameraState(snapshot: cameraSnap, rolls: rolls))
+        return vm
     }()
 
     NavigationStack {

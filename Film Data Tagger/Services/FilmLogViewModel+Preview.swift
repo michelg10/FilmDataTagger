@@ -14,4 +14,13 @@ extension FilmLogViewModel {
     convenience init(previewStore: DataStore) {
         self.init(storeTask: Task { previewStore })
     }
+
+    /// Populate the in-memory tree directly for previews that need
+    /// `openCameraRolls` / `openCameraSnapshot` (e.g. RollListView).
+    func previewSetCamera(_ camera: CameraState) {
+        _cameras = [camera]
+        _openCamera = camera
+        _openRoll = camera.activeRoll
+        publishSnapshots()
+    }
 }

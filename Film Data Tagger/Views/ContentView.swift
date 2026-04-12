@@ -131,7 +131,7 @@ struct ContentView: View {
                         cameraName: viewModel.openCameraSnapshot?.name ?? "",
                         exposures: rollState.items,
                         currentCityName: viewModel.locationService.geocodingState.persistableCityName,
-                        onUpdateNotes: { viewModel.updateRollNotes(id: $0, notes: $1) },
+                        onUpdateNotes: { viewModel.updateRollNotes(id: $0, notes: $1, persist: $2) },
                         onUpdateCreatedAt: { viewModel.updateRollCreatedAt(id: $0, createdAt: $1, timeZoneIdentifier: $2, cityName: $3) }
                     )
                 }

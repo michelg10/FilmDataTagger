@@ -200,7 +200,11 @@ extension FilmLogViewModel: RollsViewModel {
 
     // MARK: - Roll Detail Edits
 
-    func updateRollNotes(id: UUID, notes: String?) {
+    /// Update roll notes in-memory and optionally persist to the store.
+    /// Called with `persist: false` on every keystroke (cheap snapshot update so
+    /// other views like RollListView see the draft immediately), and with
+    /// `persist: true` on debounce flush (hits Core Data + CloudKit).
+    func updateRollNotes(id: UUID, notes: String?, persist: Bool) {
         guard let roll = roll(id) else {
             debugLog("updateRollNotes: roll \(id) not found")
             return
@@ -210,6 +214,7 @@ extension FilmLogViewModel: RollsViewModel {
             camera.snapshot.activeRoll = roll.snapshot
         }
         publishSnapshots()
+        guard persist else { return }
         persistOpenState()
         let rollID = id
         Task.detached(priority: .medium) { [weak self] in
