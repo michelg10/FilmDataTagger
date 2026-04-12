@@ -328,13 +328,17 @@ private struct CaptureSheetCompactContent: View {
     }
 }
 
-private struct CaptureButton: View {
+private struct CaptureButton: View, Equatable {
     let frameCount: Int
     let frameNumber: Int
     let onCapture: () -> Void
     let onCaptureAndNote: () -> Void
     let onAddPlaceholder: () -> Void
     let onAddLostFrame: () -> Void
+
+    static func == (lhs: CaptureButton, rhs: CaptureButton) -> Bool {
+        lhs.frameCount == rhs.frameCount && lhs.frameNumber == rhs.frameNumber
+    }
     private var settings: AppSettings { .shared }
 
     var body: some View {
@@ -432,6 +436,14 @@ struct CaptureSheet: View {
         currentHeight >= Self.detentMidpoint
     }
 
+    /// Continuous 0–1 progress for crossfading between compact and full content.
+    private var crossfadeProgress: CGFloat {
+        let lower = Self.compactHeight + 11
+        let upper = Self.fullHeight - 11
+        guard upper > lower else { return showsFullContent ? 1 : 0 }
+        return min(max((currentHeight - lower) / (upper - lower), 0), 1)
+    }
+
     private var sheetDragGesture: some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { value in
@@ -473,8 +485,8 @@ struct CaptureSheet: View {
                         lastCaptureDate: lastCaptureDate,
                         referencePhotoSize: Self.referencePhotoSize
                     ).padding(.top, 10)
-                    .opacity(showsFullContent ? 1 : 0)
-                    .offset(y: showsFullContent ? 0 : -10)
+                    .opacity(crossfadeProgress)
+                    .offset(y: (1 - crossfadeProgress) * -25.0)
                     .allowsHitTesting(showsFullContent)
 
                     CaptureSheetCompactContent(
@@ -482,13 +494,11 @@ struct CaptureSheet: View {
                         locationService: locationService,
                         lastCaptureDate: lastCaptureDate
                     )
-                    .opacity(showsFullContent ? 0 : 1)
-                    .offset(y: showsFullContent ? 10 : 0)
+                    .opacity(1 - crossfadeProgress)
+                    .offset(y: crossfadeProgress * 25.0)
                     .allowsHitTesting(!showsFullContent)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .clipped()
-                .animation(.easeInOut(duration: 0.18), value: showsFullContent)
             }
             .frame(maxWidth: .infinity)
             .frame(height: dragRegionHeight, alignment: .top)
