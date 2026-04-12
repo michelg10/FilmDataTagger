@@ -295,10 +295,8 @@ struct ExposureListView: View {
     @State private var dropTargetIndex: Int?
 
     var totalBottomPadding: CGFloat {
-        isActiveRoll ? 278 + 118 + 40 - 8 : pastRollOverscroll
-    }
-    var overscrollHeight: CGFloat {
-        isActiveRoll ? bottomInset + 118 : pastRollOverscroll
+        // full height of capture sheet + bottom padding of capture sheet + finish roll button spacing + finish roll button height + desired overscroll amount
+        isActiveRoll ? CaptureSheet.fullHeight + 8 + 20 + 48 + 48: pastRollOverscroll
     }
 
     @ViewBuilder
@@ -319,7 +317,10 @@ struct ExposureListView: View {
                     onCycleExtraExposures: onCycleExtraExposures
                 )
                 .equatable()
-                .transition(.asymmetric(insertion: .opacity.animation(.easeOut(duration: 0.12)), removal: .identity))
+                .transition(.asymmetric(
+                    insertion: .opacity.animation(.easeOut(duration: 0.12)),
+                    removal: index == logItems.count - 1 ? .opacity : .identity
+                ))
                 .contentShape(Rectangle())
                 .id(item.id)
                 .if(item.exposureType.isPlaceholderLike) { view in
@@ -344,35 +345,31 @@ struct ExposureListView: View {
                     )
                 ).frame(height: exposureItemHeight)
             }
+            
+            // Overscroll / drop zone for moving placeholders to end of list
+            Color.clear
+                .frame(height: totalBottomPadding)
+                .contentShape(Rectangle())
+                .overlay(alignment: .top) {
+                    ExposureDropIndicatorLine(active: dropTargetIndex == logItems.count)
+                        .padding(.horizontal, 16)
+                        .offset(y: -1)
+                }
+                .onDrop(
+                    of: [UTType.plainText],
+                    delegate: ExposureEndDropDelegate(
+                        endIndex: logItems.count,
+                        logItems: logItems,
+                        draggingPlaceholderID: $draggingPlaceholderID,
+                        dropTargetIndex: $dropTargetIndex,
+                        onMovePlaceholderToEnd: onMovePlaceholderToEnd
+                    )
+                )
+                .id("scrollAnchor")
         }
-        .animation(.snappy(duration: 0.25, extraBounce: 0), value: logItems.map(\.id))
         .padding(.leading, 16 - 12)
         .padding(.trailing, 16)
         .padding(.top, 118)
-
-        // Overscroll / drop zone for moving placeholders to end of list
-        Color.clear
-            .frame(height: overscrollHeight)
-            .contentShape(Rectangle())
-            .overlay(alignment: .top) {
-                ExposureDropIndicatorLine(active: dropTargetIndex == logItems.count)
-                    .padding(.horizontal, 16)
-                    .offset(y: -1)
-            }
-            .onDrop(
-                of: [UTType.plainText],
-                delegate: ExposureEndDropDelegate(
-                    endIndex: logItems.count,
-                    logItems: logItems,
-                    draggingPlaceholderID: $draggingPlaceholderID,
-                    dropTargetIndex: $dropTargetIndex,
-                    onMovePlaceholderToEnd: onMovePlaceholderToEnd
-                )
-            )
-            .id("scrollAnchor")
-
-        Color.clear
-            .frame(height: totalBottomPadding - overscrollHeight)
     }
 
     var body: some View {
@@ -390,8 +387,8 @@ struct ExposureListView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         exposureScrollContent()
-                            .frame(minHeight: UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.screen.bounds.height ?? 800, alignment: .top) // align to top
-                    }
+                            .frame(minHeight: UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.screen.bounds.height, alignment: .top) // align to top
+                    }.animation(.snappy(duration: 0.25, extraBounce: 0), value: logItems.map(\.id))
                     .defaultScrollAnchor(.bottom)
                     .onAppear {
                         onScrollToBottomRegistered?({
