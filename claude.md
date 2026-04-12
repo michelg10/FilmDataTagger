@@ -1,1 +1,0 @@
-Together, we'll build a "film data tagger". The app will allow users to hit a button to note the current timestamp and the current location. Optionally, the user should also be able to include custom information. Such as a picture, a short text note, exposure parameters, or any other relevant data.
