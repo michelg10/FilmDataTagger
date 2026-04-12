@@ -24,8 +24,6 @@ private let pickerUpdateDelay: Double = 0.25 + 0.1
 private let layoutChangeAnimationDuration: Double = 0.25
 private let datePickerSelectAnimationDuration: Double = 0.2
 private let datePickerTransitionYOffset: CGFloat = -16
-private let timeZoneToggleTransitionYOffset: CGFloat = -11
-private let editWarningsTransitionYOffset: CGFloat = -140
 
 private struct RollDetailHeader: View {
     let icon: String
@@ -268,7 +266,7 @@ private struct RollDetailLoadedSection: View {
                 .background(Capsule().foregroundStyle(editContainerColor).opacity(isEditing ? 1.0 : 0))
                 .padding(.horizontal, isEditing ? 10 : 16)
                 .animation(.easeInOut(duration: layoutChangeAnimationDuration), value: showingLocalTime && isEditing)
-                .transition(.opacity.combined(with: .offset(y: timeZoneToggleTransitionYOffset)))
+                .transition(.opacity)
                 .zIndex(1)
             }
 
@@ -289,7 +287,7 @@ private struct RollDetailLoadedSection: View {
                             draftCityName = firstExposure?.cityName
                         }
                     }
-                    .transition(.offset(y: editWarningsTransitionYOffset).combined(with: .opacity))
+                    .transition(.opacity)
                     .foregroundStyle(Color.white.opacity(0.5))
                     .font(.system(size: 15, weight: .medium, design: .default))
                     .fontWidth(.expanded)
@@ -301,7 +299,7 @@ private struct RollDetailLoadedSection: View {
                         Text("This is after your first exposure on \(firstExposureReferenceText ?? "")")
                             .lineHeightCompat(points: 20, fallbackSpacing: 2.1)
                     }.drawingGroup() // make SwiftUI animate this view as a group
-                    .transition(.offset(y: editWarningsTransitionYOffset).combined(with: .opacity))
+                    .transition(.opacity)
                     .foregroundStyle(Color.white.opacity(0.5))
                     .font(.system(size: 15, weight: .medium, design: .default))
                     .fontWidth(.expanded)
