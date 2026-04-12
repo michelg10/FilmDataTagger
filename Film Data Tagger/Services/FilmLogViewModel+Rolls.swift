@@ -174,6 +174,7 @@ extension FilmLogViewModel: RollsViewModel {
     }
 
     func deleteRoll(id: UUID) {
+        clearUndoState()
         guard let camera = _openCamera else {
             debugLog("deleteRoll: no open camera, cannot delete roll \(id)")
             return
