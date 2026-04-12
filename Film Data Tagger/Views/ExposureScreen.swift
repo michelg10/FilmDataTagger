@@ -136,6 +136,7 @@ struct ExposureScreen: View {
     @State private var newRollCameraID: UUID?
     @State private var scrollState = ExposureScrollState()
     @State private var showReplaceRollAlert = false
+    @State private var scrollTargetItemID: UUID?
 
     private var logItems: [LogItemSnapshot] { viewModel.openRollItems }
 
@@ -186,7 +187,18 @@ struct ExposureScreen: View {
                 },
                 onAddPlaceholder: { viewModel.logPlaceholderLike(.placeholder) },
                 onAddLostFrame: { viewModel.logPlaceholderLike(.lostFrame) },
-                onShowRollDetail: { onShowRollDetail?() }
+                onShowRollDetail: { onShowRollDetail?() },
+                canUndoDelete: viewModel.lastDeletedItem != nil,
+                onUndoDelete: {
+                    scrollTargetItemID = viewModel.lastDeletedItem?.id
+                    viewModel.undoDelete()
+                    // Clear after the scroll fires
+                    Task { @MainActor in
+                        await Task.yield()
+                        scrollTargetItemID = nil
+                    }
+                },
+                scrollTargetItemID: scrollTargetItemID
             )
             // Inactive roll overlay
             if !(viewModel.openRollSnapshot?.isActive ?? false) {

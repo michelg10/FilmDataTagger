@@ -306,6 +306,17 @@ extension FilmLogViewModel: ExposuresViewModel {
             debugLog("deleteItem: item \(item.id) has no rollID");
             return
         }
+        // Commit the previous pending deletion before saving the new one
+        let previousID = lastDeletedItem?.id
+        let deletedAt = Date()
+        lastDeletedItem = item
+        lastDeletedAt = deletedAt
+        undoExpirationTask?.cancel()
+        undoExpirationTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(undoDeleteCutoff))
+            guard !Task.isCancelled else { return }
+            self?.clearUndoState()
+        }
         _openRoll?.items.removeAll { $0.id == item.id }
         recordOptimisticDelete(item.id, rollID: rollID)
         // Update roll snapshot caches
@@ -326,12 +337,80 @@ extension FilmLogViewModel: ExposuresViewModel {
         Task.detached(priority: .medium) { [weak self] in
             guard let self else { return }
             let store = await self.store
-            await store.deleteItem(id: item.id)
+            // Hard-delete the previous item, soft-delete the new one
+            if let previousID { await store.commitItemDeletion(id: previousID) }
+            await store.markItemPendingDeletion(id: item.id, deletedAt: deletedAt)
+        }
+    }
+
+    /// Commits the pending deletion and clears undo state.
+    func clearUndoState() {
+        guard let item = lastDeletedItem else { return }
+        undoExpirationTask?.cancel()
+        undoExpirationTask = nil
+        lastDeletedItem = nil
+        lastDeletedAt = nil
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
+            await store.commitItemDeletion(id: item.id)
+        }
+    }
+
+    /// Undo the last deletion: re-insert the item into the roll at its correct position.
+    func undoDelete() {
+        guard let item = lastDeletedItem else {
+            debugLog("undoDelete: no item to undo")
+            return
+        }
+        guard let roll = _openRoll, roll.id == item.rollID else {
+            debugLog("undoDelete: open roll (\(_openRoll?.id.uuidString ?? "nil")) doesn't match item's roll (\(item.rollID?.uuidString ?? "nil")), clearing")
+            clearUndoState()
+            return
+        }
+
+        // Clear undo state without committing the deletion
+        undoExpirationTask?.cancel()
+        undoExpirationTask = nil
+        lastDeletedItem = nil
+        lastDeletedAt = nil
+
+        // Undo optimistic tracking: remove from deletes, add back as optimistic item
+        removeOptimisticDelete(item.id)
+        recordOptimistic(item)
+
+        // Re-insert at the correct position by createdAt
+        let insertIndex = roll.items.firstIndex { $0.createdAt > item.createdAt } ?? roll.items.endIndex
+        roll.items.insert(item, at: insertIndex)
+
+        // Update roll snapshot caches
+        roll.snapshot.exposureCount = roll.items.count
+        roll.snapshot.lastExposureDate = roll.items.last(where: { $0.hasRealCreatedAt })?.createdAt
+
+        // Update camera snapshot caches
+        if let camera = _openCamera {
+            camera.snapshot.totalExposureCount += 1
+            if camera.activeRoll?.id == roll.id {
+                camera.snapshot.activeRoll = roll.snapshot
+            }
+            camera.snapshot.lastUsedDate = camera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
+        }
+
+        publishSnapshots()
+        persistOpenState()
+
+        // Unmark in the store
+        let itemID = item.id
+        Task.detached(priority: .medium) { [weak self] in
+            guard let self else { return }
+            let store = await self.store
+            await store.unmarkItemPendingDeletion(id: itemID)
         }
     }
 
     /// Move an exposure to a different roll.
     func moveItem(_ item: LogItemSnapshot, toRollID: UUID) {
+        clearUndoState()
         guard let targetRoll = roll(toRollID) else {
             debugLog("moveItem: target roll \(toRollID) not found")
             return

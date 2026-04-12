@@ -291,6 +291,9 @@ struct ExposureListView: View {
     var onAddPlaceholder: (() -> Void)?
     var onAddLostFrame: (() -> Void)?
     var onShowRollDetail: (() -> Void)?
+    var canUndoDelete: Bool = false
+    var onUndoDelete: (() -> Void)?
+    var scrollTargetItemID: UUID?
     @State private var draggingPlaceholderID: UUID?
     @State private var dropTargetIndex: Int?
 
@@ -400,7 +403,11 @@ struct ExposureListView: View {
                     .onChange(of: logItems.count) { oldCount, newCount in
                         if newCount > oldCount {
                             withAnimation(.smooth(duration: 0.3, extraBounce: 0)) {
-                                proxy.scrollTo("scrollAnchor", anchor: .bottom)
+                                if let target = scrollTargetItemID {
+                                    proxy.scrollTo(target, anchor: UnitPoint(x: 0.5, y: 0.35))
+                                } else {
+                                    proxy.scrollTo("scrollAnchor", anchor: .bottom)
+                                }
                             }
                         }
                     }
@@ -433,6 +440,14 @@ struct ExposureListView: View {
 
     private var rollOptionsMenu: some View {
         Menu {
+            if canUndoDelete {
+                Button {
+                    onUndoDelete?()
+                } label: {
+                    Label("Undo delete", systemImage: "arrow.uturn.backward")
+                }
+                Divider()
+            }
             Button {
                 onShowRollDetail?()
             } label: {

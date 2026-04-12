@@ -120,6 +120,10 @@ final class FilmLogViewModel {
         ensureSweepRunning()
     }
 
+    func removeOptimisticDelete(_ id: UUID) {
+        optimisticDeletes.removeValue(forKey: id)
+    }
+
     private func ensureSweepRunning() {
         guard sweepTask == nil else { return }
         sweepTask = Task(priority: .utility) { [weak self] in
@@ -379,6 +383,7 @@ final class FilmLogViewModel {
                     previousLaunchDate ?? Date.distantPast
                 )
                 await store.geocodeItemsIfNeeded(since: cutoffDate)
+                await store.runFrequentCleanup()
                 await store.runPeriodicCleanupIfNeeded()
             }
         }
@@ -593,6 +598,15 @@ final class FilmLogViewModel {
 
     var pendingCaptures = 0
     var isCapturing = false
+
+    // MARK: - Undo delete
+
+    /// The last soft-deleted item, available for undo until the undo window closes.
+    var lastDeletedItem: LogItemSnapshot?
+    /// When the last deletion occurred — used to gate undo against undoDeleteCutoff.
+    var lastDeletedAt: Date?
+    /// Auto-clears lastDeletedItem after the undo cutoff expires.
+    var undoExpirationTask: Task<Void, Never>?
 
     // MARK: - Export
 

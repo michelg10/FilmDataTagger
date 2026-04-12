@@ -57,6 +57,8 @@ protocol ExposuresViewModel: AnyObject, Observable {
     func unloadRoll()
     func loadRoll()
     var captureExpanded: Bool { get set }
+    var lastDeletedItem: LogItemSnapshot? { get }
+    func undoDelete()
 }
 
 // MARK: - Exposure Menus (camera switcher + move-to-roll)

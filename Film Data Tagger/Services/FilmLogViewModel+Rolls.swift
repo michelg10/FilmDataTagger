@@ -26,6 +26,7 @@ extension FilmLogViewModel: RollsViewModel {
 
     /// Switch to a roll within the current camera.
     func switchToRoll(id rollID: UUID) {
+        clearUndoState()
         _openRoll = roll(rollID)
         publishSnapshots()
         persistOpenState()
@@ -44,6 +45,7 @@ extension FilmLogViewModel: RollsViewModel {
 
     /// Switch to a different camera's active roll (camera switcher in ExposureListView header).
     func switchToCameraActiveRoll(_ cameraID: UUID) {
+        clearUndoState()
         guard let camera = camera(cameraID),
               let activeRoll = camera.activeRoll else {
                 debugLog("switchToCameraActiveRoll: camera \(cameraID) has no active roll");

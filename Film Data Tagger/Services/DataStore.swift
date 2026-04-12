@@ -11,6 +11,14 @@ import CoreLocation
 import Combine
 import CoreData
 
+/// Maximum age for a soft-deleted item to remain undoable. After this, cleanup
+/// hard-deletes it. Shared between DataStore (cleanup) and the VM (undo gating).
+let undoDeleteCutoff: TimeInterval = 5 * 60
+
+/// Extra buffer added to the cutoff on the DataStore side to avoid races
+/// where the store cleans up an item the VM still considers undoable.
+private let undoDeleteStoreBuffer: TimeInterval = 150
+
 // MARK: - DataStore
 actor DataStore: ModelActor {
     let modelExecutor: any ModelExecutor
@@ -32,6 +40,11 @@ actor DataStore: ModelActor {
 
     // MARK: - Startup / Read API
 
+    /// Unique per-session ID. Soft-deleted items are stamped with this so
+    /// cleanup only hard-deletes items from *previous* sessions, not undoable
+    /// deletes from the current one.
+    let deletionEpoch = UUID()
+
     /// Monotonic version counter — incremented on each loadAll.
     /// The VM uses this to discard stale trees from out-of-order completions.
     private var _treeVersion: Int = 0
@@ -52,7 +65,7 @@ actor DataStore: ModelActor {
         do {
             cameras = try modelContext.fetch(FetchDescriptor<Camera>(sortBy: [SortDescriptor(\.listOrder)]))
             allRolls = try modelContext.fetch(FetchDescriptor<Roll>())
-            allItems = try modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)]))
+            allItems = try modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)])).filter { $0.pendingDeletion == nil }
         } catch {
             errorLog("loadAll fetch failed: \(error)")
         }
@@ -240,14 +253,35 @@ actor DataStore: ModelActor {
         save()
     }
 
-    /// Delete an item. The VM has already removed it from its local state optimistically.
-    /// If the item doesn't exist (e.g., already deleted via CloudKit), re-publish
-    /// the current roll items so the VM can reconcile.
-    ///
-    /// Not high priority: do not await
-    func deleteItem(id: UUID) {
+    /// Soft-delete a LogItem: stamp with the current deletion epoch.
+    /// The caller passes the deletion date so the VM and store agree on timing.
+    func markItemPendingDeletion(id: UUID, deletedAt: Date) {
         guard let item = fetchLogItem(id) else {
-            debugLog("deleteItem: item \(id) not found — triggering reconciliation")
+            debugLog("markItemPendingDeletion: item \(id) not found — triggering reconciliation")
+            remoteDataChanged.send()
+            return
+        }
+        item.pendingDeletion = deletionEpoch
+        item.pendingDeletionDate = deletedAt
+        save()
+    }
+
+    /// Undo soft-delete on a LogItem: clear the pending deletion flag.
+    func unmarkItemPendingDeletion(id: UUID) {
+        guard let item = fetchLogItem(id) else {
+            debugLog("unmarkItemPendingDeletion: item \(id) not found — triggering reconciliation")
+            remoteDataChanged.send()
+            return
+        }
+        item.pendingDeletion = nil
+        item.pendingDeletionDate = nil
+        save()
+    }
+
+    /// Hard-delete a LogItem: permanently remove a pending-deletion item from the store.
+    func commitItemDeletion(id: UUID) {
+        guard let item = fetchLogItem(id) else {
+            debugLog("commitItemDeletion: item \(id) not found — triggering reconciliation")
             remoteDataChanged.send()
             return
         }
@@ -338,6 +372,7 @@ actor DataStore: ModelActor {
     func updateRollCityName(rollID: UUID, cityName: String) {
         guard let roll = fetchRoll(rollID) else {
             debugLog("updateRollCityName: roll \(rollID) not found")
+            remoteDataChanged.send()
             return
         }
         roll.cityName = cityName
@@ -348,6 +383,7 @@ actor DataStore: ModelActor {
     func updateRollNotes(rollID: UUID, notes: String?) {
         guard let roll = fetchRoll(rollID) else {
             debugLog("updateRollNotes: roll \(rollID) not found")
+            remoteDataChanged.send()
             return
         }
         roll.notes = notes
@@ -358,6 +394,7 @@ actor DataStore: ModelActor {
     func updateRollCreatedAt(rollID: UUID, createdAt: Date, timeZoneIdentifier: String, cityName: String?) {
         guard let roll = fetchRoll(rollID) else {
             debugLog("updateRollCreatedAt: roll \(rollID) not found")
+            remoteDataChanged.send()
             return
         }
         roll.createdAt = createdAt
@@ -596,7 +633,7 @@ actor DataStore: ModelActor {
             freshCameras = try modelContext.fetch(FetchDescriptor<Camera>(sortBy: [SortDescriptor(\.listOrder)])).map { $0.snapshot }
             freshRolls = try modelContext.fetch(FetchDescriptor<Roll>()).map { $0.snapshot }
             let remoteFmts = SnapshotDateFormatters()
-            freshItems = try modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)])).map { $0.snapshot(formatters: remoteFmts) }
+            freshItems = try modelContext.fetch(FetchDescriptor<LogItem>(sortBy: [SortDescriptor(\.createdAt)])).filter { $0.pendingDeletion == nil }.map { $0.snapshot(formatters: remoteFmts) }
         } catch {
             errorLog("handleRemoteChange: fetch failed, skipping: \(error)")
             return
@@ -624,7 +661,7 @@ actor DataStore: ModelActor {
             try? await Task.sleep(for: .milliseconds(500))
             guard !Task.isCancelled else { return }
             repairDuplicateActiveRolls()
-            let cutoff = Date().addingTimeInterval(-5 * 60)
+            let cutoff = Date().addingTimeInterval(-(undoDeleteCutoff + undoDeleteStoreBuffer))
             await geocodeItemsIfNeeded(since: cutoff)
         }
     }
@@ -806,7 +843,39 @@ actor DataStore: ModelActor {
     ///
     /// Not high priority: do not await
     private var cleanupInProgress = false
+    private var frequentCleanupDone = false
     private func markCleanupDone() { cleanupInProgress = false }
+
+    /// Runs once per launch. Hard-deletes any LogItems soft-deleted in previous
+    /// sessions (pendingDeletion != nil && pendingDeletion != current epoch).
+    func runFrequentCleanup() {
+        guard !frequentCleanupDone else { return }
+        frequentCleanupDone = true
+        let currentEpoch = deletionEpoch
+        let container = modelContainer
+        Task.detached(priority: .background) {
+            let context = ModelContext(container)
+            do {
+                let allItems = try context.fetch(FetchDescriptor<LogItem>())
+                let cutoff = Date().addingTimeInterval(-(undoDeleteCutoff + undoDeleteStoreBuffer))
+                let stale = allItems.filter {
+                    $0.pendingDeletion != nil
+                    && $0.pendingDeletion != currentEpoch
+                    && ($0.pendingDeletionDate ?? .distantPast) < cutoff
+                }
+                guard !stale.isEmpty else { return }
+                for item in stale {
+                    ImageCache.shared.evict(id: item.id)
+                    context.delete(item)
+                }
+                try context.save()
+                debugLog("Frequent cleanup: hard-deleted \(stale.count) pending-deletion item(s)")
+            } catch {
+                debugLog("Frequent cleanup failed: \(error)")
+            }
+        }
+    }
+
     func runPeriodicCleanupIfNeeded(force: Bool = false) {
         guard !cleanupInProgress else {
             debugLog("Periodic cleanup: already in progress, skipping")

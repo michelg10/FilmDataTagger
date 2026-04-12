@@ -138,6 +138,16 @@ final class LogItem {
     /// Cached flag: whether thumbnailData is non-nil (avoids faulting inline blob on snapshot)
     var cachedHasThumbnail: Bool = false
 
+    /// Soft-delete epoch for undo support. When non-nil, the item is treated as
+    /// deleted and filtered out of loadAll(). The value is the DataStore's
+    /// `deletionEpoch` at the time of deletion — cleanup only hard-deletes items
+    /// from previous epochs, avoiding races with the current session's undoable deletes.
+    var pendingDeletion: UUID?
+
+    /// When the soft-delete was performed. Cleanup only hard-deletes items older
+    /// than 5 minutes, so a second device won't nuke a still-undoable item.
+    var pendingDeletionDate: Date?
+
     /// Typed accessor for `source`
     @Transient var exposureSource: ExposureSource {
         get { source.map(ExposureSource.init) ?? .app }
