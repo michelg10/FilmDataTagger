@@ -5,7 +5,7 @@
 //  Created by Michel Guo on 2/19/26.
 //
 
-import CoreHaptics
+@preconcurrency import CoreHaptics
 
 enum Haptic {
     case capture
