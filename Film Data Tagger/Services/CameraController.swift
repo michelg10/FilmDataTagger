@@ -12,6 +12,8 @@ import UIKit
 /// Owns all camera UI state, the preview view, and screen-lifecycle policy.
 @Observable @MainActor
 final class CameraController {
+    private static let doubleTapThreshold: TimeInterval = 0.3
+
     private let manager = CameraManager()
     private let settings = AppSettings.shared
 
@@ -143,8 +145,25 @@ final class CameraController {
         }
     }
 
+    /// Timestamp of the last time reference photos were toggled off, for double-tap detection.
+    private var lastToggleOffDate: Date?
+
     func toggle() {
         if !referencePhotosEnabled {
+            // Double-tap detection: if toggled back on within 300ms and the
+            // device has both front + back cameras, flip the camera side.
+            var didFlip = false
+            if let lastOff = lastToggleOffDate {
+                let ms = Date().timeIntervalSince(lastOff) * 1000
+                let canFlip = settings.deviceCanFlipCamera
+                if ms < Self.doubleTapThreshold * 1000, canFlip {
+                    settings.preferredCameraSide = settings.preferredCameraSide.toggled
+                    reconfigure()
+                    didFlip = true
+                }
+            }
+            lastToggleOffDate = nil
+            playHaptic(didFlip ? .cameraFlip : .viewfinderToggle)
             // Turning on — check permission first
             needsPermission = false
             referencePhotosEnabled = true // set eagerly so ensureRunning() doesn't bail
@@ -160,6 +179,8 @@ final class CameraController {
                 // If denied, iOS won't re-prompt — user must go to Settings.
             }
         } else {
+            playHaptic(.viewfinderToggle)
+            lastToggleOffDate = Date()
             referencePhotosEnabled = false
             manager.stop()
             isRunning = false

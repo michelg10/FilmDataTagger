@@ -11,14 +11,16 @@ struct ReferencePhotoPage: View {
     @State private var authStatus: AVAuthorizationStatus = .notDetermined
 
     private var cameraState: CameraState {
+        if settings.availableCameras.isEmpty { return .unavailable }
         switch authStatus {
-        case .authorized: .allowed
-        case .notDetermined: .notSetUp
-        default: .notAllowed
+        case .authorized: return .allowed
+        case .notDetermined: return .notSetUp
+        default: return .notAllowed
         }
     }
 
     enum CameraState {
+        case unavailable
         case notSetUp
         case notAllowed
         case allowed
@@ -49,7 +51,7 @@ struct ReferencePhotoPage: View {
                 if cameraState != .allowed {
                     SettingsSeparator()
                     SettingsRow(text: "Reference photos") {
-                        Text(cameraState == .notSetUp ? "Set up..." : "Not allowed")
+                        Text(cameraState == .unavailable ? "Unavailable" : cameraState == .notSetUp ? "Set up..." : "Not allowed")
                             .font(.system(size: 17, weight: .medium, design: .default))
                             .foregroundStyle(Color.white.opacity(0.6))
                     }
@@ -85,6 +87,8 @@ struct ReferencePhotoPage: View {
     @ViewBuilder
     private var cameraCaptionView: some View {
         switch cameraState {
+        case .unavailable:
+            SettingsCaptionText(text: "Reference photos aren't available on this device.")
         case .notSetUp:
             SettingsCaptionText(text: "Reference photos are set up from the Capture controls. Open a roll to get started.")
         case .notAllowed:

@@ -78,6 +78,13 @@ enum PhotoQuality: String, CaseIterable {
     }
 }
 
+enum CameraSide: String {
+    case back
+    case front
+
+    var toggled: CameraSide { self == .back ? .front : .back }
+}
+
 enum PreferredCamera: String, CaseIterable {
     case ultraWide
     case wide
@@ -103,6 +110,10 @@ enum PreferredCamera: String, CaseIterable {
     }
 
     var position: AVCaptureDevice.Position {
+        self == .front ? .front : .back
+    }
+
+    var side: CameraSide {
         self == .front ? .front : .back
     }
 
@@ -202,8 +213,29 @@ final class AppSettings {
         didSet { defaults.set(photoQuality.rawValue, forKey: AppSettingsKeys.photoQuality) }
     }
 
+    var preferredBackCamera: PreferredCamera {
+        didSet { defaults.set(preferredBackCamera.rawValue, forKey: AppSettingsKeys.preferredBackCamera) }
+    }
+
+    var preferredFrontCamera: PreferredCamera {
+        didSet { defaults.set(preferredFrontCamera.rawValue, forKey: AppSettingsKeys.preferredFrontCamera) }
+    }
+
+    var preferredCameraSide: CameraSide {
+        didSet { defaults.set(preferredCameraSide.rawValue, forKey: AppSettingsKeys.preferredCameraSide) }
+    }
+
     var preferredCamera: PreferredCamera {
-        didSet { defaults.set(preferredCamera.rawValue, forKey: AppSettingsKeys.preferredCamera) }
+        get { preferredCameraSide == .front ? preferredFrontCamera : preferredBackCamera }
+        set {
+            if newValue.side == .front {
+                preferredFrontCamera = newValue
+                preferredCameraSide = .front
+            } else {
+                preferredBackCamera = newValue
+                preferredCameraSide = .back
+            }
+        }
     }
 
     var locationEnabled: Bool {
@@ -260,10 +292,18 @@ final class AppSettings {
         didSet { defaults.set(lastDataCleanDate, forKey: AppSettingsKeys.lastDataCleanDate) }
     }
 
-    /// Cameras available on this hardware. Defaults to all cases until the
-    /// background probe completes (~50ms on real hardware). Views that
-    /// display camera options (e.g. `ReferencePhotoPage`) just read this.
-    private(set) var availableCameras: [PreferredCamera] = PreferredCamera.allCases
+    /// Cameras available on this hardware. Empty until the background probe
+    /// completes (~50ms on real hardware). Views that display camera options
+    /// (e.g. `ReferencePhotoPage`) just read this.
+    private(set) var availableCameras: [PreferredCamera] = []
+
+    /// True when the device has both a front and at least one back camera.
+    /// Returns false until the background probe populates `availableCameras`.
+    var deviceCanFlipCamera: Bool {
+        let hasFront = availableCameras.contains(.front)
+        let hasBack = availableCameras.contains(where: { $0 != .front })
+        return hasFront && hasBack
+    }
 
     // MARK: - Location cache (for accelerating consecutive Shortcut triggers)
 
@@ -324,13 +364,18 @@ final class AppSettings {
         photoQuality = d.string(forKey: AppSettingsKeys.photoQuality)
             .flatMap(PhotoQuality.init) ?? .high
 
-        // Trust the saved value. The camera pipeline (CameraManager) already
+        // Trust the saved values. The camera pipeline (CameraManager) already
         // falls back gracefully if the device type doesn't exist on this
         // hardware. Hardware validation is deferred to a background task
-        // that updates preferredCamera after launch if the saved value is
-        // no longer valid (e.g. iCloud restore from a different device).
-        preferredCamera = d.string(forKey: AppSettingsKeys.preferredCamera)
+        // that updates preferredBackCamera/preferredFrontCamera after launch
+        // if the saved values are no longer valid (e.g. iCloud restore from
+        // a different device).
+        preferredBackCamera = d.string(forKey: AppSettingsKeys.preferredBackCamera)
             .flatMap(PreferredCamera.init) ?? .ultraWide
+        preferredFrontCamera = d.string(forKey: AppSettingsKeys.preferredFrontCamera)
+            .flatMap(PreferredCamera.init) ?? .front
+        preferredCameraSide = d.string(forKey: AppSettingsKeys.preferredCameraSide)
+            .flatMap(CameraSide.init) ?? .back
 
         locationEnabled = d.object(forKey: AppSettingsKeys.locationEnabled) == nil
             ? true : d.bool(forKey: AppSettingsKeys.locationEnabled)
@@ -356,18 +401,20 @@ final class AppSettings {
 
         // Probe available cameras off-main (~50ms on real hardware). The
         // result is cached in `availableCameras`; views read that directly.
-        // Also validates the saved preferredCamera against what's actually
+        // Also validates saved back/front cameras against what's actually
         // on this hardware (handles iCloud restore from a different device).
         Task.detached(priority: .utility) { [self] in
             let available = await PreferredCamera.queryAvailable()
             await MainActor.run {
                 self.availableCameras = available
-                if !available.contains(self.preferredCamera) {
-                    self.preferredCamera = if available.contains(.ultraWide) {
-                        .ultraWide
-                    } else {
-                        available.first ?? .wide
-                    }
+                let backCameras = available.filter { $0.side == .back }
+                let frontCameras = available.filter { $0.side == .front }
+                if !backCameras.contains(self.preferredBackCamera) {
+                    self.preferredBackCamera = if backCameras.contains(.ultraWide) { .ultraWide }
+                        else { backCameras.first ?? .wide }
+                }
+                if !frontCameras.contains(self.preferredFrontCamera) {
+                    self.preferredFrontCamera = frontCameras.first ?? .front
                 }
             }
         }
@@ -379,7 +426,9 @@ nonisolated enum AppSettingsKeys {
     static let referencePhotosEnabled = "referencePhotosEnabled"
     static let referencePhotoStartup = "referencePhotoStartup"
     static let photoQuality = "photoQuality"
-    static let preferredCamera = "preferredCamera"
+    static let preferredBackCamera = "preferredBackCamera"
+    static let preferredFrontCamera = "preferredFrontCamera"
+    static let preferredCameraSide = "preferredCameraSide"
     static let locationEnabled = "locationEnabled"
     static let locationAccuracy = "locationAccuracy"
     static let reduceHaptics = "reduceHaptics"

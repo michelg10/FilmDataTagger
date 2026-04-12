@@ -164,12 +164,13 @@ private struct ReferencePhotoPreview: View {
 
     var body: some View {
         Button {
-            playHaptic(.viewfinderToggle)
             if camera.needsPermission {
+                playHaptic(.viewfinderToggle)
                 camera.requestPermissionIfNeeded()
             } else if camera.unavailable {
                 // No camera hardware — nothing to do
             } else if camera.permissionDenied {
+                playHaptic(.viewfinderToggle)
                 if let url = URL(string: UIApplication.openSettingsURLString) {
                     UIApplication.shared.open(url)
                 }

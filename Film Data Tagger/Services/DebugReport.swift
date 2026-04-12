@@ -220,7 +220,7 @@ enum DebugReport {
         d += "Reference photos: \(s.referencePhotosEnabled)\n"
         d += "Reference photo startup: \(s.referencePhotoStartup.rawValue)\n"
         d += "Photo quality: \(s.photoQuality.rawValue)\n"
-        d += "Preferred camera: \(s.preferredCamera.rawValue)\n"
+        d += "Preferred camera: \(s.preferredCamera.rawValue) (back: \(s.preferredBackCamera.rawValue), front: \(s.preferredFrontCamera.rawValue), side: \(s.preferredCameraSide.rawValue))\n"
         d += "Location enabled: \(s.locationEnabled)\n"
         d += "Location accuracy: \(s.locationAccuracy.rawValue)\n"
         d += "Reduce haptics: \(s.reduceHaptics)\n"
