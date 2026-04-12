@@ -212,7 +212,11 @@ actor DataStore: ModelActor {
     /// The VM has already updated its local state optimistically.
     ///
     /// Not high priority: do not await
-    func logPlaceholderLike(id: UUID, rollID: UUID, createdAt: Date, type: ExposureType) {
+    func logPlaceholderLike(
+        id: UUID, rollID: UUID, createdAt: Date, type: ExposureType,
+        location: CLLocation? = nil, placeName: String? = nil,
+        cityName: String? = nil, timeZoneIdentifier: String? = nil
+    ) {
         guard let roll = fetchRoll(rollID) else {
             debugLog("logPlaceholderLike: roll \(rollID) not found")
             remoteDataChanged.send()
@@ -228,6 +232,10 @@ actor DataStore: ModelActor {
         }
         item.id = id
         item.createdAt = createdAt
+        if let location { item.setLocation(location) }
+        item.placeName = placeName
+        item.cityName = cityName
+        item.timeZoneIdentifier = timeZoneIdentifier
         modelContext.insert(item)
         save()
     }

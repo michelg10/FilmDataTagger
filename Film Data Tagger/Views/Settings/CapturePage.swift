@@ -16,7 +16,7 @@ struct CapturePage: View {
                     SettingsOptionRow(text: option.label, value: option, selection: $settings.captureControlsPreference)
                 }
             }
-            SettingsSection(header: "Hold Capture for", caption: "Hold the Capture button to log a frame without time or location data.") {
+            SettingsSection(header: "Hold Capture for", caption: "Hold the Capture button to add a placeholder or lost frame.\nPlaceholders mark a frame with no metadata, whereas lost frames record time and location with no reference photo.") {
                 SettingsRow(text: "Placeholders") {
                     Toggle("", isOn: $settings.holdCapturePlaceholders)
                         .labelsHidden()

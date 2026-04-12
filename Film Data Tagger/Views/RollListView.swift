@@ -102,13 +102,13 @@ struct RollListRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 13) {
-            HStack(alignment: .bottom, spacing: 0) {
+            HStack(alignment: .lastTextBaseline, spacing: 0) {
                 Text(roll.filmStock)
                     .font(.system(size: 20, weight: .semibold, design: .default))
                     .fontWidth(.expanded)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
-                    .lineHeightCompat(points: 24, fallbackSpacing: 0.1)
+                    .lineHeightCompat(points: 30, fallbackSpacing: 6.13)
                     .foregroundStyle(Color.white)
                 Spacer(minLength: 15)
                 let exposureCountText = Text(exposureCountDisplay).foregroundStyle(Color.white.opacity(0.9))
@@ -117,7 +117,9 @@ struct RollListRow: View {
                     .font(.system(size: 15, weight: .semibold, design: .default))
                     .fontWidth(.expanded)
             }
-            
+            // Compensate for .lineHeightCompat making the view taller than the visible text
+            .padding(.bottom, -4)
+
             BlockProgressBar(
                 exposureCount: exposureCount,
                 totalCapacity: roll.totalCapacity,
@@ -184,7 +186,7 @@ struct RollListView: View {
                                 } label: {
                                     RollListRow(roll: activeRoll, maxCapacity: maxCapacity)
                                         .padding(.vertical, 24)
-                                        .padding(.top, -6)
+                                        .padding(.top, -4)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
@@ -217,7 +219,7 @@ struct RollListView: View {
 
                             ForEach(Array(pastRolls.enumerated()), id: \.element.id) { index, roll in
                                 if index > 0 {
-                                    Color.white.opacity(0.1)
+                                    Color.white.opacity(0.15)
                                         .frame(height: 1)
                                         .padding(.horizontal, 8)
                                 }
@@ -229,7 +231,7 @@ struct RollListView: View {
                                 } label: {
                                     RollListRow(roll: roll, maxCapacity: maxCapacity)
                                         .padding(.vertical, 24)
-                                        .padding(.top, index == 0 ? -6 : 0)
+                                        .padding(.top, index == 0 ? -4 : 0)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
@@ -257,7 +259,7 @@ struct RollListView: View {
                     }.animation(.easeOut(duration: 0.25), value: activeRoll?.id)
                     .animation(.easeOut(duration: 0.25), value: pastRolls.map(\.id))
                     .padding(.horizontal, 16)
-                    .padding(.top, 17)
+                    .padding(.top, 20)
                     .padding(.bottom, 217 - 20 - bottomSafeAreaInset - 46) // overscroll
                 }
             } else {

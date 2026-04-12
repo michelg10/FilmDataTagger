@@ -137,7 +137,7 @@ extension FilmLogViewModel: ExposuresViewModel {
             capturedIDs.append(id)
             capturedDates.append(createdAt)
         }
-        
+
         // Backfill roll city name if it was missing at creation (e.g., first install —
         // location permission hadn't been granted yet when the roll was created).
         if let targetRoll, targetRoll.snapshot.cityName == nil,
@@ -241,18 +241,32 @@ extension FilmLogViewModel: ExposuresViewModel {
         }
         let id = UUID()
         let createdAt = Date()
+
+        // Lost frames record real time/location (the exposure happened, just no photo).
+        // Placeholders have no metadata — they're just positional markers.
+        let recordMetadata = type == .lostFrame
+        let location = recordMetadata && settings.locationEnabled ? locationService.currentLocation : nil
+        let placeName = recordMetadata ? locationService.geocodingState.persistablePlaceName : nil
+        let cityName = recordMetadata ? locationService.geocodingState.persistableCityName : nil
+        let timeZoneIdentifier = recordMetadata ? TimeZone.current.identifier : nil
+
         let snapshot = LogItemSnapshot(
             id: id,
             rollID: roll.id,
             createdAt: createdAt,
-            hasRealCreatedAt: false,
+            hasRealCreatedAt: recordMetadata,
+            latitude: location?.coordinate.latitude,
+            longitude: location?.coordinate.longitude,
+            placeName: placeName,
+            cityName: cityName,
+            timeZoneIdentifier: timeZoneIdentifier,
             exposureType: type,
             hasThumbnail: false,
             hasPhoto: false,
-            formattedTime: "",
-            formattedDate: "",
-            localFormattedTime: "",
-            localFormattedDate: "",
+            formattedTime: recordMetadata ? createdAt.formatted(.dateTime.hour().minute()) : "",
+            formattedDate: recordMetadata ? createdAt.formatted(.dateTime.month().day().year()) : "",
+            localFormattedTime: recordMetadata ? createdAt.formatted(.dateTime.hour().minute()) : "",
+            localFormattedDate: recordMetadata ? createdAt.formatted(.dateTime.month().day().year()) : "",
             hasDifferentTimeZone: false,
             capturedTZLabel: nil
         )
@@ -260,9 +274,15 @@ extension FilmLogViewModel: ExposuresViewModel {
         recordOptimistic(snapshot)
         // Update roll snapshot caches
         roll.snapshot.exposureCount = roll.items.count
+        if recordMetadata {
+            roll.snapshot.lastExposureDate = createdAt
+        }
         // Update camera snapshot caches
         if let camera = _openCamera {
             camera.snapshot.totalExposureCount += 1
+            if recordMetadata {
+                camera.snapshot.lastUsedDate = createdAt
+            }
             if camera.activeRoll?.id == roll.id {
                 camera.snapshot.activeRoll = roll.snapshot
             }
@@ -273,7 +293,11 @@ extension FilmLogViewModel: ExposuresViewModel {
         Task.detached(priority: .medium) { [weak self] in
             guard let self else { return }
             let store = await self.store
-            await store.logPlaceholderLike(id: id, rollID: rollID, createdAt: createdAt, type: type)
+            await store.logPlaceholderLike(
+                id: id, rollID: rollID, createdAt: createdAt, type: type,
+                location: location, placeName: placeName, cityName: cityName,
+                timeZoneIdentifier: timeZoneIdentifier
+            )
         }
     }
 
