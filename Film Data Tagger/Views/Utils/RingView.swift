@@ -7,14 +7,19 @@
 
 import SwiftUI
 
-struct RingView: View {
+struct RingView: View, Animatable {
     let diameter: CGFloat
     let strokeWidth: CGFloat
-    let progress: Double
+    var progress: Double
     let fillColor: Color
     let trackColor: Color
     var overflowShadowColor: Color = .black.opacity(0.75)
     var overflowShadowRadius: CGFloat = 2.9
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
 
     private var clampedProgress: Double { min(max(progress, 0), 1) }
     private var overflow: Double {
