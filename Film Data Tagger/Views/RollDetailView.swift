@@ -406,6 +406,8 @@ private struct RollDetailNotesSection: View {
     @Binding var draftNotes: String
     let isEditing: Bool
     var scrollProxy: ScrollViewProxy?
+    var onFocus: (() -> Void)?
+    var onBlur: (() -> Void)?
 
     let editContainerColor: Color = Color(hex: 0x262626)
 
@@ -434,12 +436,14 @@ private struct RollDetailNotesSection: View {
                     isScrollEnabled: true,
                     isEditable: !isEditing,
                     onFocus: {
+                        onFocus?()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                             withAnimation(.easeInOut(duration: 0.25)) {
                                 scrollProxy?.scrollTo("scrollBottom", anchor: .bottom)
                             }
                         }
-                    }
+                    },
+                    onBlur: onBlur
                 )
             }
             .frame(height: 201)
@@ -460,6 +464,7 @@ struct RollDetailView: View {
     var onUpdateCreatedAt: ((UUID, Date, String, String?) -> Void)?
 
     @State private var isEditing: Bool = false
+    @State private var isNotesFocused: Bool = false
     @State private var draftNotes: String = ""
     @State private var draftDate: Date = .distantPast
     @State private var draftTimeZoneIdentifier: String = TimeZone.current.identifier
@@ -487,7 +492,9 @@ struct RollDetailView: View {
                     RollDetailNotesSection(
                         draftNotes: $draftNotes,
                         isEditing: isEditing,
-                        scrollProxy: proxy
+                        scrollProxy: proxy,
+                        onFocus: { isNotesFocused = true },
+                        onBlur: { isNotesFocused = false }
                     )
                     Color.clear
                         .frame(height: 1)
@@ -533,6 +540,27 @@ struct RollDetailView: View {
             if phase == .background {
                 flushNotes()
             }
+        }
+        // MARK: - CloudKit sync
+        // When the roll snapshot updates from a remote change, sync drafts for
+        // sections the user isn't actively editing. This avoids overwriting
+        // in-progress edits (the same user made the change on another device —
+        // they know what happened, don't yank the floor from under them).
+        // Each section is independent: date editing (isEditing) and notes
+        // editing (isNotesFocused) are tracked separately.
+        .onChange(of: roll.notes) { _, newNotes in
+            if !isNotesFocused {
+                draftNotes = newNotes ?? ""
+            }
+        }
+        .onChange(of: roll.createdAt) { _, newDate in
+            if !isEditing { draftDate = newDate }
+        }
+        .onChange(of: roll.timeZoneIdentifier) { _, newTZ in
+            if !isEditing { draftTimeZoneIdentifier = newTZ ?? TimeZone.current.identifier }
+        }
+        .onChange(of: roll.cityName) { _, newCity in
+            if !isEditing { draftCityName = newCity }
         }
     }
 

@@ -31,6 +31,7 @@ struct RichTextEditor: UIViewRepresentable {
     var isScrollEnabled: Bool = false
     var isEditable: Bool = true
     var onFocus: (() -> Void)?
+    var onBlur: (() -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -89,6 +90,10 @@ struct RichTextEditor: UIViewRepresentable {
 
         func textViewDidBeginEditing(_ textView: UITextView) {
             parent.onFocus?()
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            parent.onBlur?()
         }
 
         func textViewDidChange(_ textView: UITextView) {
