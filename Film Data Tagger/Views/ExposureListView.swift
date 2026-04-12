@@ -345,7 +345,7 @@ struct ExposureListView: View {
                 ).frame(height: exposureItemHeight)
             }
         }
-        .animation(.easeOut(duration: 0.25), value: logItems.map(\.id))
+        .animation(.snappy(duration: 0.25, extraBounce: 0), value: logItems.map(\.id))
         .padding(.leading, 16 - 12)
         .padding(.trailing, 16)
         .padding(.top, 118)
@@ -395,14 +395,14 @@ struct ExposureListView: View {
                     .defaultScrollAnchor(.bottom)
                     .onAppear {
                         onScrollToBottomRegistered?({
-                            withAnimation {
+                            withAnimation(.smooth(duration: 0.3, extraBounce: 0)) {
                                 proxy.scrollTo("scrollAnchor", anchor: .bottom)
                             }
                         })
                     }
                     .onChange(of: logItems.count) { oldCount, newCount in
                         if newCount > oldCount {
-                            withAnimation {
+                            withAnimation(.smooth(duration: 0.3, extraBounce: 0)) {
                                 proxy.scrollTo("scrollAnchor", anchor: .bottom)
                             }
                         }

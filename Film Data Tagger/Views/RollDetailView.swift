@@ -22,7 +22,9 @@ import SwiftUI
 // add 0.1 to catch the long tail of animations
 private let pickerUpdateDelay: Double = 0.25 + 0.1
 private let layoutChangeAnimationDuration: Double = 0.25
+private let layoutChangeAnimation: Animation = .snappy(duration: layoutChangeAnimationDuration, extraBounce: 0.02)
 private let datePickerSelectAnimationDuration: Double = 0.2
+private let datePickerSelectAnimation: Animation = .easeInOut(duration: datePickerSelectAnimationDuration)
 private let datePickerTransitionYOffset: CGFloat = -16
 
 private struct RollDetailHeader: View {
@@ -83,7 +85,7 @@ private struct RollDetailPickers: View, Equatable {
                 .offset(y: isEditingDate ? 0 : datePickerTransitionYOffset)
                 .opacity(isEditingDate ? 1 : 0)
                 .allowsHitTesting(isEditingDate)
-                .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingDate)
+                .animation(datePickerSelectAnimation, value: isEditingDate)
             DatePicker("Roll load time", selection: $draftDate, displayedComponents: .hourAndMinute)
                 .environment(\.timeZone, timeZone)
                 .zIndex(4)
@@ -100,7 +102,7 @@ private struct RollDetailPickers: View, Equatable {
                 .offset(y: isEditingTime ? 0 : datePickerTransitionYOffset)
                 .opacity(isEditingTime ? 1 : 0)
                 .allowsHitTesting(isEditingTime)
-                .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingTime)
+                .animation(datePickerSelectAnimation, value: isEditingTime)
         }
     }
 }
@@ -161,7 +163,7 @@ private struct RollDetailLoadedSection: View {
                     )
                     .background(Capsule().foregroundStyle(editContainerColor).opacity(isEditing ? 1 : 0))
                     .foregroundStyle(isEditingDate ? Color.accentColor : Color.white)
-                    .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingDate)
+                    .animation(datePickerSelectAnimation, value: isEditingDate)
                     .accessibilityLabel("Edit roll load date")
                     .contentShape(Capsule())
                     .onTapGesture {
@@ -175,7 +177,7 @@ private struct RollDetailLoadedSection: View {
                     .frame(width: isEditing ? 125 : nil, height: isEditing ? 44 : 20)
                     .background(Capsule().foregroundStyle(editContainerColor).opacity(isEditing ? 1 : 0))
                     .foregroundStyle(isEditingTime ? Color.accentColor : Color.white.opacity(isEditing ? 1.0 : 0.7))
-                    .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingDate)
+                    .animation(datePickerSelectAnimation, value: isEditingDate)
                     .accessibilityLabel("Edit roll load time")
                     .contentShape(Capsule())
                     .onTapGesture {
@@ -198,8 +200,8 @@ private struct RollDetailLoadedSection: View {
                             .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
                             .opacity((isEditingTime && !pickersConstructed) ? 1 : 0)
                             .offset(y: isEditingTime ? 0 : datePickerTransitionYOffset)
-                            .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingTime)
-                            .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: pickersConstructed)
+                            .animation(datePickerSelectAnimation, value: isEditingTime)
+                            .animation(datePickerSelectAnimation, value: pickersConstructed)
                         
                         ProgressView()
                             .frame(height: 381)
@@ -207,8 +209,8 @@ private struct RollDetailLoadedSection: View {
                             .glassEffectCompat(in: RoundedRectangle(cornerRadius: 22), interactive: false)
                             .opacity((isEditingDate && !pickersConstructed) ? 1 : 0)
                             .offset(y: isEditingDate ? 0 : datePickerTransitionYOffset)
-                            .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: isEditingDate)
-                            .animation(.easeInOut(duration: datePickerSelectAnimationDuration), value: pickersConstructed)
+                            .animation(datePickerSelectAnimation, value: isEditingDate)
+                            .animation(datePickerSelectAnimation, value: pickersConstructed)
                     }
                     .zIndex(3)
                     .tint(.white)
@@ -265,7 +267,7 @@ private struct RollDetailLoadedSection: View {
                 .frame(height: isEditing ? 44 : nil)
                 .background(Capsule().foregroundStyle(editContainerColor).opacity(isEditing ? 1.0 : 0))
                 .padding(.horizontal, isEditing ? 10 : 16)
-                .animation(.easeInOut(duration: layoutChangeAnimationDuration), value: showingLocalTime && isEditing)
+                .animation(layoutChangeAnimation, value: showingLocalTime && isEditing)
                 .transition(.opacity)
                 .zIndex(1)
             }
@@ -501,7 +503,7 @@ struct RollDetailView: View {
                         .id("scrollBottom")
                 }.padding(.top, 20)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .animation(.easeInOut(duration: layoutChangeAnimationDuration), value: isEditing)
+                .animation(layoutChangeAnimation, value: isEditing)
             }
             .scrollDismissesKeyboard(.immediately)
         }

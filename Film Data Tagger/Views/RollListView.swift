@@ -166,6 +166,7 @@ struct RollListView: View {
 
     @State private var rollToDelete: RollSnapshot?
     @State private var rollToEdit: RollSnapshot?
+    @Namespace private var rollTransition
 
     var body: some View {
         ZStack {
@@ -190,6 +191,9 @@ struct RollListView: View {
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
+                                .matchedGeometryEffect(id: activeRoll.id, in: rollTransition)
+                                .id(activeRoll.id)
+                                .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: -130.0)), removal: .identity))
                                 .contextMenu {
                                     Button {
                                         onShowRollDetail?(activeRoll.id)
@@ -235,7 +239,11 @@ struct RollListView: View {
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
-                                .transition(.asymmetric(insertion: .opacity, removal: isLast ? .opacity : .identity))
+                                .matchedGeometryEffect(id: roll.id, in: rollTransition)
+                                .transition(.asymmetric(
+                                    insertion: .identity,
+                                    removal: isLast ? .opacity : .identity
+                                ))
                                 .contextMenu {
                                     Button {
                                         onShowRollDetail?(roll.id)
@@ -256,12 +264,11 @@ struct RollListView: View {
                             }
                         }
                         
-                    }.animation(.easeOut(duration: 0.25), value: activeRoll?.id)
-                    .animation(.easeOut(duration: 0.25), value: pastRolls.map(\.id))
+                    }.animation(.snappy(duration: 0.4, extraBounce: 0), value: activeRoll?.id)
                     .padding(.horizontal, 16)
                     .padding(.top, 20)
                     .padding(.bottom, 217 - 20 - bottomSafeAreaInset - 46) // overscroll
-                }
+                }.animation(.snappy(duration: 0.4, extraBounce: 0), value: pastRolls.map(\.id))
             } else {
                 VStack(spacing: 13) {
                     Image("no-film-icon")

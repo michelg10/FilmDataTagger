@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+private let loadUnloadRollAnimation: Animation = .snappy(duration: 0.35, extraBounce: 0.1)
+
 struct FinishRollButton: View {
     let createRollUponFinish: Bool
     private var icon: String {
@@ -17,13 +19,14 @@ struct FinishRollButton: View {
     let text: String = "Finish roll"
     let isNearBottom: Bool
     let action: () -> Void
+    private let transitionAnimation: Animation = .snappy(duration: 0.3, extraBounce: 0.15)
 
     var body: some View {
         ZStack {
             Button(action: action) {
                 Color.clear.frame(width: 48, height: 48)
                     .padding(.horizontal, isNearBottom ? ((158 - 48) / 2) : 0)
-                    .animation(.easeInOut(duration: 0.25), value: isNearBottom)
+                    .animation(transitionAnimation, value: isNearBottom)
                     .shadow(color: .black.opacity(0.36), radius: 24.8)
                     .shadow(color: .black.opacity(0.5), radius: 6.9)
                     .overlay {
@@ -48,7 +51,7 @@ struct FinishRollButton: View {
             }.glassEffectCompat(in: Capsule(style: .continuous))
             .accessibilityLabel(isNearBottom ? text : "Scroll to bottom")
         }.frame(maxWidth: .infinity)
-        .animation(.easeInOut(duration: 0.25), value: isNearBottom)
+        .animation(transitionAnimation, value: isNearBottom)
     }
 }
 
@@ -167,7 +170,7 @@ struct ExposureScreen: View {
                 onCameraSwitched: onCameraSwitched,
                 onUnloadRoll: {
                     playHaptic(.loadUnloadRoll)
-                    withAnimation(.easeOut(duration: 0.3)) {
+                    withAnimation(loadUnloadRollAnimation) {
                         viewModel.unloadRoll()
                     }
                 },
@@ -176,7 +179,7 @@ struct ExposureScreen: View {
                         showReplaceRollAlert = true
                     } else {
                         playHaptic(.loadUnloadRoll)
-                        withAnimation(.easeInOut(duration: 0.3)) {
+                        withAnimation(loadUnloadRollAnimation) {
                             viewModel.loadRoll()
                         }
                     }
@@ -235,7 +238,7 @@ struct ExposureScreen: View {
                             }
                         },
                         onUnloadRoll: {
-                            withAnimation(.easeOut(duration: 0.3)) {
+                            withAnimation(loadUnloadRollAnimation) {
                                 viewModel.unloadRoll()
                             }
                         }
@@ -244,7 +247,7 @@ struct ExposureScreen: View {
                     .offset(y: -48 - 20) // button height + spacing
                 }
                 .padding([.bottom, .leading, .trailing], 8)
-                .animation(.easeInOut(duration: 0.25), value: logItems.isEmpty)
+                .animation(.easeInOut(duration: 0.25), value: logItems.isEmpty) // this animation is for fading out the "start your roll!" text when the first item is added
                 .zIndex(1)
                 .transition(.move(edge: .bottom).combined(with: .blurReplace))
             }
@@ -270,7 +273,7 @@ struct ExposureScreen: View {
             Button("Cancel", role: .cancel) {}
             Button("Replace") {
                 playHaptic(.loadUnloadRoll)
-                withAnimation(.easeOut(duration: 0.3)) {
+                withAnimation(loadUnloadRollAnimation) {
                     viewModel.loadRoll()
                 }
             }

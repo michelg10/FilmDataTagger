@@ -22,6 +22,8 @@ struct CameraRollProgress: View {
         return max((Double(exposureCount) + 0.01) / (Double(totalExposureCount) + 0.01), 0.0)
     }
     
+    private let exposureChangeAnimation: Animation = .snappy(duration: 0.45, extraBounce: 0)
+    
     
     var body: some View {
         ZStack {
@@ -33,9 +35,11 @@ struct CameraRollProgress: View {
                 trackColor: Color.white.opacity(0.13),
                 overflowShadowColor: .black.opacity(0.75),
                 overflowShadowRadius: 2.9
-            )
+            ).animation(exposureChangeAnimation, value: exposureProgress)
             if let exposureCount = exposureCount {
                 Text(exposureCount > 999 ? "999+" : String(exposureCount))
+                    .contentTransition(.numericText(value: Double(exposureCount)))
+                    .animation(exposureChangeAnimation, value: exposureCount)
                     .font(.system(size: exposureCount > 999 ? 11 : exposureCount > 99 ? 13 : 14, weight: .semibold, design: .default))
                     .fontWidth(.expanded)
                     .foregroundStyle(Color.white)
@@ -335,7 +339,7 @@ struct CameraListView: View {
                         commit: { viewModel.reorderCameras($0) }
                     )
                 )
-        }.animation(.easeOut(duration: 0.25), value: entries.map(\.id))
+        }.animation(.smooth(duration: 0.3, extraBounce: 0), value: entries.map(\.id))
         .padding(.horizontal, 16)
     }
 
@@ -404,7 +408,7 @@ struct CameraListView: View {
         ) {
             Button("Delete", role: .destructive) {
                 if let entry = entryToDelete {
-                    withAnimation {
+                    withAnimation(.smooth(duration: 0.3, extraBounce: 0)) {
                         viewModel.deleteCamera(id: entry.id)
                     }
                     entryToDelete = nil
