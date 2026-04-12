@@ -76,6 +76,7 @@ private let filmStockPlaceholders = [
     // Cinestill
     "SproStill 800T",
     "SproStill 400D",
+    "SproStill 50D",
     
     // Lomography Color Negative
     "Sprokography Color Negative 100",

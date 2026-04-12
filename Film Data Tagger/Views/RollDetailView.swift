@@ -18,7 +18,9 @@ import SwiftUI
 //
 // Use timers to fire when we hope the user's not looking.
 
-private let pickerUpdateDelay: Double = 0.25 // should be longer than every animation to not hitch animations
+// should be longer than every animation to not hitch animations.
+// add 0.1 to catch the long tail of animations
+private let pickerUpdateDelay: Double = 0.25 + 0.1
 private let layoutChangeAnimationDuration: Double = 0.25
 private let datePickerSelectAnimationDuration: Double = 0.2
 private let datePickerTransitionYOffset: CGFloat = -16
