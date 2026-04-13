@@ -23,6 +23,9 @@ final class CameraController {
     /// True when reference photos are enabled but camera permission hasn't been requested yet.
     private(set) var needsPermission = false
 
+    /// Incremented on each camera flip. Views observe this to show a temporary indicator.
+    private(set) var flipCount = 0
+
     var referencePhotosEnabled: Bool {
         didSet { settings.referencePhotosEnabled = referencePhotosEnabled }
     }
@@ -164,6 +167,7 @@ final class CameraController {
             }
             lastToggleOffDate = nil
             playHaptic(didFlip ? .cameraFlip : .viewfinderToggle)
+            if didFlip { flipCount += 1 }
             // Turning on — check permission first
             needsPermission = false
             referencePhotosEnabled = true // set eagerly so ensureRunning() doesn't bail

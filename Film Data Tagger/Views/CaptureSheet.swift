@@ -278,7 +278,17 @@ private struct CaptureSheetCompactContent: View {
     let locationService: LocationService
     let lastCaptureDate: Date?
 
+    private let flipIndicatorHoldDuration: TimeInterval = 3.0
+    private let flipIndicatorFadeDuration: TimeInterval = 0.3
+
+    @State private var showingFlipIndicator = false
+    @State private var flipIndicatorTask: Task<Void, Never>?
+
     private var iconName: String {
+        if showingFlipIndicator {
+            return AppSettings.shared.preferredCameraSide == .front
+                ? "person.crop.rectangle" : "photo"
+        }
         if camera.needsPermission { return "hand.raised.fill" }
         if !camera.referencePhotosEnabled || camera.unavailable || camera.permissionDenied { return "eye.slash.fill" }
         return "eye.fill"
@@ -291,17 +301,38 @@ private struct CaptureSheetCompactContent: View {
                 .font(.system(size: 16, weight: .semibold, design: .default))
                 .foregroundStyle(Color.white)
                 .frame(width: 25, height: 19)
-                .opacity(0.8)
+                .opacity(showingFlipIndicator ? 1.0 : 0.8)
+                .onChange(of: camera.flipCount) {
+                    flipIndicatorTask?.cancel()
+                    showingFlipIndicator = true
+                    let hold = flipIndicatorHoldDuration
+                    let fade = flipIndicatorFadeDuration
+                    flipIndicatorTask = Task {
+                        try? await Task.sleep(for: .seconds(hold))
+                        guard !Task.isCancelled else { return }
+                        // .contentTransition(.symbolEffect) drives the icon swap speed,
+                        // not this animation. The withAnimation is here to subtly
+                        // animate the opacity value (1.0 → 0.8) on dismiss.
+                        withAnimation(.easeOut(duration: fade)) {
+                            showingFlipIndicator = false
+                        }
+                    }
+                }
                 .padding(.horizontal, 15)
                 .padding(.vertical, 4)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    playHaptic(.viewfinderToggle)
+                    // Dismiss flip indicator instantly on any tap
+                    flipIndicatorTask?.cancel()
+                    flipIndicatorTask = nil
+                    showingFlipIndicator = false
                     if camera.needsPermission {
+                        playHaptic(.viewfinderToggle)
                         camera.requestPermissionIfNeeded()
                     } else if camera.unavailable {
                         // No camera hardware
                     } else if camera.permissionDenied {
+                        playHaptic(.viewfinderToggle)
                         if let url = URL(string: UIApplication.openSettingsURLString) {
                             UIApplication.shared.open(url)
                         }

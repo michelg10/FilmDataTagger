@@ -26,7 +26,7 @@ enum Haptic {
         case .newRollOrCamera:        return 0.77
         case .cycleExtraExposures:    return 0.30
         case .loadUnloadRoll:    return 0.76
-        case .cameraFlip:        return 0.56
+        case .cameraFlip:        return 1.00
         }
     }
 
@@ -39,7 +39,7 @@ enum Haptic {
         case .newRollOrCamera:        return 0.31
         case .cycleExtraExposures:    return 0.75
         case .loadUnloadRoll:    return 0.71
-        case .cameraFlip:        return 0.32
+        case .cameraFlip:        return 0.60
         }
     }
 }
