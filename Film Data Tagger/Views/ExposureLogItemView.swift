@@ -14,8 +14,8 @@ struct ExposureLogItemView: View {
     let item: LogItemSnapshot
     let exposureNumber: Int?
     var isPreFrame: Bool = false
+    var frameNumberTapCount: Int = 1
     var onCycleExtraExposures: (() -> Void)?
-    var onDoubleTapCycleExtraExposures: (() -> Void)?
     @State private var showingLocalTime = false
     @State private var previewImage: Image?
 
@@ -23,8 +23,8 @@ struct ExposureLogItemView: View {
         LogItemView(
             exposureNumber: exposureNumber,
             isPreFrame: isPreFrame,
+            frameNumberTapCount: frameNumberTapCount,
             onFrameNumberTapped: onCycleExtraExposures,
-            onFrameNumberDoubleTapped: onDoubleTapCycleExtraExposures,
             previewImage: previewImage,
             isFromShortcut: item.source == ExposureSource.shortcut.rawValue,
             exposureType: item.exposureType,

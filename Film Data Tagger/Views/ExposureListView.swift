@@ -129,8 +129,7 @@ private struct ExposureRow: View, Equatable {
     let item: LogItemSnapshot
     let exposureNumber: Int?
     var isPreFrame: Bool = false
-    var canCycleExtraExposures: Bool = false
-    var canDoubleTapCycleExtraExposures: Bool = false
+    var frameNumberTapCount: Int = 1
     var menuContext: (any ExposureMenuContext)?
     var onCameraSwitched: ((UUID) -> Void)?
     var onDelete: ((LogItemSnapshot) -> Void)?
@@ -140,12 +139,11 @@ private struct ExposureRow: View, Equatable {
         lhs.item == rhs.item &&
         lhs.exposureNumber == rhs.exposureNumber &&
         lhs.isPreFrame == rhs.isPreFrame &&
-        lhs.canCycleExtraExposures == rhs.canCycleExtraExposures &&
-        lhs.canDoubleTapCycleExtraExposures == rhs.canDoubleTapCycleExtraExposures
+        lhs.frameNumberTapCount == rhs.frameNumberTapCount
     }
 
     var body: some View {
-        ExposureLogItemView(item: item, exposureNumber: exposureNumber, isPreFrame: isPreFrame, onCycleExtraExposures: canCycleExtraExposures ? onCycleExtraExposures : nil, onDoubleTapCycleExtraExposures: canDoubleTapCycleExtraExposures ? onCycleExtraExposures : nil)
+        ExposureLogItemView(item: item, exposureNumber: exposureNumber, isPreFrame: isPreFrame, frameNumberTapCount: frameNumberTapCount, onCycleExtraExposures: frameNumberTapCount > 0 ? onCycleExtraExposures : nil)
             .frame(height: exposureItemHeight, alignment: .center)
             .contentShape(Rectangle())
             .contextMenu {
@@ -313,12 +311,12 @@ struct ExposureListView: View {
                 ForEach(Array(logItems.enumerated()), id: \.element.id) { index, item in
                     let isPreFrame = index < extraExposures
                     let frameNumber: Int? = isPreFrame ? nil : index - extraExposures + 1
+                    let canCycle = index < 4 && AppSettings.shared.preFramesEnabled
                     ExposureRow(
                         item: item,
                         exposureNumber: frameNumber,
                         isPreFrame: isPreFrame,
-                        canCycleExtraExposures: index < 4 && isActiveRoll && AppSettings.shared.preFramesEnabled,
-                        canDoubleTapCycleExtraExposures: index < 4 && !isActiveRoll && AppSettings.shared.preFramesEnabled,
+                        frameNumberTapCount: canCycle ? (isActiveRoll ? 1 : 2) : 1,
                         menuContext: menuContext,
                         onCameraSwitched: onCameraSwitched,
                         onDelete: onDelete,

@@ -11,8 +11,8 @@ struct LogItemView: View {
     /// Exposure number to display (1–99 as two digits, 100–999 as three digits, 1000+ wraps mod 1000)
     let exposureNumber: Int?
     var isPreFrame: Bool = false
+    var frameNumberTapCount: Int
     var onFrameNumberTapped: (() -> Void)?
-    var onFrameNumberDoubleTapped: (() -> Void)?
     let previewImage: Image?
     var isFromShortcut: Bool = false
     var exposureType: ExposureType = .regular
@@ -31,8 +31,7 @@ struct LogItemView: View {
                     .frame(maxHeight: .infinity)
                     .contentShape(Rectangle())
                     .transaction { $0.animation = nil }
-                    .onTapGesture(count: 2) { onFrameNumberDoubleTapped?() }
-                    .onTapGesture { onFrameNumberTapped?() }
+                    .onTapGesture(count: frameNumberTapCount) { onFrameNumberTapped?() }
             } else if let exposureNumber = exposureNumber {
                 Text(exposureNumber < 100
                     ? String(format: "%02d", exposureNumber)
@@ -45,10 +44,7 @@ struct LogItemView: View {
                     .opacity(0.85)
                     .transaction { $0.animation = nil }
                     .contentShape(Rectangle())
-                    .onTapGesture(count: 2) {
-                        onFrameNumberDoubleTapped?()
-                    }
-                    .onTapGesture {
+                    .onTapGesture(count: frameNumberTapCount) {
                         onFrameNumberTapped?()
                     }
             }
@@ -124,6 +120,7 @@ struct LogItemView: View {
         VStack(spacing: 16) {
             LogItemView(
                 exposureNumber: 1,
+                frameNumberTapCount: 1,
                 previewImage: .init("test-image"),
                 timeText: Text("3:45 P.M."),
                 timeSecondaryText: Text("1/5/2023"),
@@ -131,6 +128,7 @@ struct LogItemView: View {
             )
             LogItemView(
                 exposureNumber: 2,
+                frameNumberTapCount: 1,
                 previewImage: .init("test-image"),
                 timeText: Text("9:15 A.M."),
                 timeSecondaryText: Text("1/12/2023"),
@@ -138,6 +136,7 @@ struct LogItemView: View {
             )
             LogItemView(
                 exposureNumber: 3,
+                frameNumberTapCount: 1,
                 previewImage: .init("test-image"),
                 timeText: Text("11:30 P.M."),
                 timeSecondaryText: Text("2/14/2023"),
