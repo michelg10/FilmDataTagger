@@ -380,7 +380,7 @@ struct ExposureListView: View {
                 .id("scrollAnchor")
                 .padding(.horizontal, 16)
             // we have two "overscroll"s so that we maintain consistent padding regardless of whether the Capture controls are collapsed or expanded
-            Color.red // Color.red to test proper scroll init
+            Color.clear // Color.red to test proper scroll init
                 .frame(height: totalBottomPadding - max(totalOverscroll, 0))
         }
     }
