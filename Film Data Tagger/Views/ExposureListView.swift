@@ -296,62 +296,71 @@ struct ExposureListView: View {
     var scrollTargetItemID: UUID?
     @State private var draggingPlaceholderID: UUID?
     @State private var dropTargetIndex: Int?
-
+    
     var totalBottomPadding: CGFloat {
         // full height of capture sheet + bottom padding of capture sheet + finish roll button spacing + finish roll button height + desired overscroll amount
         isActiveRoll ? CaptureSheet.fullHeight + 8 + 20 + 48 + 48: pastRollOverscroll
     }
+    
+    var totalOverscroll: CGFloat {
+        totalBottomPadding - (CaptureSheet.fullHeight - bottomInset)
+    }
 
     @ViewBuilder
     private func exposureScrollContent() -> some View {
-        LazyVStack(spacing: 0) {
-            ForEach(Array(logItems.enumerated()), id: \.element.id) { index, item in
-                let isPreFrame = index < extraExposures
-                let frameNumber: Int? = isPreFrame ? nil : index - extraExposures + 1
-                ExposureRow(
-                    item: item,
-                    exposureNumber: frameNumber,
-                    isPreFrame: isPreFrame,
-                    canCycleExtraExposures: index < 4 && isActiveRoll && AppSettings.shared.preFramesEnabled,
-                    canDoubleTapCycleExtraExposures: index < 4 && !isActiveRoll && AppSettings.shared.preFramesEnabled,
-                    menuContext: menuContext,
-                    onCameraSwitched: onCameraSwitched,
-                    onDelete: onDelete,
-                    onCycleExtraExposures: onCycleExtraExposures
-                )
-                .equatable()
-                .transition(.asymmetric(
-                    insertion: .opacity.animation(.easeOut(duration: 0.12)),
-                    removal: index == logItems.count - 1 ? .opacity : .identity
-                ))
-                .contentShape(Rectangle())
-                .id(item.id)
-                .if(item.exposureType.isPlaceholderLike) { view in
-                    view.onDrag {
-                        draggingPlaceholderID = item.id
-                        return NSItemProvider(object: item.id.uuidString as NSString)
-                    }
-                }
-                .overlay(alignment: .top) {
-                    ExposureDropIndicatorLine(active: dropTargetIndex == index)
-                        .offset(y: -1)
-                        .allowsHitTesting(false)
-                }.onDrop(
-                    of: [UTType.plainText],
-                    delegate: ExposureRowDropDelegate(
-                        index: index,
-                        logItems: logItems,
-                        draggingPlaceholderID: $draggingPlaceholderID,
-                        dropTargetIndex: $dropTargetIndex,
-                        onMovePlaceholderBefore: onMovePlaceholderBefore,
-                        onMovePlaceholderAfter: onMovePlaceholderAfter
+        VStack(spacing: 0) {
+            LazyVStack(spacing: 0) {
+                ForEach(Array(logItems.enumerated()), id: \.element.id) { index, item in
+                    let isPreFrame = index < extraExposures
+                    let frameNumber: Int? = isPreFrame ? nil : index - extraExposures + 1
+                    ExposureRow(
+                        item: item,
+                        exposureNumber: frameNumber,
+                        isPreFrame: isPreFrame,
+                        canCycleExtraExposures: index < 4 && isActiveRoll && AppSettings.shared.preFramesEnabled,
+                        canDoubleTapCycleExtraExposures: index < 4 && !isActiveRoll && AppSettings.shared.preFramesEnabled,
+                        menuContext: menuContext,
+                        onCameraSwitched: onCameraSwitched,
+                        onDelete: onDelete,
+                        onCycleExtraExposures: onCycleExtraExposures
                     )
-                ).frame(height: exposureItemHeight)
-            }
+                    .equatable()
+                    .transition(.asymmetric(
+                        insertion: .opacity.animation(.easeOut(duration: 0.12)),
+                        removal: index == logItems.count - 1 ? .opacity : .identity
+                    ))
+                    .contentShape(Rectangle())
+                    .id(item.id)
+                    .if(item.exposureType.isPlaceholderLike) { view in
+                        view.onDrag {
+                            draggingPlaceholderID = item.id
+                            return NSItemProvider(object: item.id.uuidString as NSString)
+                        }
+                    }
+                    .overlay(alignment: .top) {
+                        ExposureDropIndicatorLine(active: dropTargetIndex == index)
+                            .offset(y: -1)
+                            .allowsHitTesting(false)
+                    }.onDrop(
+                        of: [UTType.plainText],
+                        delegate: ExposureRowDropDelegate(
+                            index: index,
+                            logItems: logItems,
+                            draggingPlaceholderID: $draggingPlaceholderID,
+                            dropTargetIndex: $dropTargetIndex,
+                            onMovePlaceholderBefore: onMovePlaceholderBefore,
+                            onMovePlaceholderAfter: onMovePlaceholderAfter
+                        )
+                    ).frame(height: exposureItemHeight)
+                }
+            }.frame(height: exposureItemHeight * CGFloat(logItems.count))
+            .padding(.top, 118)
+            .padding(.leading, 16 - 12)
+            .padding(.trailing, 16)
             
             // Overscroll / drop zone for moving placeholders to end of list
             Color.clear
-                .frame(height: totalBottomPadding)
+                .frame(height: max(totalOverscroll, 0))
                 .contentShape(Rectangle())
                 .overlay(alignment: .top) {
                     ExposureDropIndicatorLine(active: dropTargetIndex == logItems.count)
@@ -369,10 +378,11 @@ struct ExposureListView: View {
                     )
                 )
                 .id("scrollAnchor")
+                .padding(.horizontal, 16)
+            // we have two "overscroll"s so that we maintain consistent padding regardless of whether the Capture controls are collapsed or expanded
+            Color.red // Color.red to test proper scroll init
+                .frame(height: totalBottomPadding - max(totalOverscroll, 0))
         }
-        .padding(.leading, 16 - 12)
-        .padding(.trailing, 16)
-        .padding(.top, 118)
     }
 
     var body: some View {
@@ -390,9 +400,117 @@ struct ExposureListView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         exposureScrollContent()
-                            .frame(minHeight: UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first?.screen.bounds.height, alignment: .top) // align to top
-                    }.animation(.snappy(duration: 0.25, extraBounce: 0), value: logItems.map(\.id))
-                    .defaultScrollAnchor(.bottom)
+                            .frame(minHeight: UIScreen.currentHeight, alignment: .top)
+                    }
+                    .animation(.snappy(duration: 0.25, extraBounce: 0), value: logItems.map(\.id))
+                    .defaultScrollAnchor(.init(x: 0.5, y: {
+                        guard isActiveRoll else {
+                            return 1.0 // just scroll to the bottom for inactive rolls
+                        }
+                        
+                        // for a full capture sheet, we don't need this entire dance
+                        // to scroll to the right overscroll spot. use fp-aware comparison.
+                        guard abs(CaptureSheet.fullHeight - bottomInset) > 0.001 else {
+                            return 1.0
+                        }
+                        /*
+                         reference: iPhone 15 Pro screen height, 852 pt
+                         
+                         **fucking SwiftUI**, there's some weird behavior here. testing:
+                         
+                         testing with 130 items, collapsed Capture sheet:
+                         0.999 -> offset 10494
+                         0.9999 -> offset 10504.00000
+                         0.99995 -> offset 10504.33333
+                         0.99996 -> offset 9808 ???
+                         0.999955 -> offset 9808
+                         0.999952 -> offset 10504.33333
+                         
+                         okay, so it seems like exceeding 10504.33 overshoots some internal value and overflows the scrollview
+                         10504.33 in pixels is 10504.33 * 3 = 31513 pixels.
+                         
+                         our reported scrollview maxOffset is 9808. calculating by hand:
+                         
+                         118 (top padding) + 78 * 130 (content) = 10258
+                         10258 + 278 (full capture sheet height on 15 Pro) + 8 + 20 + 48 + 48 (reference formula above) = 10258 + 402 = 10660
+                         10660 - 852 (screen height) = 9808. okay. that makes sense.
+                         
+                         but what's with 10504.33? that's
+                         
+                         10660 - 10504.33 = 155.67. it seems to be in pixels.
+                         
+                         so 467 pixels. might be safe area?
+                         
+                         ---
+                         
+                         let's try with different items. trying with 50.
+                         
+                         height: reported max offset = 3568, 3568 + 852 = 4420
+                         
+                         hypothesis: if it's safe area, then we should see 4420 - 155.67 = 4,264.33
+                         0.99 -> 4222.33333
+                         0.999 -> 4260.66667
+                         0.9999 -> 3568, overshot
+                         0.9995 -> 4263
+                         0.9997 -> 4263.66667
+                         0.9998 -> 4263.66667
+                         0.99985 -> 4263.66667
+                         
+                         interesting. we're within rounding error. the new value is 4420 - 4263.66667 = 156.33 .
+                         
+                         hypothesis: there's some internal rounding going on. we should probably use less items to get a more precise measurement.
+                         
+                         testing with 6 items:
+                         maxOffset = 136. 136 + 852 = 988
+                         based on previous: 988 - 156.33 = 831.67
+                         
+                         0.99 -> 824.66667
+                         0.999 -> 832.33333
+                         0.9995 -> 136, nope
+                         0.9992 -> 832.33333
+                         0.9993 -> 832.33333
+                         0.9994 -> 136, nope
+                         0.99935 -> 832.33333
+                         
+                         interesting. so we get a new value: 832.33333. it's 988 - 832.33 = 155.67. same as the first one.
+                         
+                         okay, the actual value seems to be something like 156 points.
+                         
+                         so iOS' logic appears to be:
+                         
+                         maximum = viewsize - 156
+                         try to scroll to proportion * (viewsize - 156). if it rounds to the max, then clip to viewSize - deviceHeight (the actual bottom of the scroll view)
+                         
+                         somebody at Apple really fucked up. but it's okay. we reverse-engineered their buggy logic, we use it.
+                         */
+                        
+                        // careful: don't target an area too far, or you'll get yeeted into oblivion
+                        let MAGIC_SAFE_AREA: CGFloat = 156
+                        
+                        /*
+                         so we want to scroll to totalTargetHeight - screen height.
+                         
+                         so x * (totalScrollViewHeight + MAGIC_SAFE_AREA) = totalTargetHeight - screen height
+                         so (totalTargetHeight - screen height) / (totalScrollViewHeight + MAGIC_SAFE_AREA)
+                         
+                         yep. very normal.
+                        */
+                        
+                        let totalContentHeight: CGFloat = 118 + exposureItemHeight * CGFloat(logItems.count)
+                        let totalTargetHeight: CGFloat = totalContentHeight + totalOverscroll - UIScreen.currentHeight
+                        let totalScrollViewHeight: CGFloat = totalContentHeight + totalBottomPadding
+                        
+//                        print("computed target", totalTargetHeight)
+//                        print("computed content", totalContentHeight)
+//                        print("computed scroll view", totalScrollViewHeight)
+                        
+                        let computedResult = (totalTargetHeight) / (totalScrollViewHeight - MAGIC_SAFE_AREA)
+                        
+//                        print(computedResult)
+                        return computedResult
+                    }()), for: .initialOffset)
+                    .defaultScrollAnchor(.bottom, for: .sizeChanges)
+                    .defaultScrollAnchor(.bottom, for: .alignment)
                     .onAppear {
                         onScrollToBottomRegistered?({
                             withAnimation(.smooth(duration: 0.3, extraBounce: 0)) {
@@ -414,6 +532,7 @@ struct ExposureListView: View {
                     .onScrollGeometryChange(for: Bool.self) { geo in
                         let maxOffset = geo.contentSize.height - geo.containerSize.height + geo.contentInsets.bottom
                         let currentOffset = geo.contentOffset.y + geo.contentInsets.top
+//                        print("[scroll] maxOffset=\(String(format: "%.5f", maxOffset)) currentOffset=\(String(format: "%.5f", currentOffset)) threshold=\(nearBottomThreshold) nearBottom=\(currentOffset >= maxOffset - nearBottomThreshold)")
                         return currentOffset >= maxOffset - nearBottomThreshold
                     } action: { _, isNearBottom in
                         onNearBottomChanged?(isNearBottom)

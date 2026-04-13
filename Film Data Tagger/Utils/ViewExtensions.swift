@@ -16,6 +16,14 @@ extension UIScreen {
             .bounds
             .width) ?? 0
     }
+    static var currentHeight: CGFloat {
+        (UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?
+            .screen
+            .bounds
+            .height) ?? 0
+    }
 }
 
 let sheetScaleCompensationFactor = UIScreen.currentWidth / (UIScreen.currentWidth - 16)
