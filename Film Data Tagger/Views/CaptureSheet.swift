@@ -386,7 +386,7 @@ private struct CaptureButton: View, Equatable {
             Button {
                 onCaptureAndNote()
             } label: {
-                Label("Capture and note", systemImage: "text.pad.header")
+                Label("Capture and note", systemImage: SFSymbol.textPadHeader)
             }
             Section {
                 if settings.holdCapturePlaceholders {

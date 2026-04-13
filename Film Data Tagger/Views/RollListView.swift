@@ -142,7 +142,7 @@ struct RollListRow: View {
             .fontWidth(.expanded)
             
             if let notes = roll.notes, !notes.isEmpty {
-                (Text(Image(systemName: "text.pad.header")).foregroundStyle(Color.white.opacity(0.7)) + Text(" \(notes)").foregroundStyle(Color.white.opacity(0.5)))
+                (Text(Image(systemName: SFSymbol.textPadHeader)).foregroundStyle(Color.white.opacity(0.7)) + Text(" \(notes)").foregroundStyle(Color.white.opacity(0.5)))
                     .font(.system(size: 15, weight: .medium))
                     .lineLimit(2)
                     .lineHeightCompat(points: 23, fallbackSpacing: 5.1)

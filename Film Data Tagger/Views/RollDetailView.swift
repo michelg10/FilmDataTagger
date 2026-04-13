@@ -232,7 +232,7 @@ private struct RollDetailLoadedSection: View {
             if hasDifferentTimeZone {
                 HStack(spacing: 0) {
                     HStack(alignment: .firstTextBaseline, spacing: isEditing ? 13 : 6) {
-                        Image(systemName: "globe.badge.clock")
+                        Image(systemName: SFSymbol.globeBadgeClock)
                             .foregroundStyle(Color.white.opacity(0.7))
                         Text(showingLocalTime ? "Local" : draftTimeZoneLabel)
                             .foregroundStyle(Color.white.opacity(isEditing ? 0.95 : 0.7))
@@ -415,7 +415,7 @@ private struct RollDetailNotesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            RollDetailHeader(icon: "text.pad.header", title: "Notes")
+            RollDetailHeader(icon: SFSymbol.textPadHeader, title: "Notes")
                 .id("notes")
 
             ZStack(alignment: .topLeading) {

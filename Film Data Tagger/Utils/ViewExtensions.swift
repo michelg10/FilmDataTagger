@@ -47,6 +47,18 @@ var topSafeAreaInset: CGFloat {
         .first ?? 0
 }
 
+// SF Symbols that require iOS 26+, with iOS 18 fallbacks
+enum SFSymbol {
+    static var textPadHeader: String {
+        if #available(iOS 26, *) { return "text.pad.header" }
+        return "note.text"
+    }
+    static var globeBadgeClock: String {
+        if #available(iOS 26, *) { return "globe.badge.clock" }
+        return "globe"
+    }
+}
+
 extension View {
     @ViewBuilder
     func `if`<T: View>(_ condition: Bool, transform: (Self) -> T) -> some View {
