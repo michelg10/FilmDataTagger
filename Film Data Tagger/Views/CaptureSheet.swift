@@ -476,7 +476,7 @@ struct CaptureSheet: View {
     }
 
     private var sheetDragGesture: some Gesture {
-        DragGesture(minimumDistance: 4, coordinateSpace: .global)
+        DragGesture(minimumDistance: 1, coordinateSpace: .global)
             .onChanged { value in
                 let startHeight = dragStartHeight ?? currentHeight
                 if dragStartHeight == nil {
@@ -484,6 +484,7 @@ struct CaptureSheet: View {
                 }
 
                 let proposedHeight = startHeight - value.translation.height
+                // TODO: check for fractional rendering
                 dragHeight = rubberBandedHeight(for: proposedHeight)
             }
             .onEnded { value in
