@@ -76,6 +76,13 @@ struct ReferencePhotoPage: View {
                         SettingsOptionRow(text: option.label, value: option, selection: $settings.preferredCamera)
                     }
                 }
+                SettingsSection(caption: "Double-tap the preview on the Capture controls to flip the camera.") {
+                    SettingsRow(text: "Double-tap to flip camera") {
+                        Toggle("Double-tap to flip camera", isOn: $settings.doubleTapToFlipCamera)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                    }
+                }
             }
         }
         .onAppear { authStatus = AVCaptureDevice.authorizationStatus(for: .video) }

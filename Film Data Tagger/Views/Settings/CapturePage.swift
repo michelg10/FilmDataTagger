@@ -18,13 +18,13 @@ struct CapturePage: View {
             }
             SettingsSection(header: "Hold Capture for", caption: "Hold the Capture button to add a placeholder or lost frame.\nPlaceholders mark a frame with no metadata, whereas lost frames record time and location with no reference photo.") {
                 SettingsRow(text: "Placeholders") {
-                    Toggle("", isOn: $settings.holdCapturePlaceholders)
+                    Toggle("Placeholders", isOn: $settings.holdCapturePlaceholders)
                         .labelsHidden()
                         .toggleStyle(.switch)
                 }
                 SettingsSeparator()
                 SettingsRow(text: "Lost frames") {
-                    Toggle("", isOn: $settings.holdCaptureLostFrames)
+                    Toggle("Lost frames", isOn: $settings.holdCaptureLostFrames)
                         .labelsHidden()
                         .toggleStyle(.switch)
                 }

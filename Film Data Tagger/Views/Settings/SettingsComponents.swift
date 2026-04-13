@@ -352,7 +352,7 @@ struct SettingsBackButton: View {
         VStack(alignment: .leading, spacing: 0) {
             SettingsSection(header: "Example", caption: "This is a caption.") {
                 SettingsRow(text: "Toggle row") {
-                    Toggle("", isOn: .constant(true))
+                    Toggle("Toggle row", isOn: .constant(true))
                         .labelsHidden()
                         .toggleStyle(.switch)
                 }

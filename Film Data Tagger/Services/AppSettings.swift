@@ -225,6 +225,10 @@ final class AppSettings {
         didSet { defaults.set(preferredCameraSide.rawValue, forKey: AppSettingsKeys.preferredCameraSide) }
     }
 
+    var doubleTapToFlipCamera: Bool {
+        didSet { defaults.set(doubleTapToFlipCamera, forKey: AppSettingsKeys.doubleTapToFlipCamera) }
+    }
+
     var preferredCamera: PreferredCamera {
         get { preferredCameraSide == .front ? preferredFrontCamera : preferredBackCamera }
         set {
@@ -376,6 +380,8 @@ final class AppSettings {
             .flatMap(PreferredCamera.init) ?? .front
         preferredCameraSide = d.string(forKey: AppSettingsKeys.preferredCameraSide)
             .flatMap(CameraSide.init) ?? .back
+        doubleTapToFlipCamera = d.object(forKey: AppSettingsKeys.doubleTapToFlipCamera) == nil
+            ? true : d.bool(forKey: AppSettingsKeys.doubleTapToFlipCamera)
 
         locationEnabled = d.object(forKey: AppSettingsKeys.locationEnabled) == nil
             ? true : d.bool(forKey: AppSettingsKeys.locationEnabled)
@@ -429,6 +435,7 @@ nonisolated enum AppSettingsKeys {
     static let preferredBackCamera = "preferredBackCamera"
     static let preferredFrontCamera = "preferredFrontCamera"
     static let preferredCameraSide = "preferredCameraSide"
+    static let doubleTapToFlipCamera = "doubleTapToFlipCamera"
     static let locationEnabled = "locationEnabled"
     static let locationAccuracy = "locationAccuracy"
     static let reduceHaptics = "reduceHaptics"

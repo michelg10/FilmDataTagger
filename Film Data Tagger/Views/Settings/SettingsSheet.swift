@@ -41,7 +41,7 @@ struct SettingsSheet: View {
                     }
                     SettingsSection(header: "Accessibility") {
                         SettingsRow(text: "Reduce haptics") {
-                            Toggle("", isOn: $settings.reduceHaptics)
+                            Toggle("Reduce haptics", isOn: $settings.reduceHaptics)
                                 .labelsHidden()
                                 .toggleStyle(.switch)
                         }

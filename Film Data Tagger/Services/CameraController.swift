@@ -158,7 +158,7 @@ final class CameraController {
             var didFlip = false
             if let lastOff = lastToggleOffDate {
                 let ms = Date().timeIntervalSince(lastOff) * 1000
-                let canFlip = settings.deviceCanFlipCamera
+                let canFlip = settings.deviceCanFlipCamera && settings.doubleTapToFlipCamera
                 if ms < Self.doubleTapThreshold * 1000, canFlip {
                     settings.preferredCameraSide = settings.preferredCameraSide.toggled
                     reconfigure()
