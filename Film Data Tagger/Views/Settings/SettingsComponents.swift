@@ -8,8 +8,14 @@ import SwiftUI
 
 struct ShareSheet: UIViewControllerRepresentable {
     let url: URL
+    /// Called with `completed: Bool` when the user finishes or cancels the share sheet.
+    var onCompletion: ((Bool) -> Void)? = nil
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        let vc = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        vc.completionWithItemsHandler = { _, completed, _, _ in
+            onCompletion?(completed)
+        }
+        return vc
     }
     func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
 }

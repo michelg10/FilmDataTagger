@@ -10,9 +10,9 @@ import MessageUI
 
 private struct MailCompose: UIViewControllerRepresentable {
     let url: URL
-    let onDismiss: () -> Void
+    let onFinish: (MFMailComposeResult) -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(onDismiss: onDismiss) }
+    func makeCoordinator() -> Coordinator { Coordinator(onFinish: onFinish) }
 
     func makeUIViewController(context: Context) -> MFMailComposeViewController {
         let mc = MFMailComposeViewController()
@@ -29,10 +29,10 @@ private struct MailCompose: UIViewControllerRepresentable {
     func updateUIViewController(_ vc: MFMailComposeViewController, context: Context) {}
 
     class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
-        let onDismiss: () -> Void
-        init(onDismiss: @escaping () -> Void) { self.onDismiss = onDismiss }
+        let onFinish: (MFMailComposeResult) -> Void
+        init(onFinish: @escaping (MFMailComposeResult) -> Void) { self.onFinish = onFinish }
         func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
-            onDismiss()
+            onFinish(result)
         }
     }
 }
@@ -128,9 +128,27 @@ Debug info may include:
         .sheet(isPresented: Binding(get: { reportURL != nil }, set: { if !$0 { reportURL = nil } })) {
             if let reportURL {
                 if MFMailComposeViewController.canSendMail() {
-                    MailCompose(url: reportURL) { self.reportURL = nil }
+                    MailCompose(url: reportURL) { result in
+                        // Always dismiss the inner mail sheet (it doesn't dismiss itself on delegate callback).
+                        self.reportURL = nil
+                        if result == .sent {
+                            // Let the inner sheet's dismiss animation finish before collapsing the outer.
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .seconds(0.3))
+                                dismiss()
+                            }
+                        }
+                    }
                 } else {
-                    ShareSheet(url: reportURL)
+                    ShareSheet(url: reportURL) { completed in
+                        self.reportURL = nil
+                        if completed {
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .seconds(0.3))
+                                dismiss()
+                            }
+                        }
+                    }
                 }
             }
         }
