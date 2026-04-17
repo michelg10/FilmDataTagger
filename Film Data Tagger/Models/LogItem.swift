@@ -59,15 +59,13 @@ nonisolated enum ExposureType: Equatable, Hashable, Sendable {
         }
     }
 
-    /// True for placeholder + lostFrame — the "no captured metadata, hand-positioned" family.
-    /// Gates drag/reorder behavior (only placeholder-like items can be reordered).
-    /// NOTE: Don't conflate this with createdAt validity. Placeholder-like items *can* have a
-    /// real createdAt (e.g. user-provided date, future feature), so "last used" computations
-    /// should not skip an item's createdAt just because isPlaceholderLike is true.
-    var isPlaceholderLike: Bool {
+    /// True only for placeholder. Gates drag/reorder behavior.
+    /// Lost frames are excluded because they have a real timestamp that anchors their
+    /// natural position — reordering them would misrepresent when they were captured.
+    var isReorderable: Bool {
         switch self {
-        case .placeholder, .lostFrame: true
-        case .regular, .unknown:       false
+        case .placeholder:                        true
+        case .regular, .lostFrame, .unknown:      false
         }
     }
 }
@@ -190,7 +188,8 @@ final class LogItem {
     /// Create a lost-frame marker (frame was exposed but the data is gone —
     /// double-exposure mishap, light leak, given-away Polaroid, etc.).
     /// Unlike placeholders, lost frames record real time/location metadata
-    /// (the exposure happened, just no photo). Still drag-sortable via isPlaceholderLike.
+    /// (the exposure happened, just no photo). Not drag-reorderable — their
+    /// real timestamp defines their position.
     static func lostFrame(roll: Roll) -> LogItem {
         let item = LogItem(roll: roll)
         item.exposureType = .lostFrame

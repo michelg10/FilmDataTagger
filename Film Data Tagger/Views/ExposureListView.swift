@@ -54,7 +54,7 @@ private struct ExposureRowDropDelegate: DropDelegate {
         guard dropTargetIndex != nil else { return false }
         guard let draggingPlaceholderID,
               let draggedItem = logItems.first(where: { $0.id == draggingPlaceholderID }),
-              draggedItem.exposureType.isPlaceholderLike,
+              draggedItem.exposureType.isReorderable,
               index < logItems.count else {
             return false
         }
@@ -116,7 +116,7 @@ private struct ExposureEndDropDelegate: DropDelegate {
         guard dropTargetIndex != nil else { return false }
         guard let draggingPlaceholderID,
               let draggedItem = logItems.first(where: { $0.id == draggingPlaceholderID }),
-              draggedItem.exposureType.isPlaceholderLike,
+              draggedItem.exposureType.isReorderable,
               let onMovePlaceholderToEnd else {
             return false
         }
@@ -329,7 +329,7 @@ struct ExposureListView: View {
                     ))
                     .contentShape(Rectangle())
                     .id(item.id)
-                    .if(item.exposureType.isPlaceholderLike) { view in
+                    .if(item.exposureType.isReorderable) { view in
                         view.onDrag {
                             draggingPlaceholderID = item.id
                             return NSItemProvider(object: item.id.uuidString as NSString)
@@ -589,11 +589,14 @@ struct ExposureListView: View {
             } label: {
                 Label("Add placeholder", systemImage: "questionmark.square.dashed")
             }
-            Button {
-                playHaptic(.addPlaceholder)
-                onAddLostFrame?()
-            } label: {
-                Label("Add lost frame", systemImage: "xmark.square")
+            // Lost frames record "now" as their real timestamp — so they only make sense on the active roll.
+            if isActiveRoll {
+                Button {
+                    playHaptic(.addPlaceholder)
+                    onAddLostFrame?()
+                } label: {
+                    Label("Add lost frame", systemImage: "xmark.square")
+                }
             }
         } label: {
             Image(systemName: "ellipsis")

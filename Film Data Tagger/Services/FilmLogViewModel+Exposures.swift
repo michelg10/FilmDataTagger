@@ -231,7 +231,7 @@ extension FilmLogViewModel: ExposuresViewModel {
     }
 
     func logPlaceholderLike(_ type: ExposureType) {
-        guard type.isPlaceholderLike else {
+        guard type == .placeholder || type == .lostFrame else {
             debugLog("logPlaceholderLike: invalid type \(type), ignoring")
             return
         }
@@ -473,7 +473,7 @@ extension FilmLogViewModel: ExposuresViewModel {
 
     /// Move a placeholder to just before the target item.
     func movePlaceholder(_ item: LogItemSnapshot, before target: LogItemSnapshot) {
-        guard let roll = _openRoll, item.exposureType.isPlaceholderLike, item.id != target.id else { return }
+        guard let roll = _openRoll, item.exposureType.isReorderable, item.id != target.id else { return }
         let others = roll.items.filter { $0.id != item.id }
         guard let targetIndex = others.firstIndex(where: { $0.id == target.id }) else { return }
 
@@ -490,7 +490,7 @@ extension FilmLogViewModel: ExposuresViewModel {
 
     /// Move a placeholder to just after the target item.
     func movePlaceholder(_ item: LogItemSnapshot, after target: LogItemSnapshot) {
-        guard let roll = _openRoll, item.exposureType.isPlaceholderLike, item.id != target.id else { return }
+        guard let roll = _openRoll, item.exposureType.isReorderable, item.id != target.id else { return }
         let others = roll.items.filter { $0.id != item.id }
         guard let targetIndex = others.firstIndex(where: { $0.id == target.id }) else { return }
 
@@ -506,7 +506,7 @@ extension FilmLogViewModel: ExposuresViewModel {
     }
 
     func movePlaceholderToEnd(_ item: LogItemSnapshot) {
-        guard let roll = _openRoll, item.exposureType.isPlaceholderLike else { return }
+        guard let roll = _openRoll, item.exposureType.isReorderable else { return }
         let others = roll.items.filter { $0.id != item.id }
         let newTimestamp = (others.last?.createdAt ?? Date()).addingTimeInterval(1)
         applyPlaceholderMove(id: item.id, newTimestamp: newTimestamp)
