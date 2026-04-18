@@ -320,7 +320,7 @@ struct ExposureListView: View {
                         menuContext: menuContext,
                         onCameraSwitched: onCameraSwitched,
                         onDelete: onDelete,
-                        onCycleExtraExposures: onCycleExtraExposures
+                        onCycleExtraExposures: canCycle ? onCycleExtraExposures : nil
                     )
                     .equatable()
                     .transition(.asymmetric(
