@@ -573,7 +573,6 @@ struct ExposureListView: View {
             } label: {
                 Label("Details", systemImage: "info.circle")
             }
-            Divider()
             if isActiveRoll {
                 Button {
                     onUnloadRoll?()
@@ -587,6 +586,7 @@ struct ExposureListView: View {
                     Label("Load roll", systemImage: "arrow.clockwise")
                 }
             }
+            Divider()
             Button {
                 playHaptic(.addPlaceholder)
                 onAddPlaceholder?()
