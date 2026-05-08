@@ -191,6 +191,7 @@ struct ContentView: View {
             }
             .padding(.horizontal, 28)
             .offset(y: 6)
+            .allowsHitTesting(!isOnExposureList)
             .animation(.easeInOut(duration: 0.25), value: isOnExposureList)
             .animation(.easeInOut(duration: 0.25), value: isOnRollList)
         }
