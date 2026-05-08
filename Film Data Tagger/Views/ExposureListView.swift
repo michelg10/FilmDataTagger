@@ -573,6 +573,7 @@ struct ExposureListView: View {
             } label: {
                 Label("Details", systemImage: "info.circle")
             }
+            Divider()
             if isActiveRoll {
                 Button {
                     onUnloadRoll?()
