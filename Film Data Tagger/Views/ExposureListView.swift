@@ -224,8 +224,6 @@ private struct CameraSwitcherMenu: View {
     var onCameraSwitched: ((UUID) -> Void)?
 
     private var cameraID: UUID? { menuContext.currentCameraID }
-    private var currentCameraIndicator: String { isActiveRoll ? "checkmark" : "circle.fill" }
-
     private var camerasWithActiveRolls: [MenuCameraEntry] {
         menuContext.menuCameras.filter { $0.activeRollID != nil }
     }
@@ -248,7 +246,15 @@ private struct CameraSwitcherMenu: View {
                     onCameraSwitched?(camera.id)
                 } label: {
                     if camera.id == cameraID {
-                        Label(camera.name, systemImage: currentCameraIndicator)
+                        Label {
+                            Text(camera.name)
+                        } icon: {
+                            if isActiveRoll {
+                                Image(systemName: "checkmark")
+                            } else {
+                                Image(systemName: "minus")
+                            }
+                        }
                     } else {
                         Text(camera.name)
                     }
