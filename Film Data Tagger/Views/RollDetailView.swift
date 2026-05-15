@@ -231,10 +231,11 @@ private struct RollDetailLoadedSection: View {
 
             if hasDifferentTimeZone {
                 HStack(spacing: 0) {
-                    HStack(alignment: .firstTextBaseline, spacing: isEditing ? 13 : 6) {
+                    HStack(alignment: .center, spacing: isEditing ? 13 : 6) {
                         Image(systemName: SFSymbol.globeBadgeClock)
                             .foregroundStyle(Color.white.opacity(0.7))
                         Text(showingLocalTime ? "Local" : draftTimeZoneLabel)
+                            .lineLimit(1)
                             .foregroundStyle(Color.white.opacity(isEditing ? 0.95 : 0.7))
                     }.drawingGroup() // make SwiftUI animate this view as a group
                     .contentShape(Rectangle())
