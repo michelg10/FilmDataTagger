@@ -191,6 +191,10 @@ struct ContentView: View {
             }
             .padding(.horizontal, 28)
             .offset(y: 6)
+            // Block taps on the buttons while they're animating out via .transition —
+            // the conditional removes them from the tree but the transition keeps them
+            // on-screen and tappable for 0.25s.
+            .allowsHitTesting(!isOnExposureList)
             .animation(.easeInOut(duration: 0.25), value: isOnExposureList)
             .animation(.easeInOut(duration: 0.25), value: isOnRollList)
         }

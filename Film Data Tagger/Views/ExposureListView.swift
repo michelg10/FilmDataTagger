@@ -592,6 +592,7 @@ struct ExposureListView: View {
                     Label("Load roll", systemImage: "arrow.clockwise")
                 }
             }
+            Divider()
             Button {
                 playHaptic(.addPlaceholder)
                 onAddPlaceholder?()

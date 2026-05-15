@@ -79,7 +79,7 @@ struct CameraEntityQuery: EntityQuery {
     }
 
     private static func subtitle(for roll: Roll) -> String {
-        let items = roll.logItems ?? []
+        let items = (roll.logItems ?? []).filter { $0.pendingDeletion == nil }
         let count = items.count
         let extraExposures = roll.extraExposures
         var result = "Frame \(count - extraExposures + 1)" // show the current frame counter
@@ -145,7 +145,7 @@ struct LogExposureIntent: AppIntent {
 
         try context.save()
 
-        let exposureCount = (roll.logItems ?? []).count
+        let exposureCount = (roll.logItems ?? []).filter { $0.pendingDeletion == nil }.count
 
         return .result(value: "Logged exposure \(exposureCount) on \(dbCamera.name) with roll \(roll.filmStock)")
     }
