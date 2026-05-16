@@ -425,17 +425,17 @@ private struct RollDetailNotesSection: View {
                 if draftNotes.isEmpty {
                     Text("Add a note...")
                         .font(.system(size: 17, weight: .regular, design: .default))
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 19)
+                        .padding(.horizontal, 18)
+                        .padding(.top, 15)
                         .allowsHitTesting(false)
                         .foregroundStyle(Color.white.opacity(0.5))
                 }
                 RichTextEditor(
                     text: $draftNotes,
                     font: .systemFont(ofSize: 17, weight: .regular),
-                    textColor: .white,
+                    textColor: UIColor.white.withAlphaComponent(0.95),
                     lineHeight: 28,
-                    paragraphSpacing: 8,
+                    paragraphSpacing: 9,
                     isScrollEnabled: true,
                     isEditable: !isEditing,
                     onFocus: {
@@ -449,7 +449,7 @@ private struct RollDetailNotesSection: View {
                     onBlur: onBlur
                 )
             }
-            .frame(height: 201)
+            .frame(height: 245)
             .clipShape(RoundedRectangle(cornerRadius: 20))
             .padding(.horizontal, 10)
         }
