@@ -60,7 +60,8 @@ private struct BlockProgressBar: View {
             let mainY = notchH + gap
             let mainH = max(size.height - 2 * (notchH + gap), 0)
 
-            for i in 0..<min(totalCapacity, n) {
+            let blockCount = min(max(totalCapacity, exposureCount), 144)
+            for i in 0..<min(blockCount, n) {
                 let x = CGFloat(i) * stride
                 let filled = i < exposureCount
                 let alpha = (filled ? 1.0 : 0.15) * 0.95

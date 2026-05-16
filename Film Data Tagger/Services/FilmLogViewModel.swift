@@ -257,7 +257,7 @@ final class FilmLogViewModel {
                     .filter { $0.id != openCamera.activeRoll?.id }
                     .map(\.snapshot)
                     .sorted { ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt) },
-                maxRollCapacity: openCamera.rolls.map(\.snapshot.totalCapacity).max() ?? 36,
+                maxRollCapacity: openCamera.rolls.map { min(max($0.snapshot.totalCapacity, $0.snapshot.exposureCount), 144) }.max() ?? 36,
                 hasRolls: !openCamera.rolls.isEmpty
             )
         } else {
