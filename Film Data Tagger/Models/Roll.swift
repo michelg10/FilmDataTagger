@@ -29,13 +29,13 @@ final class Roll {
     /// Whether this is the active roll for its camera. Only one roll per camera should be active.
     var isActive: Bool = true
 
-    var createdAt: Date = Date.distantPast
-
-    /// The time zone identifier at the time the roll was loaded (e.g., "America/Los_Angeles")
-    var timeZoneIdentifier: String?
-
+    // MARK: - Roll load context
+    /// When the roll was loaded into the camera
+    var loadedAt: Date = Date.distantPast
+    /// Time zone identifier at the time the roll was loaded (e.g., "America/Los_Angeles")
+    var loadedTimeZoneIdentifier: String?
     /// Geocoded city/locality name at the time the roll was loaded (e.g., "Los Angeles")
-    var cityName: String?
+    var loadedCityName: String?
 
     /// Optional notes for this roll
     var notes: String?
@@ -44,13 +44,13 @@ final class Roll {
     @Relationship(deleteRule: .cascade, inverse: \LogItem.roll)
     var logItems: [LogItem]?
 
-    init(filmStock: String, camera: Camera? = nil, capacity: Int = 36, createdAt: Date = Date()) {
+    init(filmStock: String, camera: Camera? = nil, capacity: Int = 36, loadedAt: Date = Date()) {
         self.id = UUID()
         self.filmStock = filmStock
         self.camera = camera
         self.capacity = capacity
-        self.createdAt = createdAt
-        self.timeZoneIdentifier = TimeZone.current.identifier
+        self.loadedAt = loadedAt
+        self.loadedTimeZoneIdentifier = TimeZone.current.identifier
     }
 
     /// Total capacity including extra pre-first-frame exposures
@@ -66,9 +66,9 @@ final class Roll {
             capacity: capacity,
             extraExposures: extraExposures,
             isActive: isActive,
-            createdAt: createdAt,
-            timeZoneIdentifier: timeZoneIdentifier,
-            cityName: cityName,
+            loadedAt: loadedAt,
+            loadedTimeZoneIdentifier: loadedTimeZoneIdentifier,
+            loadedCityName: loadedCityName,
             notes: notes,
             lastExposureDate: nil,
             exposureCount: 0,

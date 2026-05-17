@@ -34,6 +34,7 @@ private struct RollDetailHeader: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
+                .bold()
                 .frame(width: 20, height: 18, alignment: .center)
             Text(title)
         }
@@ -138,14 +139,14 @@ private struct RollDetailLoadedSection: View {
     }
 
     private var displayDate: String {
-        let date = isEditing ? draftDate : roll.createdAt
+        let date = isEditing ? draftDate : roll.loadedAt
         var fmt = Date.FormatStyle.dateTime.month(shouldShowCompact ? .abbreviated : .wide).day().year()
         fmt.timeZone = displayTimeZone
         return date.formatted(fmt)
     }
 
     private var displayTime: String {
-        let date = isEditing ? draftDate : roll.createdAt
+        let date = isEditing ? draftDate : roll.loadedAt
         var fmt = Date.FormatStyle.dateTime.hour().minute()
         fmt.timeZone = displayTimeZone
         return date.formatted(fmt)
@@ -518,9 +519,9 @@ struct RollDetailView: View {
         .onAppear {
             if !hasInitialized {
                 draftNotes = roll.notes ?? ""
-                draftDate = roll.createdAt
-                draftTimeZoneIdentifier = roll.timeZoneIdentifier ?? TimeZone.current.identifier
-                draftCityName = roll.cityName
+                draftDate = roll.loadedAt
+                draftTimeZoneIdentifier = roll.loadedTimeZoneIdentifier ?? TimeZone.current.identifier
+                draftCityName = roll.loadedCityName
                 hasInitialized = true
             }
         }
@@ -560,13 +561,13 @@ struct RollDetailView: View {
                 draftNotes = newNotes ?? ""
             }
         }
-        .onChange(of: roll.createdAt) { _, newDate in
+        .onChange(of: roll.loadedAt) { _, newDate in
             if !isEditing { draftDate = newDate }
         }
-        .onChange(of: roll.timeZoneIdentifier) { _, newTZ in
+        .onChange(of: roll.loadedTimeZoneIdentifier) { _, newTZ in
             if !isEditing { draftTimeZoneIdentifier = newTZ ?? TimeZone.current.identifier }
         }
-        .onChange(of: roll.cityName) { _, newCity in
+        .onChange(of: roll.loadedCityName) { _, newCity in
             if !isEditing { draftCityName = newCity }
         }
     }
@@ -580,9 +581,9 @@ struct RollDetailView: View {
         Button(action: {
             if isEditing {
                 // Discard — reset drafts to roll values
-                draftDate = roll.createdAt
-                draftTimeZoneIdentifier = roll.timeZoneIdentifier ?? TimeZone.current.identifier
-                draftCityName = roll.cityName
+                draftDate = roll.loadedAt
+                draftTimeZoneIdentifier = roll.loadedTimeZoneIdentifier ?? TimeZone.current.identifier
+                draftCityName = roll.loadedCityName
                 isEditing = false
             } else {
                 dismiss()
@@ -660,9 +661,9 @@ struct RollDetailView: View {
         capacity: 36,
         extraExposures: 0,
         isActive: true,
-        createdAt: Date().addingTimeInterval(-3600),
-        timeZoneIdentifier: "America/Los_Angeles",
-        cityName: "Los Angeles",
+        loadedAt: Date().addingTimeInterval(-3600),
+        loadedTimeZoneIdentifier: "America/Los_Angeles",
+        loadedCityName: "Los Angeles",
         notes: "Push two stops. The advance felt a bit funky, check for potential problems in development.\nMarked with some smeared marker.",
         lastExposureDate: Date().addingTimeInterval(-300),
         exposureCount: items.count,
@@ -688,9 +689,9 @@ struct RollDetailView: View {
         capacity: 24,
         extraExposures: 0,
         isActive: false,
-        createdAt: Date().addingTimeInterval(-86400 * 3),
-        timeZoneIdentifier: "Asia/Tokyo",
-        cityName: "Tokyo",
+        loadedAt: Date().addingTimeInterval(-86400 * 3),
+        loadedTimeZoneIdentifier: "Asia/Tokyo",
+        loadedCityName: "Tokyo",
         notes: nil,
         lastExposureDate: Date().addingTimeInterval(-86400 * 2),
         exposureCount: 18,

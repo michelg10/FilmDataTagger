@@ -98,7 +98,7 @@ actor DataStore: ModelActor {
         // Build the tree — derive camera summary fields from grouped data
         let tree = cameras.map { camera in
             let cameraRolls = (rollsByCamera[camera.id] ?? [])
-                .sorted { ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt) }
+                .sorted { ($0.lastExposureDate ?? $0.loadedAt) > ($1.lastExposureDate ?? $1.loadedAt) }
             let rollStates = cameraRolls.map { roll in
                 RollState(snapshot: roll, items: itemsByRoll[roll.id] ?? [])
             }
@@ -109,7 +109,7 @@ actor DataStore: ModelActor {
                 listOrder: camera.listOrder,
                 rollCount: cameraRolls.count,
                 totalExposureCount: cameraRolls.reduce(0) { $0 + (itemsByRoll[$1.id]?.count ?? 0) },
-                lastUsedDate: cameraRolls.compactMap { $0.lastExposureDate ?? ($0.exposureCount > 0 ? $0.createdAt : nil) }.max()
+                lastUsedDate: cameraRolls.compactMap { $0.lastExposureDate ?? ($0.exposureCount > 0 ? $0.loadedAt : nil) }.max()
             )
             return CameraState(snapshot: snapshot, rolls: rollStates)
         }
@@ -346,10 +346,10 @@ actor DataStore: ModelActor {
         for roll in camera.rolls ?? [] where roll.isActive {
             roll.isActive = false
         }
-        let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity, createdAt: createdAt)
+        let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity, loadedAt: createdAt)
         roll.id = id
-        roll.timeZoneIdentifier = timeZoneIdentifier
-        roll.cityName = cityName
+        roll.loadedTimeZoneIdentifier = timeZoneIdentifier
+        roll.loadedCityName = cityName
         modelContext.insert(roll)
         save()
     }
@@ -375,7 +375,7 @@ actor DataStore: ModelActor {
             remoteDataChanged.send()
             return
         }
-        roll.cityName = cityName
+        roll.loadedCityName = cityName
         save()
     }
 
@@ -397,9 +397,9 @@ actor DataStore: ModelActor {
             remoteDataChanged.send()
             return
         }
-        roll.createdAt = createdAt
-        roll.timeZoneIdentifier = timeZoneIdentifier
-        roll.cityName = cityName
+        roll.loadedAt = createdAt
+        roll.loadedTimeZoneIdentifier = timeZoneIdentifier
+        roll.loadedCityName = cityName
         save()
     }
 

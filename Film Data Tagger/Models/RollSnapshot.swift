@@ -14,9 +14,9 @@ struct RollSnapshot: Identifiable, Hashable, Sendable, Codable {
     var capacity: Int
     var extraExposures: Int
     var isActive: Bool
-    var createdAt: Date
-    var timeZoneIdentifier: String?
-    var cityName: String?
+    var loadedAt: Date
+    var loadedTimeZoneIdentifier: String?
+    var loadedCityName: String?
     var notes: String?
     var lastExposureDate: Date?
     var exposureCount: Int

@@ -140,10 +140,10 @@ extension FilmLogViewModel: ExposuresViewModel {
 
         // Backfill roll city name if it was missing at creation (e.g., first install —
         // location permission hadn't been granted yet when the roll was created).
-        if let targetRoll, targetRoll.snapshot.cityName == nil,
+        if let targetRoll, targetRoll.snapshot.loadedCityName == nil,
            let cityName, !cityName.isEmpty,
-           targetRoll.snapshot.createdAt.timeIntervalSinceNow > -900 {
-            targetRoll.snapshot.cityName = cityName
+           targetRoll.snapshot.loadedAt.timeIntervalSinceNow > -900 {
+            targetRoll.snapshot.loadedCityName = cityName
             if let camera = targetCamera, camera.activeRoll?.id == targetRoll.id {
                 camera.snapshot.activeRoll = targetRoll.snapshot
             }
@@ -330,7 +330,7 @@ extension FilmLogViewModel: ExposuresViewModel {
             if let roll = _openRoll, camera.activeRoll?.id == roll.id {
                 camera.snapshot.activeRoll = roll.snapshot
             }
-            camera.snapshot.lastUsedDate = camera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
+            camera.snapshot.lastUsedDate = camera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.loadedAt : nil) }.max()
         }
         publishSnapshots()
         persistOpenState()
@@ -393,7 +393,7 @@ extension FilmLogViewModel: ExposuresViewModel {
             if camera.activeRoll?.id == roll.id {
                 camera.snapshot.activeRoll = roll.snapshot
             }
-            camera.snapshot.lastUsedDate = camera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
+            camera.snapshot.lastUsedDate = camera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.loadedAt : nil) }.max()
         }
 
         publishSnapshots()
@@ -433,7 +433,7 @@ extension FilmLogViewModel: ExposuresViewModel {
             if let sourceRoll, sourceCamera.activeRoll?.id == sourceRoll.id {
                 sourceCamera.snapshot.activeRoll = sourceRoll.snapshot
             }
-            sourceCamera.snapshot.lastUsedDate = sourceCamera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
+            sourceCamera.snapshot.lastUsedDate = sourceCamera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.loadedAt : nil) }.max()
         }
 
         // Add to target roll
@@ -457,7 +457,7 @@ extension FilmLogViewModel: ExposuresViewModel {
             if targetCamera.activeRoll?.id == toRollID {
                 targetCamera.snapshot.activeRoll = targetRoll.snapshot
             }
-            targetCamera.snapshot.lastUsedDate = targetCamera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
+            targetCamera.snapshot.lastUsedDate = targetCamera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.loadedAt : nil) }.max()
             _openCamera = targetCamera
         }
         _openRoll = targetRoll

@@ -72,7 +72,7 @@ nonisolated struct ExportService {
         obj.append(("capacity", r.capacity))
         obj.append(("extraExposures", r.extraExposures))
         obj.append(("isActive", r.isActive))
-        obj.append(("createdAt", iso8601.string(from: r.createdAt)))
+        obj.append(("loadedAt", iso8601.string(from: r.loadedAt)))
         if let date = (r.logItems ?? []).filter(\.hasRealCreatedAt).map(\.createdAt).max() {
             obj.append(("lastExposureDate", iso8601.string(from: date)))
         }

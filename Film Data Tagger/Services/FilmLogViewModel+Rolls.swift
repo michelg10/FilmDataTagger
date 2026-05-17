@@ -89,9 +89,9 @@ extension FilmLogViewModel: RollsViewModel {
             capacity: capacity,
             extraExposures: 0,
             isActive: true,
-            createdAt: createdAt,
-            timeZoneIdentifier: timeZoneIdentifier,
-            cityName: cityName,
+            loadedAt: createdAt,
+            loadedTimeZoneIdentifier: timeZoneIdentifier,
+            loadedCityName: cityName,
             notes: nil,
             lastExposureDate: nil,
             exposureCount: 0,
@@ -187,7 +187,7 @@ extension FilmLogViewModel: RollsViewModel {
         camera.rolls.removeAll { $0.id == id }
         camera.snapshot.rollCount = max(0, camera.snapshot.rollCount - 1)
         camera.snapshot.totalExposureCount = max(0, camera.snapshot.totalExposureCount - deletedExposureCount)
-        camera.snapshot.lastUsedDate = camera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil) }.max()
+        camera.snapshot.lastUsedDate = camera.rolls.compactMap { $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.loadedAt : nil) }.max()
         if wasActive {
             camera.activeRoll = nil
             camera.snapshot.activeRoll = nil
@@ -232,9 +232,9 @@ extension FilmLogViewModel: RollsViewModel {
             debugLog("updateRollCreatedAt: roll \(id) not found")
             return
         }
-        roll.snapshot.createdAt = createdAt
-        roll.snapshot.timeZoneIdentifier = timeZoneIdentifier
-        roll.snapshot.cityName = cityName
+        roll.snapshot.loadedAt = createdAt
+        roll.snapshot.loadedTimeZoneIdentifier = timeZoneIdentifier
+        roll.snapshot.loadedCityName = cityName
         // Update camera snapshot if this is the active roll
         if let camera = _openCamera, camera.activeRoll?.id == id {
             camera.snapshot.activeRoll = roll.snapshot

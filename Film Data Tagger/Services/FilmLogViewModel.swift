@@ -217,7 +217,7 @@ final class FilmLogViewModel {
             guard let camera = tree.first(where: { $0.id == cameraID }) else { continue }
             camera.snapshot.totalExposureCount += delta
             camera.snapshot.lastUsedDate = camera.rolls.compactMap {
-                $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.createdAt : nil)
+                $0.snapshot.lastExposureDate ?? ($0.snapshot.exposureCount > 0 ? $0.snapshot.loadedAt : nil)
             }.max()
         }
     }
@@ -256,7 +256,7 @@ final class FilmLogViewModel {
                 pastRolls: openCamera.rolls
                     .filter { $0.id != openCamera.activeRoll?.id }
                     .map(\.snapshot)
-                    .sorted { ($0.lastExposureDate ?? $0.createdAt) > ($1.lastExposureDate ?? $1.createdAt) },
+                    .sorted { ($0.lastExposureDate ?? $0.loadedAt) > ($1.lastExposureDate ?? $1.loadedAt) },
                 maxRollCapacity: openCamera.rolls.map { min(max($0.snapshot.totalCapacity, $0.snapshot.exposureCount), 144) }.max() ?? 36,
                 hasRolls: !openCamera.rolls.isEmpty
             )

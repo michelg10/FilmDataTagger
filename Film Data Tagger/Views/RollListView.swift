@@ -98,7 +98,7 @@ struct RollListRow: View {
     }()
 
     private var lastUsedText: String {
-        relativeTimeString(from: roll.lastExposureDate ?? roll.createdAt, suffix: true)
+        relativeTimeString(from: roll.lastExposureDate ?? roll.loadedAt, suffix: true)
     }
 
     var body: some View {
@@ -129,7 +129,7 @@ struct RollListRow: View {
             
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 let loadedText = Text("Loaded").foregroundStyle(Color.white.opacity(0.5))
-                let dateLoadedText = Text(Self.loadedDateFormatter.string(from: roll.createdAt)).foregroundStyle(Color.white.opacity(0.9))
+                let dateLoadedText = Text(Self.loadedDateFormatter.string(from: roll.loadedAt)).foregroundStyle(Color.white.opacity(0.9))
                 Text("\(loadedText) \(dateLoadedText)")
                 
                 Spacer(minLength: 0)
@@ -349,24 +349,24 @@ struct RollListView: View {
         let activeSnap = RollSnapshot(
             id: UUID(), cameraID: cameraID,
             filmStock: "Kodak Portra 400", capacity: 36, extraExposures: 0,
-            isActive: true, createdAt: Date().addingTimeInterval(-3600),
-            timeZoneIdentifier: TimeZone.current.identifier, cityName: "Los Angeles",
+            isActive: true, loadedAt: Date().addingTimeInterval(-3600),
+            loadedTimeZoneIdentifier: TimeZone.current.identifier, loadedCityName: "Los Angeles",
             notes: nil, lastExposureDate: Date().addingTimeInterval(-300),
             exposureCount: 14, totalCapacity: 36
         )
         let pastSnap1 = RollSnapshot(
             id: UUID(), cameraID: cameraID,
             filmStock: "Fuji Superia 400", capacity: 36, extraExposures: 2,
-            isActive: false, createdAt: Date().addingTimeInterval(-86400 * 3),
-            timeZoneIdentifier: "America/New_York", cityName: "New York",
+            isActive: false, loadedAt: Date().addingTimeInterval(-86400 * 3),
+            loadedTimeZoneIdentifier: "America/New_York", loadedCityName: "New York",
             notes: nil, lastExposureDate: Date().addingTimeInterval(-86400 * 2),
             exposureCount: 38, totalCapacity: 38
         )
         let pastSnap2 = RollSnapshot(
             id: UUID(), cameraID: cameraID,
             filmStock: "Ilford HP5 Plus", capacity: 24, extraExposures: 0,
-            isActive: false, createdAt: Date().addingTimeInterval(-86400 * 14),
-            timeZoneIdentifier: "Asia/Tokyo", cityName: "Tokyo",
+            isActive: false, loadedAt: Date().addingTimeInterval(-86400 * 14),
+            loadedTimeZoneIdentifier: "Asia/Tokyo", loadedCityName: "Tokyo",
             notes: "Rainy day street shots", lastExposureDate: Date().addingTimeInterval(-86400 * 12),
             exposureCount: 24, totalCapacity: 24
         )
