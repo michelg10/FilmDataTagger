@@ -37,6 +37,16 @@ final class Roll {
     /// Geocoded city/locality name at the time the roll was loaded (e.g., "Los Angeles")
     var loadedCityName: String?
 
+    // MARK: - Roll unload context
+    /// When the roll was unloaded from the camera. nil while active. Legacy rolls
+    /// unloaded before this field existed are best-effort backfilled in
+    /// DataStore.loadAll (last exposure + 1s, or loadedAt + 1s if no exposures).
+    var unloadedAt: Date?
+    /// Time zone identifier at the time the roll was unloaded
+    var unloadedTimeZoneIdentifier: String?
+    /// Geocoded city/locality name at the time the roll was unloaded
+    var unloadedCityName: String?
+
     /// Optional notes for this roll
     var notes: String?
 
@@ -69,6 +79,9 @@ final class Roll {
             loadedAt: loadedAt,
             loadedTimeZoneIdentifier: loadedTimeZoneIdentifier,
             loadedCityName: loadedCityName,
+            unloadedAt: unloadedAt,
+            unloadedTimeZoneIdentifier: unloadedTimeZoneIdentifier,
+            unloadedCityName: unloadedCityName,
             notes: notes,
             lastExposureDate: nil,
             exposureCount: 0,

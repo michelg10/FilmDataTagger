@@ -70,6 +70,11 @@ actor DataStore: ModelActor {
             errorLog("loadAll fetch failed: \(error)")
         }
 
+        // Backfill unload context for rolls unloaded before this field existed.
+        // Idempotent: gated on (isActive == false && unloadedAt == nil). Best-effort
+        // estimate — last real exposure + 1s with its tz/city, else loaded values.
+        backfillUnloadContext(rolls: allRolls, items: allItems)
+
         // Build snapshots and seed the diff cache (minimal — own fields only)
         let cameraSnapshots = cameras.map { $0.snapshot }
         let rollSnapshots = allRolls.map { $0.snapshot }
@@ -122,6 +127,38 @@ actor DataStore: ModelActor {
         }
 
         return (tree, version)
+    }
+
+    /// Backfill unload context for legacy rolls that were unloaded before these
+    /// fields existed. Uses the last real exposure (+1s) as the unload moment, or
+    /// falls back to the load date (+1s) for rolls with no exposures.
+    /// Idempotent — skips any roll that already has `unloadedAt` set.
+    private func backfillUnloadContext(rolls: [Roll], items: [LogItem]) {
+        // Build itemsByRoll lazily — only pay the grouping cost if at least one
+        // roll actually needs backfilling (steady-state cost is zero).
+        var itemsByRoll: [UUID: [LogItem]]?
+        var backfilledCount = 0
+        for roll in rolls where !roll.isActive && roll.unloadedAt == nil {
+            if itemsByRoll == nil {
+                itemsByRoll = Dictionary(grouping: items, by: { $0.roll?.id ?? UUID() })
+            }
+            let rollItems = itemsByRoll?[roll.id] ?? []
+            // items are sorted ascending by createdAt at fetch time
+            if let lastReal = rollItems.last(where: { $0.hasRealCreatedAt }) {
+                roll.unloadedAt = lastReal.createdAt.addingTimeInterval(1)
+                roll.unloadedTimeZoneIdentifier = lastReal.timeZoneIdentifier
+                roll.unloadedCityName = lastReal.cityName
+            } else {
+                roll.unloadedAt = roll.loadedAt.addingTimeInterval(1)
+                roll.unloadedTimeZoneIdentifier = roll.loadedTimeZoneIdentifier
+                roll.unloadedCityName = roll.loadedCityName
+            }
+            backfilledCount += 1
+        }
+        if backfilledCount > 0 {
+            debugLog("backfillUnloadContext: filled \(backfilledCount) roll(s)")
+            save()
+        }
     }
 
     /// Warm thumbnails for a specific roll into ImageCache.
@@ -419,19 +456,26 @@ actor DataStore: ModelActor {
             }
         }
         roll.isActive = true
+        // Clear unload context — the roll is active again.
+        roll.unloadedAt = nil
+        roll.unloadedTimeZoneIdentifier = nil
+        roll.unloadedCityName = nil
         save()
     }
 
     /// Deactivate a roll without deleting it. The VM has already updated its local state optimistically.
     ///
     /// Not high priority: do not await
-    func unloadRoll(id: UUID) {
+    func unloadRoll(id: UUID, unloadedAt: Date, timeZoneIdentifier: String?, cityName: String?) {
         guard let roll = fetchRoll(id) else {
             debugLog("unloadRoll: roll \(id) not found")
             remoteDataChanged.send()
             return
         }
         roll.isActive = false
+        roll.unloadedAt = unloadedAt
+        roll.unloadedTimeZoneIdentifier = timeZoneIdentifier
+        roll.unloadedCityName = cityName
         save()
     }
 

@@ -144,6 +144,10 @@ extension FilmLogViewModel: RollsViewModel {
             previousActive.snapshot.isActive = false
         }
         roll.snapshot.isActive = true
+        // Clear unload context — the roll is active again.
+        roll.snapshot.unloadedAt = nil
+        roll.snapshot.unloadedTimeZoneIdentifier = nil
+        roll.snapshot.unloadedCityName = nil
         camera.activeRoll = roll
         camera.snapshot.activeRoll = roll.snapshot
         publishSnapshots()
@@ -160,7 +164,13 @@ extension FilmLogViewModel: RollsViewModel {
     func unloadRoll() {
         guard let camera = _openCamera,
               let roll = camera.activeRoll else { return }
+        let unloadedAt = Date()
+        let timeZoneIdentifier = TimeZone.current.identifier
+        let cityName = locationService.geocodingState.persistableCityName
         roll.snapshot.isActive = false
+        roll.snapshot.unloadedAt = unloadedAt
+        roll.snapshot.unloadedTimeZoneIdentifier = timeZoneIdentifier
+        roll.snapshot.unloadedCityName = cityName
         camera.activeRoll = nil
         camera.snapshot.activeRoll = nil
         publishSnapshots()
@@ -169,7 +179,7 @@ extension FilmLogViewModel: RollsViewModel {
         Task.detached(priority: .medium) { [weak self] in
             guard let self else { return }
             let store = await self.store
-            await store.unloadRoll(id: rollID)
+            await store.unloadRoll(id: rollID, unloadedAt: unloadedAt, timeZoneIdentifier: timeZoneIdentifier, cityName: cityName)
         }
     }
 
