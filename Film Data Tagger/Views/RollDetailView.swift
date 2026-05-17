@@ -239,6 +239,7 @@ private struct RollDetailLoadedSection: View {
                             .lineLimit(1)
                             .foregroundStyle(Color.white.opacity(isEditing ? 0.95 : 0.7))
                     }.drawingGroup() // make SwiftUI animate this view as a group
+                    .frame(maxWidth: isEditing ? nil : .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         showingLocalTime.toggle()
