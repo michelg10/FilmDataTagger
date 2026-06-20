@@ -71,6 +71,27 @@ extension FilmLogViewModel: RollsViewModel {
     // MARK: - Roll CRUD
 
     @discardableResult
+    // MARK: - Active-roll transitions (optimistic snapshot)
+
+    /// Single point for deactivating a roll's optimistic snapshot — mirrors
+    /// DataStore.deactivate so the in-memory snapshot carries unload context
+    /// immediately, before the next loadAll reconciles from the store.
+    func deactivateSnapshot(_ rollState: RollState, at date: Date, timeZoneIdentifier: String?, cityName: String?) {
+        rollState.snapshot.isActive = false
+        rollState.snapshot.unloadedAt = date
+        rollState.snapshot.unloadedTimeZoneIdentifier = timeZoneIdentifier
+        rollState.snapshot.unloadedCityName = cityName
+    }
+
+    /// Single point for reactivating a roll's optimistic snapshot — mirrors
+    /// DataStore.reactivate. Clears unload context, since the roll is loaded again.
+    func reactivateSnapshot(_ rollState: RollState) {
+        rollState.snapshot.isActive = true
+        rollState.snapshot.unloadedAt = nil
+        rollState.snapshot.unloadedTimeZoneIdentifier = nil
+        rollState.snapshot.unloadedCityName = nil
+    }
+
     func createRoll(cameraID: UUID, filmStock: String, capacity: Int = 36) -> UUID? {
         guard let camera = camera(cameraID) else {
             debugLog("createRoll: camera \(cameraID) not found")
@@ -80,8 +101,10 @@ extension FilmLogViewModel: RollsViewModel {
         let createdAt = Date()
         let timeZoneIdentifier = TimeZone.current.identifier
         let cityName = locationService.geocodingState.persistableCityName
-        // Deactivate previous active roll
-        camera.activeRoll?.snapshot.isActive = false
+        // Deactivate previous active roll — unloaded now, where the new roll is loaded.
+        if let prior = camera.activeRoll {
+            deactivateSnapshot(prior, at: createdAt, timeZoneIdentifier: timeZoneIdentifier, cityName: cityName)
+        }
         let snapshot = RollSnapshot(
             id: id,
             cameraID: cameraID,
@@ -139,15 +162,12 @@ extension FilmLogViewModel: RollsViewModel {
     func loadRoll() {
         guard let camera = _openCamera,
               let roll = _openRoll else { return }
-        // Deactivate the previously active roll
+        // Deactivate the previously active roll — unloaded now, because the user
+        // is loading a different roll.
         if let previousActive = camera.activeRoll, previousActive.id != roll.id {
-            previousActive.snapshot.isActive = false
+            deactivateSnapshot(previousActive, at: Date(), timeZoneIdentifier: TimeZone.current.identifier, cityName: nil)
         }
-        roll.snapshot.isActive = true
-        // Clear unload context — the roll is active again.
-        roll.snapshot.unloadedAt = nil
-        roll.snapshot.unloadedTimeZoneIdentifier = nil
-        roll.snapshot.unloadedCityName = nil
+        reactivateSnapshot(roll)
         camera.activeRoll = roll
         camera.snapshot.activeRoll = roll.snapshot
         publishSnapshots()
@@ -167,10 +187,7 @@ extension FilmLogViewModel: RollsViewModel {
         let unloadedAt = Date()
         let timeZoneIdentifier = TimeZone.current.identifier
         let cityName = locationService.geocodingState.persistableCityName
-        roll.snapshot.isActive = false
-        roll.snapshot.unloadedAt = unloadedAt
-        roll.snapshot.unloadedTimeZoneIdentifier = timeZoneIdentifier
-        roll.snapshot.unloadedCityName = cityName
+        deactivateSnapshot(roll, at: unloadedAt, timeZoneIdentifier: timeZoneIdentifier, cityName: cityName)
         camera.activeRoll = nil
         camera.snapshot.activeRoll = nil
         publishSnapshots()

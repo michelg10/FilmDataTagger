@@ -74,10 +74,17 @@ extension FilmLogViewModel: ExposuresViewModel {
                 continue
             }
 
-            // Activate the roll if it isn't already (mirrors DataStore behavior)
+            // Activate the roll if it isn't already (mirrors DataStore behavior).
+            // It shouldn't be possible to trigger this code path, since the 
+            // Capture sheet is only presented when the open roll is active
+            // but we'll be defensive here in case of unexpected state mutations.
             if !targetRoll.snapshot.isActive, let camera = targetCamera {
-                camera.activeRoll?.snapshot.isActive = false
-                targetRoll.snapshot.isActive = true
+                errorLog("logExposure: activating roll \(targetRoll.id) for camera \(camera.id)")
+
+                if let prior = camera.activeRoll {
+                    deactivateSnapshot(prior, at: Date(), timeZoneIdentifier: TimeZone.current.identifier, cityName: cityName)
+                }
+                reactivateSnapshot(targetRoll)
                 camera.activeRoll = targetRoll
                 camera.snapshot.activeRoll = targetRoll.snapshot
             }
