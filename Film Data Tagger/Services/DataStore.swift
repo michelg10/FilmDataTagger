@@ -129,10 +129,56 @@ actor DataStore: ModelActor {
         return (tree, version)
     }
 
+    /// When and where a roll was unloaded.
+    struct UnloadContext {
+        let date: Date
+        let timeZoneIdentifier: String?
+        let cityName: String?
+    }
+
+    /// Best-effort unload context for a roll lacking a recorded unload event
+    /// (legacy data from before these fields existed, or an integrity-repair
+    /// deactivation). Uses the last real exposure + 1s, else the load date + 1s.
+    private func estimatedUnloadContext(for roll: Roll, items: [LogItem]) -> UnloadContext {
+        if let lastReal = items.filter({ $0.hasRealCreatedAt }).max(by: { $0.createdAt < $1.createdAt }) {
+            return UnloadContext(
+                date: lastReal.createdAt.addingTimeInterval(1),
+                timeZoneIdentifier: lastReal.timeZoneIdentifier,
+                cityName: lastReal.cityName
+            )
+        }
+        return UnloadContext(
+            date: roll.loadedAt.addingTimeInterval(1),
+            timeZoneIdentifier: roll.loadedTimeZoneIdentifier,
+            cityName: roll.loadedCityName
+        )
+    }
+
+    /// The single point at which a roll becomes inactive. Always records unload
+    /// context, so `isActive == false` can never coexist with a nil `unloadedAt`.
+    /// Pass explicit context for a genuine unload event; pass nil to best-effort
+    /// estimate from the roll's own data (legacy / integrity-repair cases).
+    private func deactivate(_ roll: Roll, context: UnloadContext?) {
+        guard roll.isActive else { return }
+        roll.isActive = false
+        let ctx = context ?? estimatedUnloadContext(for: roll, items: roll.logItems ?? [])
+        roll.unloadedAt = ctx.date
+        roll.unloadedTimeZoneIdentifier = ctx.timeZoneIdentifier
+        roll.unloadedCityName = ctx.cityName
+    }
+
+    /// The single point at which a roll becomes active. Clears any unload context
+    /// — the roll is loaded again, so its prior unload no longer applies.
+    private func reactivate(_ roll: Roll) {
+        roll.isActive = true
+        roll.unloadedAt = nil
+        roll.unloadedTimeZoneIdentifier = nil
+        roll.unloadedCityName = nil
+    }
+
     /// Backfill unload context for legacy rolls that were unloaded before these
-    /// fields existed. Uses the last real exposure (+1s) as the unload moment, or
-    /// falls back to the load date (+1s) for rolls with no exposures.
-    /// Idempotent — skips any roll that already has `unloadedAt` set.
+    /// fields existed (or synced in from an old client). Idempotent — skips any
+    /// roll that already has `unloadedAt` set.
     private func backfillUnloadContext(rolls: [Roll], items: [LogItem]) {
         // Build itemsByRoll lazily — only pay the grouping cost if at least one
         // roll actually needs backfilling (steady-state cost is zero).
@@ -142,17 +188,10 @@ actor DataStore: ModelActor {
             if itemsByRoll == nil {
                 itemsByRoll = Dictionary(grouping: items, by: { $0.roll?.id ?? UUID() })
             }
-            let rollItems = itemsByRoll?[roll.id] ?? []
-            // items are sorted ascending by createdAt at fetch time
-            if let lastReal = rollItems.last(where: { $0.hasRealCreatedAt }) {
-                roll.unloadedAt = lastReal.createdAt.addingTimeInterval(1)
-                roll.unloadedTimeZoneIdentifier = lastReal.timeZoneIdentifier
-                roll.unloadedCityName = lastReal.cityName
-            } else {
-                roll.unloadedAt = roll.loadedAt.addingTimeInterval(1)
-                roll.unloadedTimeZoneIdentifier = roll.loadedTimeZoneIdentifier
-                roll.unloadedCityName = roll.loadedCityName
-            }
+            let ctx = estimatedUnloadContext(for: roll, items: itemsByRoll?[roll.id] ?? [])
+            roll.unloadedAt = ctx.date
+            roll.unloadedTimeZoneIdentifier = ctx.timeZoneIdentifier
+            roll.unloadedCityName = ctx.cityName
             backfilledCount += 1
         }
         if backfilledCount > 0 {
@@ -249,10 +288,11 @@ actor DataStore: ModelActor {
 
         // Activate the roll if it isn't already (deactivate the previous active roll)
         if !roll.isActive, let camera = roll.camera {
+            let ctx = UnloadContext(date: createdAt, timeZoneIdentifier: item.timeZoneIdentifier, cityName: cityName)
             for r in camera.rolls ?? [] where r.isActive {
-                r.isActive = false
+                deactivate(r, context: ctx)
             }
-            roll.isActive = true
+            reactivate(roll)
         }
 
         save()
@@ -379,9 +419,11 @@ actor DataStore: ModelActor {
             remoteDataChanged.send()
             return
         }
-        // Deactivate any currently active roll on this camera
+        // Deactivate any currently active roll on this camera — unloaded now,
+        // at the same moment/place the new roll is being loaded.
+        let unloadCtx = UnloadContext(date: createdAt, timeZoneIdentifier: timeZoneIdentifier, cityName: cityName)
         for roll in camera.rolls ?? [] where roll.isActive {
-            roll.isActive = false
+            deactivate(roll, context: unloadCtx)
         }
         let roll = Roll(filmStock: filmStock, camera: camera, capacity: capacity, loadedAt: createdAt)
         roll.id = id
@@ -449,17 +491,15 @@ actor DataStore: ModelActor {
             remoteDataChanged.send()
             return
         }
-        // Deactivate any other active roll on the same camera
+        // Deactivate any other active roll on the same camera — unloaded now,
+        // because the user is loading a different roll.
         if let camera = roll.camera {
+            let ctx = UnloadContext(date: Date(), timeZoneIdentifier: TimeZone.current.identifier, cityName: nil)
             for r in camera.rolls ?? [] where r.isActive && r.id != id {
-                r.isActive = false
+                deactivate(r, context: ctx)
             }
         }
-        roll.isActive = true
-        // Clear unload context — the roll is active again.
-        roll.unloadedAt = nil
-        roll.unloadedTimeZoneIdentifier = nil
-        roll.unloadedCityName = nil
+        reactivate(roll)
         save()
     }
 
@@ -472,10 +512,7 @@ actor DataStore: ModelActor {
             remoteDataChanged.send()
             return
         }
-        roll.isActive = false
-        roll.unloadedAt = unloadedAt
-        roll.unloadedTimeZoneIdentifier = timeZoneIdentifier
-        roll.unloadedCityName = cityName
+        deactivate(roll, context: UnloadContext(date: unloadedAt, timeZoneIdentifier: timeZoneIdentifier, cityName: cityName))
         save()
     }
 
@@ -727,7 +764,8 @@ actor DataStore: ModelActor {
                 }
                 .first!
             for roll in activeRolls where roll.id != keeper.id {
-                roll.isActive = false
+                // No real unload event — best-effort estimate from the roll's data.
+                deactivate(roll, context: nil)
             }
             didRepair = true
         }

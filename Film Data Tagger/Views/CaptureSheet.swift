@@ -208,7 +208,7 @@ private struct ReferencePhotoPreview: View {
             .animation(.easeInOut(duration: 0.25), value: camera.permissionDenied)
         }
         .buttonStyle(TapGlowButtonStyle(isTappable: isTappable, cornerRadius: 20))
-        .accessibilityLabel(camera.needsPermission ? "Set up reference photos" : camera.referencePhotosEnabled ? "Hide camera preview" : "Show camera preview")
+        .accessibilityLabel(camera.needsPermission ? "Set up reference photo" : camera.referencePhotosEnabled ? "Hide camera preview" : "Show camera preview")
     }
 }
 
@@ -340,7 +340,7 @@ private struct CaptureSheetCompactContent: View {
                         camera.toggle()
                     }
                 }
-                .accessibilityLabel(camera.needsPermission ? "Set up reference photos" : "Toggle camera preview")
+                .accessibilityLabel(camera.needsPermission ? "Set up reference photo" : "Toggle camera preview")
             if lastCaptureDate != nil {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
                     CompactInfoRow(
